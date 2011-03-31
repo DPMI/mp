@@ -1,0 +1,8 @@
+To install.
+
+Requires: libcap_utils in /usr/lib, and DAG software in /usr/local/dag
+Requires: mysql libraries
+
+(./configure *TO BE IMPLEMENTED*)
+make
+make install
