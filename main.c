@@ -30,6 +30,7 @@
 
 #include "capture.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <caputils/caputils.h>
 
 struct sched_param prio;         // Priority schedule variable
@@ -204,7 +205,7 @@ int main (int argc, char **argv)
 	      iflag++;
 	      //      nic[iflag-1][4]='\0';
 	      strncpy(nic[iflag-1],optarg,strlen(optarg)-1);
-	      printf("Setting CI(%d) = %s (%d)\n",iflag-1,nic[iflag-1], strlen(nic[iflag-1]));
+	      printf("Setting CI(%d) = %s (%zd)\n",iflag-1,nic[iflag-1], strlen(nic[iflag-1]));
 	      break;
 	    case 4: // Maximum CAPTURE SIZE 
 	      printf("Setting Maximum capture size to %d bytes.\n",atoi(optarg));
@@ -317,7 +318,7 @@ int main (int argc, char **argv)
       iflag++;
       //      nic[iflag-1][4]='\0';
       strcpy(nic[iflag-1],optarg);
-      printf("Setting CI(%d) = %s (%d)\n",iflag-1,nic[iflag-1], strlen(nic[iflag-1]));
+      printf("Setting CI(%d) = %s (%zd)\n",iflag-1,nic[iflag-1], strlen(nic[iflag-1]));
       break;
       
     case 's':  // MA Network Interface name
@@ -424,11 +425,11 @@ int main (int argc, char **argv)
   
   printf("Capture Interfaces \n");
   for (i=0; i < iflag; i++) {
-    printf(" CI[%d]=%s (%d) T_delta = %d digits\n", i, nic[i], strlen(nic[i]),tsAcc[i]);
+    printf(" CI[%d]=%s (%zd) T_delta = %d digits\n", i, nic[i], strlen(nic[i]),tsAcc[i]);
     if (!strncmp("dag", nic[i], 3)) {
       strcpy(dagdev,"/dev/");
       strncat(dagdev,nic[i], 4);
-      printf("nic[%d]=%s (%d)\n", i, dagdev,strlen(dagdev));
+      printf("nic[%d]=%s (%zd)\n", i, dagdev,strlen(dagdev));
       printf("No support for DAG in this version, only RAW and PCAP.\n");
       exit(1);
     }
@@ -457,27 +458,12 @@ int main (int argc, char **argv)
 
 // Start of realprogram :)
   FILEd=0;
-  if(destination==0) {
-    //printf("You must use BROADCAST!!! \n");
-    //exit(-1);
-    for(i=0;i<CONSUMERS;i++) {
-      MAsd[i]=0;// ethernet_connect(i);
-      consumerStatus[i]=0;
-      consumerType[i]=0;
-    }
-    printf("Consumer Sockets are initialized, i.e. set to zero.\n");
-  }
 
-  if(destination==1) {
-    //Connect to MA server.
-    //Initialize the MA socket descriptors.
-    for(i=0;i<CONSUMERS;i++) {
-      MAsd[i]=0;// ethernet_connect(i);
-      consumerStatus[i]=0;
-      consumerType[i]=-1;
-    }
-    printf("Consumer Sockets are initialized, i.e. set to zero.\n");
+  for(i=0; i<CONSUMERS; i++) {
+    MAsd[i].stream = NULL;
+    MAsd[i].status = 0;
   }
+  printf("Consumer Sockets are initialized, i.e. set to zero.\n");
 
   socket_address.sll_family = PF_PACKET;
   socket_address.sll_protocol = htons(MYPROTO);
@@ -603,16 +589,18 @@ int main (int argc, char **argv)
   }
   
   printf("Closing MA connection....");
-  if(destination==0&&FILEd!=0)  {
-    fclose(FILEd);
-    FILEd=0;
-  }
-  if(destination==1&&MAsd!=0)  {
-    for(i=0;i<CONSUMERS;i++){
-      close(MAsd[i]);
-      MAsd[i]=0;
+  for(i=0;i<CONSUMERS;i++){
+    if ( !MAsd[i].stream ){
+      continue;
     }
+
+    int ret = 0;
+    if ( (ret=closestream(MAsd[i].stream)) != 0 ){
+      fprintf(stderr, "closestream() returned %d: %s\n", ret, caputils_error_string(ret));
+    }
+    MAsd[i].stream = NULL;
   }
+
   printf("OK.\nIt's terrible to out live your own children, so I die to.\n");
   
   

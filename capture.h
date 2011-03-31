@@ -92,13 +92,11 @@ struct consumer {
   void* sendptrref;                  // pointer to packet in sendmem, REFERENCE!!! 
   struct sendhead* shead;            // pointer to sendheaders.
   struct ethhdr* ethhead;            // pointer to ethernet header 
-
-  struct consumer* next;              // linked list.
 };
 
 // Global variables.
 int maSendsize;                     // number of packets to include in capture payload.
-struct consumer* MAsd;
+struct consumer MAsd[CONSUMERS];
 FILE *FILEd;                        // File descriptor for FILE.
 int terminateThreads;               //used for signaling thread to terminate
 int recvPkts,sentPkts, writtenPkts, matchPkts; // counters for captured ans sent packets

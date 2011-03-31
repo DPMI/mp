@@ -217,7 +217,7 @@ struct sockaddr_in myAddr;
 				    0,0);
     /* check for a connection error */
     if ( connection == NULL) { /* print the message */
-      printf(mysql_error(&mysql));
+      printf("%s\n", mysql_error(&mysql));
       exit(1);
     }
     /*  char query[2000];
@@ -226,7 +226,7 @@ struct sockaddr_in myAddr;
     sprintf(query, "SELECT * FROM measurementpoints WHERE mac='%s' AND name='%s'",hexdump_address(my_mac),hostname);
     state=mysql_query(connection,query);
     if(state != 0) {
-      printf(mysql_error(connection));
+      printf("%s\n", mysql_error(connection));
       exit(1);
     }
     result=mysql_store_result(connection);
@@ -242,13 +242,13 @@ struct sockaddr_in myAddr;
       printf("Adding using this QUERY\n%s\n",query);
       state=mysql_query(connection,query);
       if(state != 0) {
-	printf(mysql_error(connection));
+	printf("%s\n", mysql_error(connection));
 	exit(1);
       }
       printf("VERIFYING.\n");
       state = mysql_query(connection,"SELECT name,ip,mac FROM measurementpoints");
       if(state != 0) {
-	printf(mysql_error(connection));
+	printf("%s\n", mysql_error(connection));
 	exit(1);
       }
       /* must call mysql_store_results() */
@@ -274,14 +274,14 @@ struct sockaddr_in myAddr;
       MAMPid=malloc(strlen(row[7]));
       strcpy(MAMPid,row[7]);
       mysql_free_result(result);
-      printf("MAMPid = %s (%d) \n", MAMPid, strlen(MAMPid));
+      printf("MAMPid = %s (%zd) \n", MAMPid, strlen(MAMPid));
       if(strlen(MAMPid)!=0){ // The MP exists, but isnt authorized.
 /* Lets check if we have any filters waiting for us? */
 	printf("Checking for filters, %s_filterlist.\n",MAMPid);
 	sprintf(query, "SELECT * from %s_filterlist",MAMPid);
 	state=mysql_query(connection,query);
 	if(state != 0) {
-	  printf(mysql_error(connection));
+	  printf("%s\n", mysql_error(connection));
 	  exit(1);
 	}
 	/* must call mysql_store_results() */
@@ -496,7 +496,7 @@ struct sockaddr_in myAddr;
 	  printf("SQL: %s \n",query);
 	  state=mysql_query(connection, query);
 	  if(state != 0 ) {
-	    printf(mysql_error(connection));
+	    printf("%s\n", mysql_error(connection));
 	    break;
 	  }
 	  result = mysql_store_result(connection);
@@ -571,7 +571,7 @@ struct sockaddr_in myAddr;
 	  printf("SQL: %s \n",query);
 	  state=mysql_query(connection, query);
 	  if(state != 0 ) {
-	    printf(mysql_error(connection));
+	    printf("%s\n", mysql_error(connection));
 	    break;
 	  }
 	  result = mysql_store_result(connection);
@@ -660,7 +660,7 @@ struct sockaddr_in myAddr;
 	  printf("SQL: %s \n",query);
 	  state=mysql_query(connection, query);
 	  if(state != 0 ) {
-	    printf(mysql_error(connection));
+	    printf("%s\n", mysql_error(connection));
 	    break;
 	  }
 	  bzero(&query,sizeof(query));
@@ -728,7 +728,7 @@ struct sockaddr_in myAddr;
 	      printf("SQL: %s \n",query);
 	      state=mysql_query(connection, query);
 	      if(state != 0 ) {
-		printf(mysql_error(connection));
+		printf("%s\n", mysql_error(connection));
 		break;
 	      }
 	      F=F->next; 
@@ -790,7 +790,7 @@ struct sockaddr_in myAddr;
 	
     case 10:
       flushBuffer_id=atoi(maMSG->payload);
-      printf("Flush buffer %d request obtained.\n");
+      printf("Flush buffer request obtained.\n");
       flushBuffer(flushBuffer_id);
       break;
       
@@ -1014,7 +1014,7 @@ void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
     }
     state=mysql_query(connection, query);
     if(state != 0 ) {
-      printf(mysql_error(connection));
+      printf("%s\n", mysql_error(connection));
       return;
     }
     
@@ -1061,54 +1061,78 @@ void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
 
 
 void flushBuffer(int i){
-  int k,written;
+  int written;
   written=-1;
-  if(sendcount[i]>0){
-    shead[i]=(struct sendhead*)(sendmem[i]+sizeof(struct ethhdr)); // Set pointer to the sendhead, i.e. mp transmission protocol 
-    shead[i]->flush=htons(1);
-    printf("Consumer %d needs to be flushed, contains %d pkts\n",i, sendcount[i]);
-    for(k=0;k<ETH_ALEN;k++){// Copy the destination address from the ethernet header to the socket header.
-      socket_address.sll_addr[k]=ethhead[i]->h_dest[k];// Set the destination address, defaults to 0x01:00:00:00:[i]
-    }
-    switch(consumerType[i]){
-      case 3:
-	printf("Sending TCP.\t");
-	written = write(MAsd[i],
-			sendpointer[i],
-			(sendpointer[i]-sendptrref[i]));
-	break;
-      case 2:
-	printf("Sending UDP .\t");
-	written = write(MAsd[i],
-			sendmem[i]+sizeof(struct ethhdr),
-			sizeof(struct sendhead)+(sendpointer[i]-sendptrref[i]));
-	break;
-      case 1:
-	printf("Sending Ethernet.\t");
-	written=sendto(MAsd[i],
-		       sendmem[i],
-		       sizeof(struct ethhdr)+sizeof(struct sendhead)+(sendpointer[i]-sendptrref[i]),
-		       0,
-		       (struct sockaddr*)&socket_address,
-		       sizeof(socket_address));
-	break;
-      case 0:
-	written = write(MAsd[i],sendpointer[i],(sendpointer[i]-sendptrref[i]));
-	break;
-    }
-    printf("Sent %d bytes.\n",written);
-    if(written==-1) {
-      printf("sendto():");
-    }
-    shead[i]->sequencenr=htonl(ntohl(shead[i]->sequencenr)+1);
-    if(ntohl(shead[i]->sequencenr)>0xFFFF){
-      shead[i]->sequencenr=htonl(0);
-    }
-    writtenPkts += sendcount[i];// Update the total number of sent pkts. 
-    sendcount[i]=0;// Clear the number of packets in this sendbuffer[i]
-    //printf("ST: Send %d bytes. Total %d packets.\n",written, writtenPkts);
-    bzero(sendptrref[i],(maSendsize*(sizeof(cap_head)+PKT_CAPSIZE))); //Clear the memory location, for the packet data. 
-    sendpointer[i]=sendptrref[i]; // Restore the pointer to the first spot where the next packet will be placed.
-    shead[i]->flush=htons(0); //Restore flush indicator
+
+  struct consumer* con = &MAsd[i];
+  
+  /* no consumer */
+  if ( !con ){
+    return;
   }
+
+  /* no packages to send */
+  if ( con->sendcount == 0 ){
+    return;
+  }
+
+  con->shead=(struct sendhead*)(sendmem[i]+sizeof(struct ethhdr)); // Set pointer to the sendhead, i.e. mp transmission protocol 
+  con->shead->flush=htons(1);
+
+  printf("Consumer %d needs to be flushed, contains %d pkts\n", i, con->sendcount);
+  //for(k=0;k<ETH_ALEN;k++){// Copy the destination address from the ethernet header to the socket header.
+  //  socket_address.sll_addr[k] = ethhead[i]->h_dest[k];// Set the destination address, defaults to 0x01:00:00:00:[i]
+  //}
+  memcpy(socket_address.sll_addr, con->ethhead->h_dest, ETH_ALEN);
+
+
+  size_t len = con->sendpointer - con->sendptrref;
+  con->stream->write(con->stream, con->sendptrref, len);
+
+  /* switch(consumerType[i]){ */
+  /* case 3: */
+  /*   printf("Sending TCP.\t"); */
+  /*   written = write(MAsd[i], */
+  /* 		    sendpointer[i], */
+  /* 		    (sendpointer[i]-sendptrref[i])); */
+  /*   break; */
+  /* case 2: */
+  /*   printf("Sending UDP .\t"); */
+  /*   written = write(MAsd[i], */
+  /* 		    sendmem[i]+sizeof(struct ethhdr), */
+  /* 		    sizeof(struct sendhead)+(sendpointer[i]-sendptrref[i])); */
+  /*   break; */
+  /* case 1: */
+  /*   printf("Sending Ethernet.\t"); */
+  /*   written=sendto(MAsd[i], */
+  /* 		   sendmem[i], */
+  /* 		   sizeof(struct ethhdr)+sizeof(struct sendhead)+(sendpointer[i]-sendptrref[i]), */
+  /* 		   0, */
+  /* 		   (struct sockaddr*)&socket_address, */
+  /* 		   sizeof(socket_address)); */
+  /*   break; */
+  /* case 0: */
+  /*   written = write(MAsd[i],sendpointer[i],(sendpointer[i]-sendptrref[i])); */
+  /*   break; */
+  /* } */
+
+
+
+  printf("Sent %d bytes.\n",written);
+  if(written==-1) {
+    printf("sendto():");
+  }
+
+  con->shead->sequencenr=htonl(ntohl(con->shead->sequencenr)+1);
+  if(ntohl(con->shead->sequencenr)>0xFFFF){
+    con->shead->sequencenr=htonl(0);
+  }
+
+  writtenPkts += con->sendcount;// Update the total number of sent pkts. 
+  con->sendcount=0;// Clear the number of packets in this sendbuffer[i]
+
+  //printf("ST: Send %d bytes. Total %d packets.\n",written, writtenPkts);
+  bzero(con->sendptrref,(maSendsize*(sizeof(cap_head)+PKT_CAPSIZE))); //Clear the memory location, for the packet data. 
+  con->sendpointer = con->sendptrref; // Restore the pointer to the first spot where the next packet will be placed.
+  con->shead->flush=htons(0); //Restore flush indicator
 }

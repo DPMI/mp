@@ -23,6 +23,7 @@
 #include <netinet/udp.h>
 #include <netinet/tcp.h>
 #include <netinet/ip_icmp.h>
+#include <string.h>
 
 #define STPBRIDGES 0x0026
 #define CDPVTP 0x016E
@@ -289,27 +290,33 @@ int addFilter(struct FPI *newRule){
   struct FPI *pointer1=0;
   struct FPI *pointer2=0;
   int i,k;
+  int ret = 0;
   newRule->next=0; // Make sure that the rule does not point to some strange place.
   pointer1=myRules;
   printf("addFilter\n");
   if(pointer1==0){ // First rule
     newRule->consumer=0;
-    consumerType[0]=newRule->TYPE;
-    switch(newRule->TYPE){
-      case 0:// File
-	MAsd[0]=file_connect(newRule->DESTADDR);
-	break;
-      case 1:// Ethernet
-	MAsd[0]=ethernet_connect();
-	break;
-      case 2:// UDP
-	MAsd[0]=udp_connect(newRule->DESTADDR,newRule->DESTPORT);
-	break;
-      case 3:// TCP
-	MAsd[0]=tcp_connect(newRule->DESTADDR,newRule->DESTPORT);
-	break;
+
+    if ( (ret=createstream(&MAsd[0].stream, newRule->DESTADDR, newRule->TYPE, NULL, MAMPid, "caputils 0.7 test MP")) != 0 ){
+      fprintf(stderr, "createstream() returned %d: %s\n", ret, caputils_error_string(ret));
+      exit(1);
     }
-    consumerStatus[0]=1;
+
+    /* switch(newRule->TYPE){ */
+    /*   case 0:// File */
+    /* 	MAsd[0]=file_connect(newRule->DESTADDR); */
+    /* 	break; */
+    /*   case 1:// Ethernet */
+    /* 	MAsd[0]=ethernet_connect(); */
+    /* 	break; */
+    /*   case 2:// UDP */
+    /* 	MAsd[0]=udp_connect(newRule->DESTADDR,newRule->DESTPORT); */
+    /* 	break; */
+    /*   case 3:// TCP */
+    /* 	MAsd[0]=tcp_connect(newRule->DESTADDR,newRule->DESTPORT); */
+    /* 	break; */
+    /* } */
+    MAsd[0].status=1;
     myRules=newRule;
     noRules++;
     printf("\tThis is the first rule.\n");
@@ -338,7 +345,7 @@ int addFilter(struct FPI *newRule){
   }
   /* Lets find a free consumer */
   i=0;
-  while(consumerStatus[i]==1 && i<CONSUMERS){
+  while( MAsd[i].status==1 && i<CONSUMERS){
     i++;
   }
   
@@ -349,25 +356,16 @@ int addFilter(struct FPI *newRule){
   
   printf("CTRL: ADD FILTER TO CONSUMER %d \n",i);
   newRule->consumer=i;
-  consumerStatus[i]=1;
-  consumerType[i]=newRule->TYPE;
-  dropCount[i]=globalDropcount+memDropcount;
+  MAsd[i].status=1;
+  MAsd[i].dropCount=globalDropcount+memDropcount;
   struct ethhdr *ethhead; // pointer to ethernet header
   ethhead= (struct ethhdr*)sendmem[newRule->consumer];
-  switch(newRule->TYPE){
-    case 0:// File
-      MAsd[i]=file_connect(newRule->DESTADDR);
-      break;
-    case 1:// Ethernet
-      MAsd[i]=ethernet_connect();
-      break;
-    case 2:// UDP
-      MAsd[i]=udp_connect(newRule->DESTADDR,newRule->DESTPORT);
-      break;
-    case 3:// TCP
-      MAsd[i]=tcp_connect(newRule->DESTADDR,newRule->DESTPORT);
-      break;
+
+  if ( (ret=createstream(&MAsd[i].stream, newRule->DESTADDR, newRule->TYPE, NULL, MAMPid, "caputils 0.7 test MP")) != 0 ){
+    fprintf(stderr, "openstream() returned %d: %s\n", ret, caputils_error_string(ret));
+    exit(1);
   }
+
   printf("\tDestination ");
   switch(newRule->TYPE){
     case 3:
@@ -514,62 +512,85 @@ void flushSendBuffer(int index){
   int i,written;
   unsigned char DESTADDR[6] = {0x01, 0x00, 0x00, 0x00, 0x00, 0x00};
   i=written=0;
-  
-  if(sendcount[index]>0){
-    printf("\tConsumer %d needs to be flushed, contains %d pkts\n",i, sendcount[index]);
-    shead[i]=(struct sendhead*)(sendmem[index]+sizeof(struct ethhdr)); // Set pointer to the sendhead, i.e. mp transmission protocol 
-    shead[i]->flush=htons(1);
-    for(i=0;i<ETH_ALEN;i++){// Copy the destination address from the ethernet header to the socket header.
-      socket_address.sll_addr[i]=ethhead[index]->h_dest[i];// Set the destination address, defaults to 0x01:00:00:00:[i]
-    }
-    shead[index]->nopkts=sendcount[index];
-    switch(consumerType[index]){
-      case 3:
-	written = write(MAsd[index],
-			sendpointer[index],
-			(sendpointer[index]-sendptrref[index]));
-	  break;
-      case 2:
-	written=write(MAsd[index],
-		     sendmem[index]+sizeof(struct ethhdr),
-		     (sizeof(struct sendhead)+(sendpointer[index]-sendptrref[index])));
-	break;
-      case 1:
-	written=sendto(MAsd[index],sendmem[index],(sizeof(struct ethhdr)+sizeof(struct sendhead)+sendcount[index]*(sizeof(cap_head)+PKT_CAPSIZE)), 0,(struct sockaddr*)&socket_address, sizeof(socket_address));
-	printf("\tST: sent %d bytes\n\tST: MAsd[] = %d len = %d\n\tST: sockaddr.sll_protocol = %x\n\tST: sockaddr.sll_ifindex = %d\n\tST: seqnr  = %04x \t nopkts = %04x \n",written,MAsd[index],sizeof(struct sendhead)+sendcount[index]*(sizeof(cap_head)+PKT_CAPSIZE),ntohs(socket_address.sll_protocol),socket_address.sll_ifindex,ntohs(shead[index]->sequencenr),shead[index]->nopkts);
-	break;
-      case 0:
-	break;
-    }
-    if(written==-1) {
-      printf("sendto():");
-    }
-  }
-  
-  //Close the socket. 
-  if(close(MAsd[index]==-1)){
-    printf("Cannot close socket.\n");
-  }
-  MAsd[index]=0;
-  
-  /* Reinitialize ethernet and sendheader */
-  for(i=0;i<ETH_ALEN;i++){
-    ethhead[index]->h_dest[i]=DESTADDR[i];   // Set the destination address, defaults to 0x01:00:00:00:[i]
-  }
-  ethhead[index]->h_dest[5]=index;   // Set the destination address, defaults to 0x01:00:00:00:[i]
-  shead[index]->sequencenr=htonl(0x000);
-  shead[index]->nopkts=htons(0);                    // Initialize the number of packet to zero
-  shead[index]->flush=htons(0);                     // Make sure that the flush indicator is zero!
-  shead[index]->version.major=CAPUTILS_VERSION_MAJOR; // Specify the file format used, major number
-  shead[index]->version.minor=CAPUTILS_VERSION_MINOR; // Specify the file format used, minor number
-  /*shead[index]->losscounter=htons(0); */
-  sendpointer[index]=sendmem[index]+sizeof(struct ethhdr)+sizeof(struct sendhead);            // Set sendpointer to first place in sendmem where the packets will be stored.
-  sendptrref[index]=sendpointer[index];          // Grab a copy of the pointer, simplifies treatment when we sent the packets.
-  sendcount[index]=0;
-  consumerStatus[index]=0;
-  consumerType[index]=-1;
 
-  bzero(sendpointer[index],maxSENDSIZE*(sizeof(cap_head)+PKT_CAPSIZE)); // Clear memory.
+  /** @todo mostly dup of flushBuffer */
+  
+  struct consumer* con = &MAsd[i];
+  
+  /* no consumer */
+  if ( !con ){
+    return;
+  }
+
+  /* no packages to send */
+  if ( con->sendcount == 0 ){
+    return;
+  }
+  
+
+  con->shead=(struct sendhead*)(sendmem[index]+sizeof(struct ethhdr)); // Set pointer to the sendhead, i.e. mp transmission protocol 
+  con->shead->flush=htons(1);
+
+  printf("\tConsumer %d needs to be flushed, contains %d pkts\n",i, con->sendcount);
+  //for(i=0;i<ETH_ALEN;i++){// Copy the destination address from the ethernet header to the socket header.
+  //  socket_address.sll_addr[i]=ethhead[index]->h_dest[i];// Set the destination address, defaults to 0x01:00:00:00:[i]
+  //}
+  memcpy(socket_address.sll_addr, con->ethhead->h_dest, ETH_ALEN);
+
+  con->shead->nopkts=con->sendcount;
+
+  size_t len = con->sendpointer - con->sendptrref;
+  con->stream->write(con->stream, con->sendptrref, len);
+
+  /* switch(consumerType[index]){ */
+  /* case 3: */
+  /*   written = write(MAsd[index], */
+  /* 		    sendpointer[index], */
+  /* 		    (sendpointer[index]-sendptrref[index])); */
+  /*   break; */
+  /* case 2: */
+  /*   written=write(MAsd[index], */
+  /* 		  sendmem[index]+sizeof(struct ethhdr), */
+  /* 		  (sizeof(struct sendhead)+(sendpointer[index]-sendptrref[index]))); */
+  /*   break; */
+  /* case 1: */
+  /*   written=sendto(MAsd[index],sendmem[index],(sizeof(struct ethhdr)+sizeof(struct sendhead)+sendcount[index]*(sizeof(cap_head)+PKT_CAPSIZE)), 0,(struct sockaddr*)&socket_address, sizeof(socket_address)); */
+  /*   printf("\tST: sent %d bytes\n\tST: MAsd[] = %d len = %d\n\tST: sockaddr.sll_protocol = %x\n\tST: sockaddr.sll_ifindex = %d\n\tST: seqnr  = %04x \t nopkts = %04x \n",written,MAsd[index],sizeof(struct sendhead)+sendcount[index]*(sizeof(cap_head)+PKT_CAPSIZE),ntohs(socket_address.sll_protocol),socket_address.sll_ifindex,ntohs(shead[index]->sequencenr),shead[index]->nopkts); */
+  /*   break; */
+  /* case 0: */
+  /* 	break; */
+  /* } */
+
+  printf("Sent %d bytes.\n",written);
+  if(written==-1) {
+    printf("sendto():");
+  }
+
+  int ret = 0;
+  if ( (ret=closestream(con->stream)) != 0 ){
+    fprintf(stderr, "closestream() returned %d: %s\n", ret, caputils_error_string(ret));
+  }
+  con->stream = NULL;
+
+  /* Reinitialize ethernet and sendheader */
+  //for(i=0;i<ETH_ALEN;i++){
+  //  ethhead[index]->h_dest[i]=DESTADDR[i];   // Set the destination address, defaults to 0x01:00:00:00:[i]
+  //}
+  memcpy(con->ethhead->h_dest, DESTADDR, ETH_ALEN);
+
+  con->ethhead->h_dest[5]=index;   // Set the destination address, defaults to 0x01:00:00:00:[i]
+  con->shead->sequencenr=htonl(0x000);
+  con->shead->nopkts=htons(0);			  // Initialize the number of packet to zero
+  con->shead->flush=htons(0);			  // Make sure that the flush indicator is zero!
+  con->shead->version.major=CAPUTILS_VERSION_MAJOR; // Specify the file format used, major number
+  con->shead->version.minor=CAPUTILS_VERSION_MINOR; // Specify the file format used, minor number
+  /*con->shead->losscounter=htons(0); */
+  con->sendpointer=sendmem[index]+sizeof(struct ethhdr)+sizeof(struct sendhead);            // Set sendpointer to first place in sendmem where the packets will be stored.
+  con->sendptrref=con->sendpointer;          // Grab a copy of the pointer, simplifies treatment when we sent the packets.
+  con->sendcount=0;
+  con->status=0;
+  
+  bzero(con->sendpointer, maxSENDSIZE*(sizeof(cap_head)+PKT_CAPSIZE)); // Clear memory.
   return;
 }
 
