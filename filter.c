@@ -290,7 +290,7 @@ int addFilter(struct FPI *newRule){
   struct FPI *pointer1=0;
   struct FPI *pointer2=0;
   int i,k;
-  int ret = 0;
+  long ret = 0;
   newRule->next=0; // Make sure that the rule does not point to some strange place.
   pointer1=myRules;
   printf("addFilter\n");
@@ -298,7 +298,7 @@ int addFilter(struct FPI *newRule){
     newRule->consumer=0;
 
     if ( (ret=createstream(&MAsd[0].stream, newRule->DESTADDR, newRule->TYPE, NULL, MAMPid, "caputils 0.7 test MP")) != 0 ){
-      fprintf(stderr, "createstream() returned %d: %s\n", ret, caputils_error_string(ret));
+      fprintf(stderr, "createstream() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
       exit(1);
     }
 
@@ -362,7 +362,7 @@ int addFilter(struct FPI *newRule){
   ethhead= (struct ethhdr*)sendmem[newRule->consumer];
 
   if ( (ret=createstream(&MAsd[i].stream, newRule->DESTADDR, newRule->TYPE, NULL, MAMPid, "caputils 0.7 test MP")) != 0 ){
-    fprintf(stderr, "openstream() returned %d: %s\n", ret, caputils_error_string(ret));
+    fprintf(stderr, "openstream() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
     exit(1);
   }
 
@@ -566,9 +566,9 @@ void flushSendBuffer(int index){
     printf("sendto():");
   }
 
-  int ret = 0;
+  long ret = 0;
   if ( (ret=closestream(con->stream)) != 0 ){
-    fprintf(stderr, "closestream() returned %d: %s\n", ret, caputils_error_string(ret));
+    fprintf(stderr, "closestream() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
   }
   con->stream = NULL;
 
