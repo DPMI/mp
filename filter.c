@@ -23,6 +23,7 @@
 #include <netinet/udp.h>
 #include <netinet/tcp.h>
 #include <netinet/ip_icmp.h>
+#include <netinet/ether.h>
 #include <string.h>
 
 #define STPBRIDGES 0x0026
@@ -298,192 +299,78 @@ static int next_free_consumer(){
   This function adds a filter to the end of the list.
 */
 int addFilter(struct FPI *newRule){
-  struct FPI *pointer1=0;
-  struct FPI *pointer2=0;
-  int i,k;
   long ret = 0;
   newRule->next=0; // Make sure that the rule does not point to some strange place.
-  pointer1=myRules;
   printf("addFilter\n");
-  if(pointer1==0){ // First rule
-    newRule->consumer=0;
 
-    const char* address = newRule->DESTADDR;
-    if ( newRule->TYPE == 1 ){
-      /* address is not passed as "01:00:00:00:00:00", but as actual memory with
-       * bytes 01 00 00 ... createstream expects a string. */
-      address = hexdump_address(address);
-    }
-
-    if ( (ret=createstream(&MAsd[0].stream, address, newRule->TYPE, MAnic, MAMPid, "caputils 0.7 test MP")) != 0 ){
-      fprintf(stderr, "createstream() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
-      exit(1);
-    }
-
-    MAsd[0].want_sendhead = newRule->TYPE != 0; /* capfiles shouldn't contain sendheader */
-
-    /* switch(newRule->TYPE){ */
-    /*   case 0:// File */
-    /* 	MAsd[0]=file_connect(newRule->DESTADDR); */
-    /* 	break; */
-    /*   case 1:// Ethernet */
-    /* 	MAsd[0]=ethernet_connect(); */
-    /* 	break; */
-    /*   case 2:// UDP */
-    /* 	MAsd[0]=udp_connect(newRule->DESTADDR,newRule->DESTPORT); */
-    /* 	break; */
-    /*   case 3:// TCP */
-    /* 	MAsd[0]=tcp_connect(newRule->DESTADDR,newRule->DESTPORT); */
-    /* 	break; */
-    /* } */
-    MAsd[0].status=1;
-    myRules=newRule;
-    noRules++;
-    printf("\tThis is the first rule.\n");
-    struct ethhdr *ethhead; // pointer to ethernet header
-    ethhead= (struct ethhdr*)sendmem[newRule->consumer];
-    printf("\tDestination ");
-    switch(newRule->TYPE==1){
-      case 3:
-      case 2:
-	printf(" IP ADDR: %s PORT: %d", newRule->DESTADDR, newRule->DESTPORT);
-	break;
-      case 1:
-	printf(" ETH ADDR : ");
-	for(i=0;i<ETH_ALEN;i++){
-	  ethhead->h_dest[i]=newRule->DESTADDR[i];   // Set the destination address, defaults to 0x01:00:00:00:[i]
-	  printf("%02X:",ethhead->h_dest[i]);
-	}
-	break;
-      case 0:
-	printf(" file : %s", newRule->DESTADDR);
-	break;
-    }
-    
-    printf("\n");
-    return(1);
-  }
-
-  i = next_free_consumer();
-  if( i == -1 ){ // Problems, NO free consumers. Bail out! 
-    printf("\tNO FREE CONSUMERS BAILOUT!!%d-%d\n", i, CONSUMERS);
-    return(0);
+  int index = next_free_consumer();
+  if( index == -1 ){ // Problems, NO free consumers. Bail out! 
+    fprintf(stderr, "No free consumers! (max: %d)\n", CONSUMERS);
+    return 0;
   }
   
-  printf("CTRL: ADD FILTER TO CONSUMER %d \n",i);
-  newRule->consumer=i;
-  MAsd[i].status=1;
-  MAsd[i].dropCount=globalDropcount+memDropcount;
-  struct ethhdr *ethhead; // pointer to ethernet header
-  ethhead= (struct ethhdr*)sendmem[newRule->consumer];
+  printf("CTRL: ADD FILTER TO CONSUMER %d \n", index);
+  newRule->consumer = index;
 
-  if ( (ret=createstream(&MAsd[i].stream, newRule->DESTADDR, newRule->TYPE, NULL, MAMPid, "caputils 0.7 test MP")) != 0 ){
-    fprintf(stderr, "openstream() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
+  struct consumer* con = &MAsd[index];
+  con->dropCount = globalDropcount + memDropcount;
+  con->want_sendhead = newRule->TYPE != 0; /* capfiles shouldn't contain sendheader */
+
+  /* mark consumer as used */
+  con->status = 1;
+
+  const char* address = newRule->DESTADDR;
+  if ( newRule->TYPE == 1 ){
+    /* address is not passed as "01:00:00:00:00:00", but as actual memory with
+     * bytes 01 00 00 ... createstream expects a string. */
+    address = hexdump_address(address);
+  }
+
+  if ( (ret=createstream(&con->stream, address, newRule->TYPE, MAnic, MAMPid, "caputils 0.7 test MP")) != 0 ){
+    fprintf(stderr, "createstream() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
     exit(1);
   }
 
+  struct ethhdr *ethhead; // pointer to ethernet header
+  ethhead = (struct ethhdr*)sendmem[index];
+
   printf("\tDestination ");
-  switch(newRule->TYPE){
-    case 3:
-    case 2:
-      printf(" IP ADDR: %s PORT: %d", newRule->DESTADDR, newRule->DESTPORT);
-      break;
-    case 1:
-      printf(" ETH ADDR : ");
-      for(k=0;k<ETH_ALEN;k++){
-	ethhead->h_dest[k]=newRule->DESTADDR[k];   // Set the destination address, defaults to 0x01:00:00:00:[i]
-	printf("%02X:",ethhead->h_dest[k]);
-      }
-      break;
-    case 0:
-      printf(" file : %s", newRule->DESTADDR);
-      break;
+  switch(newRule->TYPE==1){
+  case 3:
+  case 2:
+    printf(" IP ADDR: %s PORT: %d\n", newRule->DESTADDR, newRule->DESTPORT);
+    break;
+  case 1:
+    memcpy(ethhead->h_dest, newRule->DESTADDR, ETH_ALEN);
+    printf(" ETH ADDR: %s\n", ether_ntoa((struct ether_addr*)ethhead->h_dest));
+    break;
+  case 0:
+    printf(" file : %s\n", newRule->DESTADDR);
+    break;
   }
-  
-  printf("\n");
-  printf("Locating the position!:\n");
-  printf("myRules =%p --> %p\n", myRules, myRules->next);
-  printf("newRule = %p, pointer1 = %p, pointer2 = %p\n", newRule, pointer1, pointer2);
-  while(pointer1->filter_id<newRule->filter_id && pointer1->next != 0 ){
-    pointer2=pointer1;
-    pointer1=pointer1->next;
-  }
-  printf("Got location? \n");
-  printf("newRule = %p, pointer1 = %p, pointer2 = %p\n", newRule, pointer1, pointer2);
-  if(pointer2!=0){ 
-    printf("-->next = %p,  -->next = %p,  -->next = %p\n", newRule->next, pointer1->next, pointer2->next);      
-  } else {
-    printf("-->next = %p,  -->next = %p,  -->next = N/A\n", newRule->next, pointer1->next);      
-  }
-  // We leave this while loop on two cases, 1) filter_id>=new id. 2) this is the last rule.
-  if(pointer1->next == 0) {
-    if(pointer1->filter_id<newRule->filter_id) { // Append to end of list
-      printf("Append to end of list.\n");
-      pointer1->next=newRule;
-      noRules++;// Update the number of rules. 
-      return(1);
-    }
-    if(pointer1->filter_id>newRule->filter_id){ // Insert between last and previous.
-      printf("Insert inbetween.\n");
-      printf("newRule = %p, pointer1 = %p, pointer2 = %p\n", newRule, pointer1, pointer2);
-      if(pointer2!=0){ 
-	printf("-->next = %p,  -->next = %p,  -->next = %p\n", newRule->next, pointer1->next, pointer2->next);      
-      } else {
-	printf("-->next = %p,  -->next = %p,  -->next = N/A\n", newRule->next, pointer1->next);      
-      }
-      printf("myRules =%p --> %p\n", myRules, myRules->next);
-      newRule->next=pointer1;
-      if(pointer2==0){
-	printf("New rule is placed in front of list.\n");
-	myRules=newRule;
-      } else {
-	pointer2->next=newRule;
-      }
-      printf("-------------------------------\n");
-      printf("newRule = %p, pointer1 = %p, pointer2 = %p\n", newRule, pointer1, pointer2);
-      if(pointer2!=0){ 
-	printf("-->next = %p,  -->next = %p,  -->next = %p\n", newRule->next, pointer1->next, pointer2->next);      
-      } else {
-	printf("-->next = %p,  -->next = %p,  -->next = N/A\n", newRule->next, pointer1->next);      
-      }
-      printf("myRules =%p --> %p\n", myRules, myRules->next);
-      noRules++;
-      return(1);
-    }
-    if(pointer1->filter_id==newRule->filter_id){ // They are equal.. Problems..
-      printf("\tProblem, new rule has the same filter_id as the last rule..\n");
-      newRule->next=pointer1;
-      pointer2->next=newRule;
-      noRules++;
-      return(1);
-    }
-  }
-  if(pointer1->filter_id>newRule->filter_id){// Insert inbetween p2 and p1.
-    printf("p2 and p1\n");
-    printf("pointer1->filter_id = %d\n", pointer1->filter_id);
-    printf(" newRule->filter_id = %d\n", newRule->filter_id);
-    newRule->next=pointer1;
-    if(myRules==pointer1){
-      printf("New rule is placed first.\n");
-      myRules=newRule;
-    } else {
-      pointer2->next=newRule;
-    }
 
+  if( !myRules ){ // First rule
+    myRules=newRule;
     noRules++;
-    return(1);
-  }    
-  if(pointer1->filter_id==newRule->filter_id){// Insert inbetween p2 and p1., PROBLEM. filter_id are identical
-    printf("\tProblem, new rule has the same filter_id as the last rule..\n");
-    newRule->next=pointer1;
-    pointer2->next=newRule;
-    noRules++;
-    return(1);
-  }    
 
-  return(1);
+    return 1;
+  }
+
+  struct FPI* cur = myRules;
+  while ( cur->filter_id < newRule->filter_id && cur->next ){
+    cur = cur->next;
+  };
+
+  if ( cur->filter_id == newRule->filter_id ){
+    fprintf(stderr, "warning: filter rules have duplicate filter_id (%d)\n", cur->filter_id);
+  }
+
+  newRule->next = cur->next;
+  cur->next = newRule;
+  noRules++;
+
+  return 1;
 }
-
 
 /*
  This function finds a filter that matched the filter_id, and removes it.
