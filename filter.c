@@ -283,6 +283,17 @@ int matchEth(char desired[6],char mask[6], char net[6]){
   return(0);
 }
 
+/**
+ * return index or -1 if no free.
+ */
+static int next_free_consumer(){
+  for ( int i = 0; i < CONSUMERS; i++ ){
+    if ( MAsd[i].status == 0 ){
+      return i;
+    }
+  }
+  return -1;
+}
 /*
   This function adds a filter to the end of the list.
 */
@@ -352,14 +363,10 @@ int addFilter(struct FPI *newRule){
     printf("\n");
     return(1);
   }
-  /* Lets find a free consumer */
-  i=0;
-  while( MAsd[i].status==1 && i<CONSUMERS){
-    i++;
-  }
-  
-  if(i>=CONSUMERS) { // Problems, NO free consumers. Bail out! 
-    printf("\tNO FREE CONSUMERS BAILOUT!!%d-%d\n",i,CONSUMERS);
+
+  i = next_free_consumer();
+  if( i == -1 ){ // Problems, NO free consumers. Bail out! 
+    printf("\tNO FREE CONSUMERS BAILOUT!!%d-%d\n", i, CONSUMERS);
     return(0);
   }
   
