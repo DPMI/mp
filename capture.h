@@ -276,13 +276,8 @@ int changeFilter(struct FPI *newRule);
 void flushSendBuffer(int i);
 void printFilters(void); // Print all filters
 void printFilter(FILE* fp, const struct FPI *F); // Print One filter
-
 int printMysqlFilter(char *array,char *id, int seeked);
 
-int tcp_connect(const char *host, int port); // function for connectiong to tcpserver
-int udp_connect(const char *host, int port); // function for connectiong to tcpserver
-int ethernet_connect(); // function for connectiong to tcpserver
-int file_connect(char *fname); // 
 void flushBuffer(int i); // Flush sender buffer i. 
 
 #endif

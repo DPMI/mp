@@ -770,59 +770,6 @@ int udp_connect(const char *serv, int port){
 }
 /* end udp_connect */
 
-
-// Function for connecting to tcpserver
-int ethernet_connect(void)
-{
-  int sockfd,result;
-  struct ifreq IFinfo;
-
-  sockfd=socket(AF_PACKET, SOCK_RAW, htons(MYPROTO));
-  if(sockfd == -1) {
-    perror("socket():");
-    exit(1);
-  }
-
-  memset(&IFinfo,0,sizeof(IFinfo));
-  strncpy(IFinfo.ifr_name, MAnic, IFNAMSIZ);
-  if(ioctl(sockfd,SIOCGIFADDR, &IFinfo) == -1 ) {
-    perror("Obtaining IP address of interface .\n");
-    exit(1);
-  }
-  _DEBUG_MSG (fprintf(stderr,"binding socket to %s interface\n",MAnic))
-  result=iface_bind(sockfd,ifindex,ebuf); // Bind to MArC interface.
-  _DEBUG_MSG (fprintf(stderr,"result was %d: %s\n",result,ebuf))
-
-  return sockfd;
-}
-/* end udp_connect */
-
-
-int file_connect(char *fname){
-  fprintf(stderr, "file_connect is broken, aborting\n");
-  abort();
-  /*
-  int filed;
-  mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
-  filed=open(fname, O_CREAT|O_WRONLY |O_NONBLOCK, mode );
-  if(filed == 0) {
-    perror("Open file failed.");
-    exit(1);
-  }
-  _DEBUG_MSG (fprintf(stderr,"Opend %s for storage (fd=%d). \n",fname,filed))
-  char com[20]="No Comments.";
-  struct file_header FH;
-  FH.comment_size=sizeof(com);
-  FH.version.major=CAPUTILS_VERSION_MAJOR;
-  FH.version.minor=CAPUTILS_VERSION_MINOR;
-  strncpy(FH.mpid,hostname,200);
-  write(filed,&FH,sizeof(struct file_header));
-  write(filed,&com,sizeof(com));
-  return(filed);
-  */
-}
-
-
 void socket_stats(int sd,int cid) {
   struct packet_stat stat;
   if (packet_stats(sd, &stat) < 0)
