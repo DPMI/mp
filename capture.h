@@ -86,6 +86,7 @@ struct consumer {
   struct stream* stream;
 
   int status;                        // Status of consumer: 0 idle/free, 1 occupied/busy
+  int want_sendhead;                 // 1 if consumer want the sendheader or 0 if just the payload
   int sendcount;                     // number of packets recieved but not sent
   uint16_t dropCount;                // number of drops during CONSUMERn collection time.
   void* sendpointer;                 // pointer to packet in sendmem

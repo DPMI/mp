@@ -297,10 +297,19 @@ int addFilter(struct FPI *newRule){
   if(pointer1==0){ // First rule
     newRule->consumer=0;
 
-    if ( (ret=createstream(&MAsd[0].stream, newRule->DESTADDR, newRule->TYPE, NULL, MAMPid, "caputils 0.7 test MP")) != 0 ){
+    const char* address = newRule->DESTADDR;
+    if ( newRule->TYPE == 1 ){
+      /* address is not passed as "01:00:00:00:00:00", but as actual memory with
+       * bytes 01 00 00 ... createstream expects a string. */
+      address = hexdump_address(address);
+    }
+
+    if ( (ret=createstream(&MAsd[0].stream, address, newRule->TYPE, MAnic, MAMPid, "caputils 0.7 test MP")) != 0 ){
       fprintf(stderr, "createstream() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
       exit(1);
     }
+
+    MAsd[0].want_sendhead = newRule->TYPE != 0; /* capfiles shouldn't contain sendheader */
 
     /* switch(newRule->TYPE){ */
     /*   case 0:// File */

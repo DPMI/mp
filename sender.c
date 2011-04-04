@@ -140,6 +140,11 @@ void* sender(void *ptr){
 	  wait_for_capture(semaphore);
 	}
       } // End while loop. Oldest now contains an index to the oldest packet
+      
+      /* couldn't find a packet, gave up waiting. we are probably terminating. */
+      if ( oldest == -1 ){
+	continue;
+      }
 
       unsigned char* raw_buffer = datamem[oldest][readPos[oldest]];
       write_head* whead   = (write_head*)raw_buffer;
@@ -191,7 +196,18 @@ void* sender(void *ptr){
       /*con->shead->losscounter=htons((globalDropcount+memDropcount)-dropCount[whead->consumer]); */
       con->dropCount = globalDropcount+memDropcount;
 
-      con->stream->write(con->stream, con->sendptrref, payload_size);
+      {
+	const u_char* data = con->sendptrref;
+	size_t data_size = payload_size;
+
+	if ( con->want_sendhead ){
+	  size_t header_size = sizeof(struct ethhdr) + sizeof(struct sendhead);
+	  data -= header_size;
+	  data_size += header_size;
+	}
+
+	con->stream->write(con->stream, data, data_size);
+      }
 
       /* 	  switch(consumerType[whead->consumer]){ */
       /* 	    case 3: */
