@@ -261,8 +261,6 @@ void* pcap_capture(void*); //PCAP capture thread
 void* sender(void*); // send thread
 void* saver(void*); // send thread
 void* control(void*); // Control thread
-void printFilters(void); // Print all filters
-void printFilter(struct FPI *F); // Print One filter
 
 int iface_get_id(int fd, const char *device, char *ebuf); //comments in code
 int iface_bind(int fd, int ifindex, char *ebuf); //comments in code
@@ -277,8 +275,9 @@ int addFilter(struct FPI *newRule);
 int delFilter(int filter_id);
 int changeFilter(struct FPI *newRule);
 void flushSendBuffer(int i);
-void printFilters(void);
-void printFilter(struct FPI *fil);
+void printFilters(void); // Print all filters
+void printFilter(FILE* fp, const struct FPI *F); // Print One filter
+
 int printMysqlFilter(char *array,char *id, int seeked);
 
 int tcp_connect(const char *host, int port); // function for connectiong to tcpserver

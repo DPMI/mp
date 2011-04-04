@@ -289,16 +289,14 @@ struct sockaddr_in myAddr;
 	result = mysql_store_result(connection);
 	rows=(int)mysql_num_rows(result);
 	printf("We have %d filters waiting for us..\n",rows);
-	
-	
+
 	/*process each row*/
 	struct FPI *newRule;
 	for(k=0;k<rows;k++){
 	  newRule=calloc(1, sizeof(struct FPI));
 	  convMySQLtoFPI(newRule,result);
-	  printFilter(newRule);
 	  addFilter(newRule);
-	  
+	  printFilter(stdout, newRule);	  
 	}
 	/* free the result set */
 	mysql_free_result(result);
@@ -505,8 +503,8 @@ struct sockaddr_in myAddr;
 	  
 	  printf("Got it?\n");
 	  convMySQLtoFPI(rule,result);
-	  printFilter(rule);	
 	  addFilter(rule);
+	  printFilter(stdout, rule);
 	  /* free the result set */
 	  mysql_free_result(result);
 	} else {
@@ -546,8 +544,8 @@ struct sockaddr_in myAddr;
 	    } else { // Correct MP.
 	      rule=calloc(1,sizeof(struct FPI));
 	      convUDPtoFPI(rule,filterReply->theFilter);
-	      printFilter(rule);
 	      addFilter(rule);
+	      printFilter(stdout, rule);
 	      printf("Added the filter.\n");
 	    }
 	  } else { 
@@ -580,7 +578,7 @@ struct sockaddr_in myAddr;
 	  
 	  printf("Got it?\n");
 	  convMySQLtoFPI(rule,result);
-	  printFilter(rule);
+	  printFilter(stdout, rule);
 	  if(changeFilter(rule)){
 	    printf("Rule replaced.\n");
 	  } else {
@@ -625,7 +623,7 @@ struct sockaddr_in myAddr;
 	    } else { // Correct MP.
 	      rule=calloc(1,sizeof(struct FPI));
 	      convUDPtoFPI(rule,filterReply->theFilter);
-	      printFilter(rule);
+	      printFilter(stdout, rule);
 	      if(changeFilter(rule)){
 		printf("Rule replaced.\n");
 	      } else {

@@ -564,18 +564,16 @@ int changeFilter(struct FPI *newRule){
 
 
 void printFilters(void){
-  struct FPI *pointer;
-
-  if(myRules==0){
+  if( !myRules ){
     printf("NO RULES\n");
+    return;
   }
   
-  pointer=myRules;
-  while(pointer->next != 0){
-    printFilter(pointer);
-    pointer=pointer->next;
+  const struct FPI *pointer=myRules;
+  while( pointer != 0 ){
+    printFilter(stdout, pointer);
+    pointer = pointer->next;
   }
-  printFilter(pointer);
 }
 
 int printMysqlFilter(char *array,char *id, int seeked){
@@ -616,108 +614,60 @@ int printMysqlFilter(char *array,char *id, int seeked){
   return(1);
 }
 
-void printFilter(struct FPI *F){
-  printf("CTRL PRINT FILTER\n");
-  printf("filter_id    :%d\n",F->filter_id);
-  printf("consumer     :%d\n",F->consumer);
+void printFilter(FILE* fp, const struct FPI *F){
+  fprintf(fp, "FILTER (id: %02d consumer: %d)\n", F->filter_id, F->consumer);
   switch(F->TYPE){
     case 3:
     case 2:
-      printf("DESTADDRESS  :%s TYPE : %d\n",F->DESTADDR, F->TYPE);
-      printf("DESTPORT     :%d \n",F->DESTPORT);
+      fprintf(fp, "\tDESTADDRESS   : %s://%s:%d\n", F->TYPE == 2 ? "udp" : "tcp", F->DESTADDR, F->DESTPORT);
       break;
     case 1:
-      printf("DESTADDRESS  :%02X:%02X:%02X:%02X:%02X:%02X  TYPE    :%d\n",F->DESTADDR[0],F->DESTADDR[1],F->DESTADDR[2],F->DESTADDR[3],F->DESTADDR[4],F->DESTADDR[5], F->TYPE);
+      fprintf(fp, "\tDESTADDRESS   : %02X:%02X:%02X:%02X:%02X:%02X\n",F->DESTADDR[0],F->DESTADDR[1],F->DESTADDR[2],F->DESTADDR[3],F->DESTADDR[4],F->DESTADDR[5]);
       break;
     case 0:
-      printf("DESTFILE     :%s TYPE %d \n",F->DESTADDR, F->TYPE);
+      fprintf(fp, "\tDESTFILE      : %s\n", F->DESTADDR);
       break;
   }
-  printf("CAPLEN       :%d\n",F->CAPLEN);
-  printf("index        :%d\n",F->index);
-  printf("CI_ID        :");
-  if(F->index&512)
-    printf("%s\n",F->CI_ID);
-  else 
-    printf("NULL\n");
-  
-  printf("VLAN_TCI     :");
+  fprintf(fp, "\tCAPLEN        : %d\n", F->CAPLEN);
+  fprintf(fp, "\tindex         : %d\n", F->index);
+
+  if(F->index&512){
+    fprintf(fp, "\tCI_ID         : %s\n", F->CI_ID);
+  }  
+
   if(F->index&256){
-    printf("%d\n",F->VLAN_TCI);
-    printf("VLAN_TCI_MASK:%d\n",F->VLAN_TCI_MASK);
-  }  else{
-    printf("NULL\n");
-    printf("VLAN_TCI_MASK:NULL\n");
+    fprintf(fp, "VLAN_TCI      : %d MASK (%d)", F->VLAN_TCI, F->VLAN_TCI_MASK);
   }
 
-  printf("ETH_TYPE     :");
   if(F->index&128){
-    printf("%d\n",F->ETH_TYPE);
-    printf("ETH_TYPE_MASK: %d\n",F->ETH_TYPE_MASK);
-  }  else {
-    printf("NULL\n");
-    printf("ETH_TYPE_MASK:NULL\n");
+    fprintf(fp, "ETH_TYPE      : %d (MASK: %d)\n", F->ETH_TYPE, F->ETH_TYPE_MASK);
   }
   
-  printf("ETH_SRC      :");
   if(F->index&64){
-    printf("%s\n",hexdump_address(F->ETH_SRC));
-    printf("ETH_SRC_MASK :%s\n",hexdump_address(F->ETH_SRC_MASK));
-  } else {
-    printf("NULL\n");
-    printf("ETH_SRC_MASK:NULL\n");
+    fprintf(fp, "ETH_SRC       : %s (MASK: %s)\n", hexdump_address(F->ETH_SRC), hexdump_address(F->ETH_SRC_MASK));
   }
 
-  printf("ETH_DST      :");
   if(F->index&32){
-    printf("%s\n",hexdump_address(F->ETH_DST));
-    printf("ETH_DST_MASK:%s\n",hexdump_address(F->ETH_DST_MASK));
-  } else {
-    printf("NULL\n");
-    printf("ETH_DST_MASK :NULL\n");
+    fprintf(fp, "ETH_DST       : %s (MASK: %s)\n", hexdump_address(F->ETH_DST), hexdump_address(F->ETH_DST_MASK));
   }
   
-  printf("IP_PROTO     :");
-  if(F->index&16)
-    printf("%d\n",F->IP_PROTO);
-  else
-    printf("NULL\n");
+  if(F->index&16){
+    fprintf(fp, "IP_PROTO      : %d\n", F->IP_PROTO);
+  }
 
-  printf("IP_SRC       :");
   if(F->index&8){
-    printf("%s\n",F->IP_SRC);
-    printf("IP_SRC_MASK  :%s\n",F->IP_SRC_MASK);
-  } else {
-    printf("NULL\n");
-    printf("IP_SRC_MASK:NULL\n");
+    fprintf(fp, "IP_SRC        : %s (MASK: %s)\n", F->IP_SRC, F->IP_SRC_MASK);
   }
 
-  printf("IP_DST       :");
   if(F->index&4){
-    printf("%s\n",F->IP_DST);
-    printf("IP_DST_MASK  :%s\n",F->IP_DST_MASK);
-  } else {
-    printf("NULL\n");
-    printf("IP_DST_MASK:NULL\n");
+    fprintf(fp, "IP_DST        : %s (MASK: %s)\n", F->IP_DST, F->IP_DST_MASK);
   }
 
-  printf("PORT_SRC     :");
   if(F->index&2){
-    printf("%d\n",F->SRC_PORT);
-    printf("PORT_SRC_MASK:%d\n",F->SRC_PORT_MASK);
-  } else {
-    printf("NULL\n");
-    printf("PORT_SRC_MASK:NULL\n");
+    fprintf(fp, "PORT_SRC      : %d (MASK: %d)\n", F->SRC_PORT, F->SRC_PORT_MASK);
   }
 
-  printf("PORT_DST     :");
   if(F->index&1){
-    printf("%d\n",F->DST_PORT);
-    printf("PORT_DST_MASK:%d\n",F->DST_PORT_MASK);
-  } else {
-    printf("NULL\n");
-    printf("PORT_DST_MASK:NULL\n");
+    fprintf(fp, "PORT_DST      : %d (MASK: %d)\n", F->DST_PORT, F->DST_PORT_MASK);
   }
-  
-
 }
