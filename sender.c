@@ -81,8 +81,8 @@ void* sender(void *ptr){
       MAsd[i].shead->sequencenr=htons(0x0000);    // Initialize the sequencenr to zero.
       MAsd[i].shead->nopkts=htons(0);                    // Initialize the number of packet to zero
       MAsd[i].shead->flush=htons(0);                     // Initialize the flush indicator.
-      MAsd[i].shead->version.major=CAPUTILS_VERSION_MAJOR; // Specify the file format used, major number
-      MAsd[i].shead->version.minor=CAPUTILS_VERSION_MINOR; // Specify the file format used, minor number
+      MAsd[i].shead->version.major=htons(CAPUTILS_VERSION_MAJOR); // Specify the file format used, major number
+      MAsd[i].shead->version.minor=htons(CAPUTILS_VERSION_MINOR); // Specify the file format used, minor number
       /*shead[i]->losscounter=htons(0); */
       MAsd[i].sendpointer=sendmem[i]+sizeof(struct ethhdr)+sizeof(struct sendhead);            // Set sendpointer to first place in sendmem where the packets will be stored.
       MAsd[i].sendptrref=MAsd[i].sendpointer;          // Grab a copy of the pointer, simplifies treatment when we sent the packets.
