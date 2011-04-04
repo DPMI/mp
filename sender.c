@@ -179,8 +179,9 @@ void* sender(void *ptr){
       nextPDUlen = head->caplen;
       sentPkts++;
 
+      const size_t header_size = sizeof(struct ethhdr) + sizeof(struct sendhead);
       const size_t payload_size = con->sendpointer - con->sendptrref;
-      const size_t packet_full_size = sizeof(struct ethhdr)+sizeof(struct sendhead)+payload_size; /* includes ethernet, sendheader and payload */
+      const size_t packet_full_size = header_size + payload_size; /* includes ethernet, sendheader and payload */
       const size_t mtu_size = MAmtu-2*(sizeof(cap_head)+nextPDUlen); // This row accounts for the fact that the consumer buffers only need extra space for one PDU of of the capture size for that particular filter. 
 
       /* still not enough payload, wait for more */
@@ -199,7 +200,6 @@ void* sender(void *ptr){
 	size_t data_size = payload_size;
 
 	if ( con->want_sendhead ){
-	  size_t header_size = sizeof(struct ethhdr) + sizeof(struct sendhead);
 	  data -= header_size;
 	  data_size += header_size;
 	}
