@@ -23,44 +23,44 @@
 #include <errno.h>
 #include <string.h>
 
+#define SEMAPHORE_TIMEOUT_SEC 1
+
 pthread_mutex_t mutex1 = PTHREAD_MUTEX_INITIALIZER;
 
-int wait_for_capture(int semid){
-  static struct sembuf sWait = {0, -1, 0};  // set to wait until semaphore == 0 
-  
-  //printf("SENDER: Waiting for semaphore.\n");fflush(stdout);
-  if (semop(semid, &sWait, 1) == -1){  // Wait for the semaphore to be ZERO.
+int wait_for_capture(sem_t* sem){
+  struct timespec ts;
+
+  if ( clock_gettime(CLOCK_REALTIME, &ts) != 0 ){
     int saved = errno;
-    fprintf(stderr, "ST: Semaphore problem, did I wait or not? terminateThread = %d \n",terminateThreads);
-    switch (saved) {
-    case E2BIG:  fprintf(stderr, "The argument nsops is greater than SEMOPM, the maximum number of operations allowed per system call.\n"); break;
-    case EACCES: fprintf(stderr, "The calling process has no access permissions on the semaphore set as required by one of the specified operations.\n"); break;
-    case EAGAIN: fprintf(stderr, "An operation could not go through and IPC_NOWAIT was asserted in its sem_flg.\n"); break;
-    case EFAULT: fprintf(stderr, "The address pointed to by sops isn't accessible.\n"); break;
-    case EFBIG:  fprintf(stderr, "For some operation the value of sem_num is less than 0 or greater than or equal to the number of semaphores in the set.\n"); break;
-    case EIDRM:  fprintf(stderr, "The semaphore set was removed.\n"); break;
-    case EINTR:  fprintf(stderr, "Sleeping on a wait queue, the process received a signal that had to be caught.\n"); break;
-    case EINVAL: fprintf(stderr, "The semaphore set doesn't exist, or semid is less than zero, or nsops has anon-positive value.\n"); break;
-    case ENOMEM: fprintf(stderr, "The sem_flg of some operation asserted SEM_UNDO and the system has not enough memory to allocate the undo structure.\n"); break;
-    case ERANGE: fprintf(stderr, "For some operation semop+semval is greater than SEMVMX, the implementation dependent maximum value for semval.\n"); break;
+    fprintf(stderr, "clock_gettime() returned %d: %s\n", saved, strerror(saved));
+    return errno;
+  }
+
+  ts.tv_sec += SEMAPHORE_TIMEOUT_SEC;
+    
+  if ( sem_timedwait(sem, &ts) != 0 ){
+    int saved = errno;
+    switch ( saved ){
+    case ETIMEDOUT:
+    case EINTR:
+      break;
+    default:
+      fprintf(stderr, "sem_timedwait() returned %d: %s\n", saved, strerror(saved));
     }
     return saved;
   }
-  //printf("SENDER: SEMAPHORE wait is now done, left without failiure?\n");fflush(stdout);
+  
   return 0;
 }
 
 void* sender(void *ptr){
     sendProcess* mySend;
     int nics;                          //number of capture nics
-    extern int semaphore;              // semaphore for syncronization
     //    cap_head *head;                    // pointer cap_head
     //    write_head *whead;                 // pointer write_head
-    void *outbuffer;                   // pointer to packet to send
+    //void *outbuffer;                   // pointer to packet to send
     int readPos[CI_NIC];               // array of memory positions
     int i;                           // index to active memory area
-    int first;                  // flags
-    union semun sSet;                  // set semaphore == 1 
     unsigned char dest_mac[6] = {0x01, 0x00, 0x00, 0x00, 0x00, 0x00};
     int exitnr=0;                      // flag for exit
     int nextPDUlen=0;                  // The length of PDUs stored in the selected consumer.
@@ -89,14 +89,12 @@ void* sender(void *ptr){
       MAsd[i].sendcount=0;                        // Initialize the number of pkt stored in the packet, used to determine when to send the packet.
     }
     printf("ST: eof dirty works.\n");
-    sSet.val = 1;
     mySend = (sendProcess*)ptr;      // Extract the parameters that we got from our master, i.e. parent process..
     nics = mySend->nics;             // The number of CIs I need to handle. 
-    semaphore = mySend->semaphore;   // Semaphore stuff.
+    sem_t* semaphore = mySend->semaphore;   // Semaphore stuff.
     sentPkts = 0;                    // Total number of mp_packets that I've passed into a sendbuffer. 
     writtenPkts = 0;                 // Total number of mp_packets that I've acctually sent to the network. Ie. sentPkts-writtenPkts => number of packets present in the send buffers. 
     printf("Sender Initializing. There are %d captures.\n", nics);
-    first=0;
     for(i=0;i<nics;i++){
       readPos[i] = 0;  // start all reading att position 0
     }

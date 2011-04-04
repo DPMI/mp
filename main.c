@@ -52,7 +52,7 @@ char ebuf[ERRBUF_SIZE]; // buffer for output of error messages
 short int iflag=0;  // number of capture interfaces
 short int tdflag=0; // Number of T_delta definitions.
 pid_t allC;
-int semaphore;
+sem_t semaphore;
 union semun arg;
 
 int dagfd[CI_NIC];
@@ -84,7 +84,7 @@ int main (int argc, char **argv)
   register int op;
   short int hflag=0;            // flag to indicate that the option help is choosen
   int i;
-  int port;            // portnumber and interfaceindex
+  int __attribute__((__unused__)) port;            // portnumber and interfaceindex
 
   char line[100];
   int argCount=0;
@@ -92,7 +92,7 @@ int main (int argc, char **argv)
   int k, optionIndex;
 
 
-  saveProcess mySave;
+  //saveProcess mySave;
   sendProcess mySend;
 
   int destination;              // 0 locally to file, 1 to MA. Default 0.
@@ -106,16 +106,10 @@ int main (int argc, char **argv)
   int s;
 
   // Init semaphore
-  key_t key;
-  key = ftok("semaphoreFile", 'E');
-  semaphore = semget(key, 1, 0666 | IPC_CREAT);
-
-  /* initialize semaphore #0 to 0: */
-  arg.val = 1;
-  if (semctl(semaphore, 0, SETVAL, arg) == -1)
-  {
-      perror("semctl");
-      exit(1);
+  if ( sem_init(&semaphore, 0, 0) != 0 ){
+    int saved = errno;
+    fprintf(stderr, "%s: sem_init() returned %d: %s\n", argv[0], saved, strerror(saved));
+    exit(1);
   }
 
   // If set to 0, it will store data locally. If 1 it will send to a TCPserver (MA)
@@ -494,11 +488,11 @@ int main (int argc, char **argv)
   // Create childprocess for the Sender/Saver
   mySend.nics=iflag;
   mySend.nic=*nic;
-  mySend.semaphore=semaphore;
+  mySend.semaphore=&semaphore;
   
-  mySave.nics=iflag;
-  mySave.nic=*nic;
-  mySave.semaphore=semaphore;
+  //mySave.nics=iflag;
+  //mySave.nic=*nic;
+  //mySave.semaphore=semaphore;
   
   
   if(destination==1) {  
@@ -513,14 +507,14 @@ int main (int argc, char **argv)
   printf("Creating capture_threads.\n");
   for (i=0;i<iflag;i++) {
     if(0 == strncmp("pcap",nic[i],4)){
-      printf("pcap for %s.\n",nic);
+      printf("pcap for %s.\n",nic[i]);
       fprintf(stderr, "Setting up pcap capture interface.\n");
       fprintf(stderr, "nic = %s \n",nic[i]); 
       ourCaptures[i].sd=sd[i];
       memmove(nic[i], &nic[i][4], strlen(&nic[i][4])+1); /* plus terminating */
       ourCaptures[i].nic = nic[i];
       fprintf(stderr, "nic = %s \n",nic[i]);
-      ourCaptures[i].semaphore=semaphore;
+      ourCaptures[i].semaphore=&semaphore;
       ourCaptures[i].id=i;
       ourCaptures[i].pktCnt=0;
       ourCaptures[i].accuracy=tsAcc[i];
@@ -529,10 +523,10 @@ int main (int argc, char **argv)
 	abort();
       }
     } else { // Default is RAW_SOCKET.
-      printf("RAW for %s.\n",nic);
+      printf("RAW for %s.\n",nic[i]);
       ourCaptures[i].sd = -1; // DAG doesn't use sockets
       ourCaptures[i].nic=nic[i];
-      ourCaptures[i].semaphore=semaphore;
+      ourCaptures[i].semaphore=&semaphore;
       ourCaptures[i].id=i;
       ourCaptures[i].pktCnt=0;
       ourCaptures[i].accuracy=tsAcc[i];
@@ -603,19 +597,13 @@ int main (int argc, char **argv)
 
   printf("OK.\nIt's terrible to out live your own children, so I die to.\n");
   
-  
-  if (semctl(semaphore, 0, IPC_RMID) == -1)  {
-    perror("Error removing semaphore.\n");
-    perror("semctl");
+  if ( sem_destroy(&semaphore) != 0 ){
+    fprintf(stderr, "%s: sem_destroy() returned %d: %s\n", argv[0], errno, strerror(errno));
   }
+
   return 0;
 } // Main end
 
-
-
-
-
- 
 void cleanup(int sig)
 {
  /*  starts when program closes*/
@@ -791,8 +779,6 @@ int tcp_connect(const char *serv, int port){
 int udp_connect(const char *serv, int port){
   printf("udp_connect() \n");
   int sockfd,result,rc;
-  int option;
-  option=1;
   struct sockaddr_in	servaddr, cliaddr;
   sockfd = socket(AF_INET, SOCK_DGRAM , 0);
 //  setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, &option, sizeof(option) );

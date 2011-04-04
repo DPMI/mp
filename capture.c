@@ -33,6 +33,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <semaphore.h>
 
 extern int counter;
 extern char* ebuf;
@@ -51,7 +52,6 @@ void* capture(void* ptr){
   int sd;                       // the socket
   char nicString[4];            // The CI identifier
   char* nic;                    // name of the network interface
-  extern int semaphore;         // semaphore for syncronization
   int id;                       // number of this thread, used for memory access
   capProcess* cProc=0;          // struct with parameters deliverd from main
   cap_head *head;               // pointer cap_head
@@ -60,10 +60,8 @@ void* capture(void* ptr){
   size_t buffsize=PKT_CAPSIZE;  // This is how much we extract from the network.
   int writePos=0;               // Position in memory where to write
   int packet_len=0;             // acctual length of packet
-  union semun args;             // argument to semaphore
   struct timeval time;          // arrivaltime
   int consumer;                 // consumer identification.
-  int niclen;                   // Lenght of nic string
   cProc=(capProcess*)ptr;
   int myTD=cProc->accuracy;     // Accuracy of this Capture Thread.
   sd=cProc->sd;
@@ -75,12 +73,10 @@ void* capture(void* ptr){
   nic=nicString;
 
   printf("CAPt: here.\n");
-  semaphore=cProc->semaphore;
+  sem_t* semaphore=cProc->semaphore;
   id=cProc->id;
   
-  niclen=strlen(nic)+1;
   _DEBUG_MSG (fprintf(stderr,"Capture for %s initializing, Memory at %p.\n",nic, &datamem[id]))
-  args.val=1;
 
   struct timeval timeout;
   fd_set fds;
@@ -159,12 +155,11 @@ void* capture(void* ptr){
 	pthread_mutex_unlock( &mutex2 );
 //Mutex end
 	packet_len=0;
-	if(semctl(semaphore, 0, GETVAL) == 0)  // If already 1, indicating some pkts. Do nothing
-	{
-          if(semctl(semaphore, 0, SETVAL,args)== -1) // Else set it to ONE!
-	    printf("Error setting semaphore.\n");
-	  // else Semaphore is set
+
+	if ( sem_post(semaphore) != 0 ){
+	  fprintf(stderr, "sem_post() returned %d: %s\n", errno, strerror(errno));
 	}
+
 	writePos++;
 	bufferUsage[id]++;
         if(writePos<PKT_BUFFER){
@@ -185,31 +180,23 @@ void* capture(void* ptr){
 /* This is the PCAP_SOCKET capturer..   */ 
 /* Lots of problems, use with caution. */
 void* pcap_capture(void* ptr){
-  int sd;                       // the socket
 //  char nicString[4];            // The CI identifier
   char* nic;                    // name of the network interface
-  extern int semaphore;         // semaphore for syncronization
   int id;                       // number of this thread, used for memory access
   capProcess* cProc;            // struct with parameters deliverd from main
 
   int writePos=0;               // Position in memory where to write
-  int packet_len=0;             // acctual length of packet
-  union semun args;             // argument to semaphore
 //  struct timeval time;          // arrivaltime
   int consumer;                 // consumer identification.
-  int niclen;                   // Lenght of nic string
   int myTD;                     // Accuracy of this Capture Thread.;
 
   cProc=(capProcess*)ptr;
-  sd=cProc->sd;
   nic=cProc->nic;
-  semaphore=cProc->semaphore;
+  sem_t* semaphore=cProc->semaphore;
   id=cProc->id;
   myTD=cProc->accuracy;     
   
-  niclen=strlen(nic)+1;
   _DEBUG_MSG (fprintf(stderr,"Capture for %s initializing, Memory at %p.\n",nic, &datamem[id]))
-  args.val=1;
 
   char errbuf[PCAP_ERRBUF_SIZE];
   pcap_t *descr;
@@ -276,13 +263,11 @@ void* pcap_capture(void* ptr){
     
     pthread_mutex_unlock( &mutex2 );
     //Mutex end
-    packet_len=0;
-    if(semctl(semaphore, 0, GETVAL) == 0)  // If already 1, indicating some pkts. Do nothing
-      {
-	if(semctl(semaphore, 0, SETVAL,args)== -1) // Else set it to ONE!
-	  printf("Error setting semaphore.\n");
-	// else Semaphore is set
-      }
+
+    if ( sem_post(semaphore) != 0 ){
+      fprintf(stderr, "sem_post() returned %d: %s\n", errno, strerror(errno));
+    }
+
     writePos++;
     bufferUsage[id]++;
     if(writePos<PKT_BUFFER){
@@ -292,8 +277,6 @@ void* pcap_capture(void* ptr){
   }
 
   // comes here when terminateThreads = 1
-  if(semctl(semaphore, 0, SETVAL,args)== -1) // Else set it to ZERO!
-    fprintf(stderr,"capture: Error setting semaphore.\n");
 
   _DEBUG_MSG (fprintf(stderr,"Child %ld My work here is done %s.\n", pthread_self(),nic))
     return(NULL) ;

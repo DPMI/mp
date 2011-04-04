@@ -285,10 +285,9 @@ struct sockaddr_in myAddr;
 	  exit(1);
 	}
 	/* must call mysql_store_results() */
-	int rows,cols;
+	int rows;
 	result = mysql_store_result(connection);
 	rows=(int)mysql_num_rows(result);
-	cols=(int)mysql_num_fields(result);
 	printf("We have %d filters waiting for us..\n",rows);
 	
 	
@@ -328,7 +327,7 @@ struct sockaddr_in myAddr;
     printf("port   = %d\n",ntohs(MPinit.port));
     printf("maxF   = %d\n",ntohs(MPinit.maxFilters));
     printf("noCI   = %d / %d \n",ntohs(MPinit.noCI), noCI);
-    printf("ipaddr = %x \n", (unsigned int)(MPinit.ipaddress));
+    printf("ipaddr = 0x%02x%02x%02x%02x \n", MPinit.ipaddress[0], MPinit.ipaddress[1], MPinit.ipaddress[2], MPinit.ipaddress[3]);
    /* Reusing socket, just disable broadcast. */
     option=0; 
     if(setsockopt(bcastS,SOL_SOCKET,SO_BROADCAST, &option,sizeof(option))<0){
@@ -804,7 +803,7 @@ struct sockaddr_in myAddr;
     
     
   }
-  _DEBUG_MSG (fprintf(stderr,"Child %ld My work here is done %s.\n", pthread_self(),nic))
+  _DEBUG_MSG (fprintf(stderr,"Child %ld My work here is done %s.\n", pthread_self(), nic[i]))
   printf("Leaving Control Thread.\n");
   return(NULL);
 
@@ -822,8 +821,6 @@ int inet_atoP(char *dest,char *org){
   }
 
   char tmp[3];
-  char *ptr;
-  ptr=tmp;
   tmp[2]='\0';
   int j,k;
   j=k=0;
@@ -839,7 +836,7 @@ int inet_atoP(char *dest,char *org){
 }
 
 
-char *hexdump_address (unsigned char address[IFHWADDRLEN]){
+char *hexdump_address (const unsigned char address[IFHWADDRLEN]){
   int i;
 
   for (i = 0; i < IFHWADDRLEN - 1; i++) {

@@ -10,6 +10,7 @@ AC_PROG_CC_C_O
 AC_PROG_CC_C99
 AX_PTHREAD
 
+AC_SEARCH_LIBS([clock_gettime], [rt])
 PKG_CHECK_MODULES([CAP_UTILS], [cap_utils >= 0.7])
 
 AC_CHECK_HEADER([pcap/pcap.h],

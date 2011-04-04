@@ -45,6 +45,7 @@
 #include <sys/ioctl.h>
 #include <fcntl.h>
 #include <sys/utsname.h>
+#include <semaphore.h>
 
 //#include <linux/if_ether.h>
 #include <net/if_arp.h>
@@ -152,7 +153,7 @@ struct captureProcess {
   int sd;                           /* Socket to listen to */
   char* nic;                        /* String with nic identifier */
   u_char* datamem;                  /* Pointer to my memory */
-  int semaphore;                    /* Semaphore Id. */
+  sem_t* semaphore;                    /* Semaphore Id. */
   int id;                           /* Capture ID */
   long pktCnt;                      /* How many packets have been read */
   uint8_t accuracy;                  /* Accuracy of interface, read from config file. */
@@ -171,14 +172,14 @@ capProcess ourCaptures[CI_NIC];
 struct senderProcess{
   int nics;                         /* How many nics/capture processes will be present*/
   char *nic;                        /* The names of these */
-  int semaphore;                    /* Semaphore */
+  sem_t* semaphore;                    /* Semaphore */
 };
 typedef struct senderProcess  sendProcess;
 
 struct saverProcess{
   int nics;                         /* How many nics/capture processes will be present*/
   char *nic;                        /* The names of these */
-  int semaphore;                    /* Semaphore */
+  sem_t* semaphore;                    /* Semaphore */
 };
 typedef struct saverProcess  saveProcess;
 
@@ -269,7 +270,7 @@ void cleanup(int sig); // Runs when program terminates
 void CIstatus(int sig); // Runs when ever a ALRM signal is received.
 int filter(char* nic,void *pkt, struct cap_header*); //filtering routine
 int inet_atoP(char *dest,char *org); // Convert ASCII rep. of ethernet to normal rep.
-char *hexdump_address (unsigned char address[IFHWADDRLEN]); // Print a ethernet address. 
+char *hexdump_address (const unsigned char address[IFHWADDRLEN]); // Print a ethernet address. 
 
 int matchEth(char d[],char m[], char n[]);
 int addFilter(struct FPI *newRule);
