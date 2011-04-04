@@ -532,8 +532,8 @@ int main (int argc, char **argv)
     }
   }
   
-  printf("Waiting 10s befor starting controler thread.\n");
-  sleep(10);
+  printf("Waiting 1s befor starting controler thread.\n");
+  sleep(1);
   /* 
      Connect to the MA-controller 
   */
