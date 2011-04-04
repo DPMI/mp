@@ -502,38 +502,33 @@ int main (int argc, char **argv)
     }
   }
 
-
   // Create childprocess for each Nic
   printf("Creating capture_threads.\n");
   for (i=0;i<iflag;i++) {
-    if(0 == strncmp("pcap",nic[i],4)){
-      printf("pcap for %s.\n",nic[i]);
-      fprintf(stderr, "Setting up pcap capture interface.\n");
-      fprintf(stderr, "nic = %s \n",nic[i]); 
+    const char* current = nic[i];
+
+    ourCaptures[i].semaphore = &semaphore;
+    ourCaptures[i].nic = nic[i];
+    ourCaptures[i].id = i;
+    ourCaptures[i].accuracy=tsAcc[i];
+    ourCaptures[i].pktCnt=0;
+
+    void* (*func)(void*) = NULL;
+    
+    if ( strncmp("pcap", current, 4) == 0 ){
+      memmove(nic[i], &current[4], strlen(&current[4])+1); /* plus terminating */
+      printf("\tpcap for %s.\n", current);
       ourCaptures[i].sd=sd[i];
-      memmove(nic[i], &nic[i][4], strlen(&nic[i][4])+1); /* plus terminating */
-      ourCaptures[i].nic = nic[i];
-      fprintf(stderr, "nic = %s \n",nic[i]);
-      ourCaptures[i].semaphore=&semaphore;
-      ourCaptures[i].id=i;
-      ourCaptures[i].pktCnt=0;
-      ourCaptures[i].accuracy=tsAcc[i];
-      if ( pthread_create( &child[i], NULL, pcap_capture, &ourCaptures[i]) ) {
-	fprintf(stderr,"Error creating PCAP_CAPTURE thread.");
-	abort();
-      }
+      func = pcap_capture;
     } else { // Default is RAW_SOCKET.
-      printf("RAW for %s.\n",nic[i]);
+      printf("\tRAW for %s.\n", current);
       ourCaptures[i].sd = -1; // DAG doesn't use sockets
-      ourCaptures[i].nic=nic[i];
-      ourCaptures[i].semaphore=&semaphore;
-      ourCaptures[i].id=i;
-      ourCaptures[i].pktCnt=0;
-      ourCaptures[i].accuracy=tsAcc[i];
-      if ( pthread_create( &child[i], NULL, capture, &ourCaptures[i]) ) {
-	fprintf(stderr,"Error creating RAW_CAPTURE thread.");
-	abort();
-      }
+      func = capture;
+    }
+
+    if ( pthread_create( &child[i], NULL, func, &ourCaptures[i]) ) {
+      fprintf(stderr,"Error creating capture thread.");
+      abort();
     }
   }
   
@@ -546,8 +541,6 @@ int main (int argc, char **argv)
     fprintf(stderr,"Error creating Control Thread. \n");
     abort();
   }
-  
-
   
   printf("my Children.\n");
   for(i=0;i<iflag;i++)
