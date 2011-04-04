@@ -365,9 +365,14 @@ int addFilter(struct FPI *newRule){
     fprintf(stderr, "warning: filter rules have duplicate filter_id (%d)\n", cur->filter_id);
   }
 
-  newRule->next = cur->next;
-  cur->next = newRule;
-  noRules++;
+  if ( cur->filter_id < newRule->filter_id ) {
+    newRule->next = cur;
+    myRules = newRule;
+  } else {
+    newRule->next = cur->next;
+    cur->next = newRule;
+    noRules++;
+  }
 
   return 1;
 }
