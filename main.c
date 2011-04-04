@@ -3,10 +3,11 @@
                              -------------------
     begin                : Wed Nov 27 16:16:40 CET 2002
     copyright            : (C) 2002 by Anders Ekberg
-                         (C) 2002-2005 Patrik Arlos
+                           (C) 2002-2005 Patrik Arlos
+                           (C) 2011 David Sveningsson
     email                : anders.ekberg@bth.se
                            patrik.arlos@bth.se
-
+                           david.sveningsson@bth.se
                          
  ***************************************************************************/
 
@@ -567,25 +568,22 @@ int main (int argc, char **argv)
   return 0;
 } // Main end
 
-void cleanup(int sig)
-{
- /*  starts when program closes*/
- // activated by SIGTERM, SIGINT, SIGALRM
+void cleanup(int sig) {
+  /*  starts when program closes*/
+  // activated by SIGTERM, SIGINT, SIGALRM
   pthread_t self=pthread_self();
   printf("Thread %ld caught \n", self);
   
-  if( (terminateThreads==0) ){
-    terminateThreads=1;
-  } else {
-    terminateThreads++;
-  } 
+  terminateThreads++;
   printf("Termination signal received %d times.\n",terminateThreads);
+
   if(self!=senderPID && self!=mainPID && self!=controlPID) { // Incase there are problems 
     // This thread is not the CONTROL/SEND/MAIN thread. So we can kill it!
     // Helps to prevent the capturethreads to stay in the recv for ever. 
     printf("\nHARAKIRI BY %ld !!!!!\n\n",pthread_self());
     pthread_exit(NULL);
   }
+
   return;
 }
 
