@@ -102,7 +102,6 @@ struct consumer MAsd[CONSUMERS];
 FILE *FILEd;                        // File descriptor for FILE.
 int terminateThreads;               //used for signaling thread to terminate
 int recvPkts,sentPkts, writtenPkts, matchPkts; // counters for captured ans sent packets
-struct sockaddr_ll socket_address;  // Used for sending the Ethernet multicasts
 unsigned char my_mac[6];            // The interface mac for MA communications.
 int ifindex;                        // The interface id of MAnic
 char* MAnic;                        // string containing interface that connects to MAc

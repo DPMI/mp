@@ -440,34 +440,11 @@ void flushSendBuffer(int index){
   con->shead->flush=htons(1);
 
   printf("\tConsumer %d needs to be flushed, contains %d pkts\n",i, con->sendcount);
-  //for(i=0;i<ETH_ALEN;i++){// Copy the destination address from the ethernet header to the socket header.
-  //  socket_address.sll_addr[i]=ethhead[index]->h_dest[i];// Set the destination address, defaults to 0x01:00:00:00:[i]
-  //}
-  memcpy(socket_address.sll_addr, con->ethhead->h_dest, ETH_ALEN);
 
   con->shead->nopkts=con->sendcount;
 
   size_t len = con->sendpointer - con->sendptrref;
   con->stream->write(con->stream, con->sendptrref, len);
-
-  /* switch(consumerType[index]){ */
-  /* case 3: */
-  /*   written = write(MAsd[index], */
-  /* 		    sendpointer[index], */
-  /* 		    (sendpointer[index]-sendptrref[index])); */
-  /*   break; */
-  /* case 2: */
-  /*   written=write(MAsd[index], */
-  /* 		  sendmem[index]+sizeof(struct ethhdr), */
-  /* 		  (sizeof(struct sendhead)+(sendpointer[index]-sendptrref[index]))); */
-  /*   break; */
-  /* case 1: */
-  /*   written=sendto(MAsd[index],sendmem[index],(sizeof(struct ethhdr)+sizeof(struct sendhead)+sendcount[index]*(sizeof(cap_head)+PKT_CAPSIZE)), 0,(struct sockaddr*)&socket_address, sizeof(socket_address)); */
-  /*   printf("\tST: sent %d bytes\n\tST: MAsd[] = %d len = %d\n\tST: sockaddr.sll_protocol = %x\n\tST: sockaddr.sll_ifindex = %d\n\tST: seqnr  = %04x \t nopkts = %04x \n",written,MAsd[index],sizeof(struct sendhead)+sendcount[index]*(sizeof(cap_head)+PKT_CAPSIZE),ntohs(socket_address.sll_protocol),socket_address.sll_ifindex,ntohs(shead[index]->sequencenr),shead[index]->nopkts); */
-  /*   break; */
-  /* case 0: */
-  /* 	break; */
-  /* } */
 
   printf("Sent %d bytes.\n",written);
   if(written==-1) {
@@ -481,9 +458,6 @@ void flushSendBuffer(int index){
   con->stream = NULL;
 
   /* Reinitialize ethernet and sendheader */
-  //for(i=0;i<ETH_ALEN;i++){
-  //  ethhead[index]->h_dest[i]=DESTADDR[i];   // Set the destination address, defaults to 0x01:00:00:00:[i]
-  //}
   memcpy(con->ethhead->h_dest, DESTADDR, ETH_ALEN);
 
   con->ethhead->h_dest[5]=index;   // Set the destination address, defaults to 0x01:00:00:00:[i]

@@ -1075,43 +1075,10 @@ void flushBuffer(int i){
   con->shead->flush=htons(1);
 
   printf("Consumer %d needs to be flushed, contains %d pkts\n", i, con->sendcount);
-  //for(k=0;k<ETH_ALEN;k++){// Copy the destination address from the ethernet header to the socket header.
-  //  socket_address.sll_addr[k] = ethhead[i]->h_dest[k];// Set the destination address, defaults to 0x01:00:00:00:[i]
-  //}
-  memcpy(socket_address.sll_addr, con->ethhead->h_dest, ETH_ALEN);
 
-
+  /** @TODO len is wrong, see sender.c */
   size_t len = con->sendpointer - con->sendptrref;
   con->stream->write(con->stream, con->sendptrref, len);
-
-  /* switch(consumerType[i]){ */
-  /* case 3: */
-  /*   printf("Sending TCP.\t"); */
-  /*   written = write(MAsd[i], */
-  /* 		    sendpointer[i], */
-  /* 		    (sendpointer[i]-sendptrref[i])); */
-  /*   break; */
-  /* case 2: */
-  /*   printf("Sending UDP .\t"); */
-  /*   written = write(MAsd[i], */
-  /* 		    sendmem[i]+sizeof(struct ethhdr), */
-  /* 		    sizeof(struct sendhead)+(sendpointer[i]-sendptrref[i])); */
-  /*   break; */
-  /* case 1: */
-  /*   printf("Sending Ethernet.\t"); */
-  /*   written=sendto(MAsd[i], */
-  /* 		   sendmem[i], */
-  /* 		   sizeof(struct ethhdr)+sizeof(struct sendhead)+(sendpointer[i]-sendptrref[i]), */
-  /* 		   0, */
-  /* 		   (struct sockaddr*)&socket_address, */
-  /* 		   sizeof(socket_address)); */
-  /*   break; */
-  /* case 0: */
-  /*   written = write(MAsd[i],sendpointer[i],(sendpointer[i]-sendptrref[i])); */
-  /*   break; */
-  /* } */
-
-
 
   printf("Sent %d bytes.\n",written);
   if(written==-1) {

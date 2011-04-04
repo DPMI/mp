@@ -236,20 +236,6 @@ int main (int argc, char **argv)
 		exit(1);
 	      }
 	      
-	      socket_address.sll_family   = PF_PACKET;
-	      socket_address.sll_protocol = htons(MYPROTO);
-	      socket_address.sll_ifindex  = ifindex;
-	      socket_address.sll_hatype   = ARPHRD_ETHER;
-	      socket_address.sll_pkttype  = PACKET_OTHERHOST;
-	      socket_address.sll_halen    = ETH_ALEN;
-	      socket_address.sll_addr[0]  = 0x01;
-	      socket_address.sll_addr[1]  = 0x00;
-	      socket_address.sll_addr[2]  = 0x00;
-	      socket_address.sll_addr[3]  = 0x00;
-	      socket_address.sll_addr[4]  = 0x00;
-	      socket_address.sll_addr[5]  = 0x01;
-	      socket_address.sll_addr[6]  = 0x00;
-	      socket_address.sll_addr[7]  = 0x00;
 	      printf("MAC ADDRESS: ");
 	      for(i=0;i<ETH_ALEN;i++) {
 		my_mac[i] = ifr.ifr_hwaddr.sa_data[i];
@@ -341,20 +327,6 @@ int main (int argc, char **argv)
 	exit(1);
       }
 
-      socket_address.sll_family   = PF_PACKET;
-      socket_address.sll_protocol = htons(MYPROTO);
-      socket_address.sll_ifindex  = ifindex;
-      socket_address.sll_hatype   = ARPHRD_ETHER;
-      socket_address.sll_pkttype  = PACKET_OTHERHOST;
-      socket_address.sll_halen    = ETH_ALEN;
-      socket_address.sll_addr[0]  = 0x01;
-      socket_address.sll_addr[1]  = 0x00;
-      socket_address.sll_addr[2]  = 0x00;
-      socket_address.sll_addr[3]  = 0x00;
-      socket_address.sll_addr[4]  = 0x00;
-      socket_address.sll_addr[5]  = 0x01;
-      socket_address.sll_addr[6]  = 0x00;
-      socket_address.sll_addr[7]  = 0x00;
       printf("MAC ADDRESS: ");
       for(i=0;i<ETH_ALEN;i++) {
 	my_mac[i] = ifr.ifr_hwaddr.sa_data[i];
@@ -459,8 +431,6 @@ int main (int argc, char **argv)
   }
   printf("Consumer Sockets are initialized, i.e. set to zero.\n");
 
-  socket_address.sll_family = PF_PACKET;
-  socket_address.sll_protocol = htons(MYPROTO);
   noCI=iflag;
   recvPkts=0;
   matchPkts=0;

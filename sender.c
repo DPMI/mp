@@ -189,8 +189,6 @@ void* sender(void *ptr){
 	continue;
       }
       
-      memcpy(socket_address.sll_addr, con->ethhead->h_dest, ETH_ALEN);
-	  
       con->shead->nopkts = htons(con->sendcount); //maSendsize;
       /*con->shead->losscounter=htons((globalDropcount+memDropcount)-dropCount[whead->consumer]); */
       con->dropCount = globalDropcount+memDropcount;
@@ -206,44 +204,6 @@ void* sender(void *ptr){
 
 	con->stream->write(con->stream, data, data_size);
       }
-
-      /* 	  switch(consumerType[whead->consumer]){ */
-      /* 	    case 3: */
-      /* 	      printf("Sending TCP.\t"); */
-      /* 	      written = write(MAsd[whead->consumer], */
-      /* 			      sendmem[whead->consumer]+sizeof(struct ethhdr)+sizeof(struct sendhead), */
-      /* 			      (sendpointer[whead->consumer]-sendptrref[whead->consumer])); */
-      /* 	      printf("Sent %d bytes.\n",written); */
-      /* 	      break; */
-      /* 	    case 2: */
-      /* 	      printf("Sending UDP .\t"); */
-      /* 	      written = write(MAsd[whead->consumer], */
-      /* 			     sendmem[whead->consumer]+sizeof(struct ethhdr), */
-      /* 			      sizeof(struct sendhead)+(sendpointer[whead->consumer]-sendptrref[whead->consumer])); */
-      /* 	      printf("Sent %d bytes.\n",written); */
-      /* 	      break; */
-      /* 	    case 1: */
-      /* 	      if(ntohl((shead[whead->consumer]->sequencenr))%1==0){ */
-      /* 		printf("Sending Ethernet.\t"); */
-      /* 		printf("%02X:%02X:%02X:%02X:%02X:%02X-->%02X:%02X:%02X:%02X:%02X:%02X \t",ethhead[whead->consumer]->h_source[0],ethhead[whead->consumer]->h_source[1],ethhead[whead->consumer]->h_source[2],ethhead[whead->consumer]->h_source[3],ethhead[whead->consumer]->h_source[4],ethhead[whead->consumer]->h_source[5],ethhead[whead->consumer]->h_dest[0],ethhead[whead->consumer]->h_dest[1],ethhead[whead->consumer]->h_dest[2],ethhead[whead->consumer]->h_dest[3],ethhead[whead->consumer]->h_dest[4],ethhead[whead->consumer]->h_dest[5]); */
-      /* 		printf("seqnr = %04x \n", ntohl(shead[whead->consumer]->sequencenr)); */
-      /* 	      } */
-      /* 	      written = sendto(MAsd[whead->consumer],  */
-      /* 			   sendmem[whead->consumer],  */
-      /* 			   sizeof(struct ethhdr)+sizeof(struct sendhead)+(sendpointer[whead->consumer]-sendptrref[whead->consumer]),//sizeof(struct sendhead)+sendcount[whead->consumer]*(sizeof(cap_head)+PKT_CAPSIZE)), */
-      /* 			   0,(struct sockaddr*)&socket_address, sizeof(socket_address)); */
-      /* //	      if(ntohl((shead[whead->consumer]->sequencenr))%1000==0){ */
-      /* //		printf("Sent %d bytes.\n",written); */
-      /* //	      } */
-      /* 	      break; */
-      /* 	    case 0: */
-	      
-      /* 	      if(ntohl((shead[whead->consumer]->sequencenr))%1==0){ */
-      /* 		printf("Saving to file. (fd=%d)\n",MAsd[whead->consumer]); */
-      /* 	      } */
-      /* 	      written = write(MAsd[whead->consumer],sendmem[whead->consumer]+sizeof(struct ethhdr)+sizeof(struct sendhead),(sendpointer[whead->consumer]-sendptrref[whead->consumer])); */
-      /* 	      break; */
-      /* 	  } */
 
       uint32_t seqnr = ntohl(con->shead->sequencenr);
 
