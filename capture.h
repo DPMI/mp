@@ -110,7 +110,6 @@ int noCI;                           // Number of Capture Interfaces
 char hostname[200];                 // Hostname of MP.
 int bufferUsage[CI_NIC];            // How many bytes of the buffer is used?
 int ENCRYPT;                        // If set to >0 then it will encrypt IP addresses...?
-int LOCAL;                          // If set to >0 then it capture all packets and store to file locally. No communication with MArC is done.
 char *MAIPaddr;                     // If set, this is the IP that should be used when talking on the MAnet.
 int useVersion;                     // What Communication version to use, 1= v0.5 MySQL, 2=v0.6 and UDP.
 int bcastS;                         // Socket used to communicate with MArNetwork.
