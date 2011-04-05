@@ -52,7 +52,7 @@ struct packet_stat{              // struct for interface statistics
 static void cleanup(int sig); // Runs when program terminates
 static void setpromisc(int sd, char* device); // function for setting interfaces to listen on all traffic
 static int packet_stats(int sd, struct packet_stat *stat); // function for collecting statistics
-static int iface_get_id(int fd, const char *device); //comments in code
+static int iface_get_id(int sd, const char *device); //comments in code
 static int iface_bind(int fd, int ifindex); //comments in code
 
 static void info(int sd);// function for presentating statistics
@@ -65,6 +65,7 @@ sem_t semaphore;
 int dagfd[CI_NIC];
 void* dagbuf[CI_NIC];
 
+static int verbose = 0;     /* verbose output */
 static int local = 0;       /* run in local-mode, don't try to contact MArCd */
 static int destination = 0; /* If set to 0, it will store data locally. If 1 it will send to a TCPserver (MA) 0 requires mpid and comment, 1 requires IP optional port. */
 static int bufsize = 1000;
@@ -154,15 +155,26 @@ static void ma_ip(const char* arg) {
 }
 
 static void set_ci(const char* arg) {
+  if ( iflag == CI_NIC ){
+    fprintf(stderr, "Cannot specify more than %d capture interface(s)\n", CI_NIC);
+    exit(1);
+  }
+
   iflag++;
   strncpy(nic[iflag-1], arg, 10);
-  printf("Setting CI(%d) = %s (%zd)\n", iflag-1, nic[iflag-1], strlen(nic[iflag-1]));
+  
+  if ( verbose ){
+    printf("Setting CI(%d) = %s (%zd)\n", iflag-1, nic[iflag-1], strlen(nic[iflag-1]));
+  }
 }
 
 static void set_td(const char* arg) {
   tdflag++;
   tsAcc[tdflag-1]=atoi(arg);
-  printf("Setting T_delta(%d) = %d.\n", iflag-1, atoi(arg));
+
+  if ( verbose ){
+    printf("Setting T_delta(%d) = %d.\n", iflag-1, atoi(arg));
+  }
 }
 
 static struct config_option myOptions[]={
@@ -248,6 +260,8 @@ static int parse_argv(int argc, char** argv){
     {"help", 0, NULL, 'h'},
     {"port", 1, NULL, 'p'},
     {"capfile", 1, NULL, 'c'},
+    {"verbose", 0, &verbose, 1},
+    {"quiet", 0, &verbose, 0},
     {0, 0, 0, 0}
   };
   
@@ -256,6 +270,9 @@ static int parse_argv(int argc, char** argv){
 
   while ( (op = getopt_long(argc, argv, "hd:i:s:p:", long_options, &option_index)) != -1 )
     switch (op){
+    case 0: /* longopt with flag set */
+      break;
+
     case 'd': // interface to listen on
       set_td(optarg);
       break;
@@ -504,7 +521,7 @@ int main (int argc, char **argv)
 
       _DEBUG_MSG (fprintf(stderr,"Bind PF_PACKET to raw_socket.\n"))
       sd[i]=socket(PF_PACKET,SOCK_RAW,htons(ETH_P_ALL));
-      ifindex=iface_get_id(sd[i],nic[i]);
+      ifindex=iface_get_id(sd[i], nic[i]);
       iface_bind(sd[i], ifindex);
       setpromisc(sd[i],nic[i]);
     }
@@ -648,13 +665,15 @@ static void setpromisc(int sd, char* device)
   return;
 }
 
-//Get the right id for nic (ethX->interface index) Used for bind
+/**
+ * Get the right id for nic (ethX->interface index) Used for bind
+ * @return ID or -1 on errors (errno is raised)
+ */
 static int iface_get_id(int sd, const char *device) {
   struct ifreq	ifr;
   memset(&ifr, 0, sizeof(ifr));
   strncpy(ifr.ifr_name, device, sizeof(ifr.ifr_name));
   if (ioctl(sd, SIOCGIFINDEX, &ifr) == -1) {
-    fprintf(stderr, "ioctl SIOCGIFINDEX: %d: %s",errno, strerror(errno));
     return -1;
   }
 
