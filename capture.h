@@ -141,12 +141,6 @@ struct write_header //Used for marking a packet as read or written in the shared
 };
 typedef struct write_header  write_head;
 
-union semun {
-    int val;                        /* used for SETVAL only */
-    struct semid_ds *buf;           /* for IPC_STAT and IPC_SET */
-    ushort *array;                  /* used for GETALL and SETALL */
-};
-
 struct captureProcess {
   int sd;                           /* Socket to listen to */
   char* nic;                        /* String with nic identifier */

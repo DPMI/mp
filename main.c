@@ -60,7 +60,6 @@ short int iflag=0;  // number of capture interfaces
 short int tdflag=0; // Number of T_delta definitions.
 pid_t allC;
 sem_t semaphore;
-union semun arg;
 
 int dagfd[CI_NIC];
 void* dagbuf[CI_NIC];
