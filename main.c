@@ -65,13 +65,14 @@ sem_t semaphore;
 int dagfd[CI_NIC];
 void* dagbuf[CI_NIC];
 
-static int verbose = 0;     /* verbose output */
+static int verbose_flag = 0;     /* verbose output */
 static int local = 0;       /* run in local-mode, don't try to contact MArCd */
 static int destination = 0; /* If set to 0, it will store data locally. If 1 it will send to a TCPserver (MA) 0 requires mpid and comment, 1 requires IP optional port. */
 static int bufsize = 1000;
 static int capsize = 90;
 static int port = 0;
 static const char* capfile = NULL;
+static FILE* verbose = NULL; /* stdout if verbose is enabled, /dev/null otherwise */
 
 static pthread_t child[CI_NIC];           // array of capture threads
 static pthread_t senderPID;               // thread id for the sender thread
@@ -103,13 +104,26 @@ struct config_option {
   };
 };
 
+/* really worstcase implementation of clamp =) */
+static int clamp(int v, int min, int max){
+  if ( v < min ){
+    return min;
+  }
+  if ( v > max ){
+    return max;
+  }
+  return v;
+}
+
 static void ma_nic(const char* arg) {
   struct ifreq ifr;
   destination=1;
 
   MAnic = strdup(arg);
   strncpy(ifr.ifr_name, MAnic, IFNAMSIZ);
-  printf("MAnic =  %s\n",MAnic);
+  if ( verbose_flag ){
+    printf("MAnic =  %s\n",MAnic);
+  }
 
   int s = socket(AF_PACKET, SOCK_RAW, htons(MYPROTO));
 
@@ -117,35 +131,39 @@ static void ma_nic(const char* arg) {
     perror("SIOCGIFINDEX");
     exit(1);
   }
-  printf("MA interface index = %d\t", ifr.ifr_ifindex);
+  if ( verbose_flag ){
+    printf("MA interface index = %d\t", ifr.ifr_ifindex);
+  }
 
   /*Get my MAC */
   if(ioctl(s,SIOCGIFHWADDR,&ifr) == -1) {
     perror("SIOCGIFHWADDR");
     exit(1);
   }
-  printf("MAC ADDRESS: ");
   memcpy(my_mac, ifr.ifr_hwaddr.sa_data, ETH_ALEN);
-  printf("ifAdd = %02X:%02X:%02X:%02X:%02X:%02X\n",
-	 my_mac[0],my_mac[1],my_mac[2],my_mac[3],my_mac[4],my_mac[5]);
+
+  if ( verbose_flag ){
+    printf("MAC ADDRESS: ");
+    printf("ifAdd = %02X:%02X:%02X:%02X:%02X:%02X\n",
+	   my_mac[0],my_mac[1],my_mac[2],my_mac[3],my_mac[4],my_mac[5]);
+  }
   
   /*Get my MTU */
   if(ioctl(s,SIOCGIFMTU,&ifr) == -1) {
     perror("SIOCGIFMTU");
     exit(1);
   }
-  printf("MAC Interface MTU: %d \n",ifr.ifr_mtu);
   MAmtu=ifr.ifr_mtu; // Store the MA network MTU. 
+  
+  if ( verbose_flag ){
+    printf("MAC Interface MTU: %d \n",ifr.ifr_mtu);
+  }
 
-  maSendsize=(ifr.ifr_mtu-sizeof(struct sendhead))/(sizeof(cap_head)+PKT_CAPSIZE);
-  printf("maSendsize:%d \n",maSendsize);
-  if(maSendsize<minSENDSIZE){
-    maSendsize=minSENDSIZE;
+  const int sendsize = (ifr.ifr_mtu-sizeof(struct sendhead))/(sizeof(cap_head)+PKT_CAPSIZE);
+  maSendsize = clamp(sendsize, minSENDSIZE, maxSENDSIZE);
+  if ( verbose_flag ){
+    printf("maSendsize: %d (unclamped: %d)\n",maSendsize, sendsize);
   }
-  if(maSendsize>maxSENDSIZE){
-    maSendsize=maxSENDSIZE;
-  }
-  printf("maSendsize:%d \n",maSendsize);
 
   close(s);
 }
@@ -163,7 +181,7 @@ static void set_ci(const char* arg) {
   iflag++;
   strncpy(nic[iflag-1], arg, 10);
   
-  if ( verbose ){
+  if ( verbose_flag ){
     printf("Setting CI(%d) = %s (%zd)\n", iflag-1, nic[iflag-1], strlen(nic[iflag-1]));
   }
 }
@@ -172,7 +190,7 @@ static void set_td(const char* arg) {
   tdflag++;
   tsAcc[tdflag-1]=atoi(arg);
 
-  if ( verbose ){
+  if ( verbose_flag ){
     printf("Setting T_delta(%d) = %d.\n", iflag-1, atoi(arg));
   }
 }
@@ -260,8 +278,8 @@ static int parse_argv(int argc, char** argv){
     {"help", 0, NULL, 'h'},
     {"port", 1, NULL, 'p'},
     {"capfile", 1, NULL, 'c'},
-    {"verbose", 0, &verbose, 1},
-    {"quiet", 0, &verbose, 0},
+    {"verbose", 0, &verbose_flag, 1},
+    {"quiet", 0, &verbose_flag, 0},
     {0, 0, 0, 0}
   };
   
@@ -302,7 +320,7 @@ static int parse_argv(int argc, char** argv){
       printf("(C) 2011 david.sveningsson@bth.se\n"),
       printf("Usage: %s [OPTION]... -i INTERFACE... -s INTERFACE\n", argv[0]);
       printf(" -h, --help                  help (this text)\n");
-      printf(" -s, --manic=INTERFACE       MA Interface.\n");
+      printf(" -s, --manic=INTERFACE       MA Interface. (REQUIRED)\n");
       printf(" -p, --port=PORT             Control interface listen port (default 1500)\n");
       printf(" -i, --interface=INTERFACE   Capture Interface (REQUIRED)\n");
       printf("     --local                 LOCAL MODE, do not talk to MArC, capture\n"
@@ -348,7 +366,7 @@ static int init_consumers(){
     MAsd[i].sendcount=0;                        // Initialize the number of pkt stored in the packet, used to determine when to send the packet.
   }
 
-  printf("Consumer Sockets are initialized, i.e. set to zero.\n");
+  fprintf(verbose, "Consumer Sockets are initialized, i.e. set to zero.\n");
 
   return 0;
 }
@@ -370,7 +388,7 @@ static int setup_sender(send_proc_t* proc, sem_t* sem){
 // Create childprocess for each Nic
 static int setup_capture(){
   int ret = 0;
-  printf("Creating capture_threads.\n");
+  fprintf(verbose, "Creating capture_threads.\n");
 
   for (int i=0; i < iflag; i++) {
     const char* current = nic[i];
@@ -386,11 +404,11 @@ static int setup_capture(){
     
     if ( strncmp("pcap", current, 4) == 0 ){
       memmove(nic[i], &current[4], strlen(&current[4])+1); /* plus terminating */
-      printf("\tpcap for %s.\n", current);
+      fprintf(verbose, "\tpcap for %s.\n", current);
       ourCaptures[i].sd = sd[i];
       func = pcap_capture;
     } else { // Default is RAW_SOCKET.
-      printf("\tRAW for %s.\n", current);
+      fprintf(verbose, "\tRAW for %s.\n", current);
        // DAG doesn't use sockets
       func = capture;
     }
@@ -444,7 +462,6 @@ int main (int argc, char **argv)
   /*Get my PID*/
   mainPID=pthread_self(); // This is the PID for the main thread.
 
-
   FILE *infile;
   int cfgfile=0;
   if ( (infile=fopen("mp.conf","rt"))==NULL){
@@ -469,7 +486,13 @@ int main (int argc, char **argv)
   if ( parse_argv(argc, argv) != 0 ){
     perror("parse_argv");
     exit(1);
-  } 
+  }
+
+  /* setup vfp to stdout or /dev/null depending on verbose flag */
+  verbose = stdout;
+  if ( !verbose_flag ){
+    verbose = fopen("/dev/null", "w");
+  }
   
   printf("Capture Interfaces \n");
   for (i=0; i < iflag; i++) {
@@ -482,6 +505,14 @@ int main (int argc, char **argv)
       exit(1);
     }
   }
+
+  if ( !MAnic ){
+    fprintf(stderr, "No MA interface specifed!\n");
+    exit(1);
+  }
+
+  printf("MA Interface\n");
+  printf("  MAnic=%s\n", MAnic);
   
 /*
   tid1.tv_sec=60;
@@ -513,13 +544,13 @@ int main (int argc, char **argv)
   //Bind Socket to Interfaces
   for (i=0;i<iflag;i++) {
     if (strncmp("dag", nic[i], 3)==0) {
-      _DEBUG_MSG (fprintf(stderr,"No need to bind dag to socket.\n"))
+      fprintf(verbose, "No need to bind dag to socket.\n");
     } else if (strncmp("pcap",nic[i], 4)==0) {
-      _DEBUG_MSG (fprintf(stderr,"No need to bind pcap to socket.\n"))
+      fprintf(verbose, "No need to bind pcap to socket.\n");
     } else {
-      int ifindex;
+      fprintf(verbose, "Bind PF_PACKET to raw_socket.\n");
 
-      _DEBUG_MSG (fprintf(stderr,"Bind PF_PACKET to raw_socket.\n"))
+      int ifindex;
       sd[i]=socket(PF_PACKET,SOCK_RAW,htons(ETH_P_ALL));
       ifindex=iface_get_id(sd[i], nic[i]);
       iface_bind(sd[i], ifindex);
