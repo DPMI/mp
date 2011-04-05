@@ -148,14 +148,6 @@ int sd[CI_NIC];                      // array of sockets
 capProcess cp[CI_NIC];               // array of information to capture threads
 capProcess ourCaptures[CI_NIC];
 
-
-struct senderProcess{
-  int nics;                         /* How many nics/capture processes will be present*/
-  char *nic;                        /* The names of these */
-  sem_t* semaphore;                    /* Semaphore */
-};
-typedef struct senderProcess  sendProcess;
-
 struct saverProcess{
   int nics;                         /* How many nics/capture processes will be present*/
   char *nic;                        /* The names of these */

@@ -20,6 +20,7 @@
   are appended together into tcp packets and sent to the tcpserver software.
  ***************************************************************************/ 
 #include "capture.h"
+#include "sender.h"
 #include <errno.h>
 #include <string.h>
 
@@ -95,11 +96,10 @@ void send_packet(struct consumer* con){
 }
 
 void* sender(void *ptr){
-    sendProcess* mySend;
-    int nics;                          //number of capture nics
-    //    cap_head *head;                    // pointer cap_head
-    //    write_head *whead;                 // pointer write_head
-    //void *outbuffer;                   // pointer to packet to send
+    send_proc_t* proc = (send_proc_t*)ptr;      // Extract the parameters that we got from our master, i.e. parent process..
+    const int nics = proc->nics;             // The number of CIs I need to handle. 
+    sem_t* semaphore = proc->semaphore;   // Semaphore stuff.
+
     int readPos[CI_NIC];               // array of memory positions
     int i;                           // index to active memory area
     unsigned char dest_mac[6] = {0x01, 0x00, 0x00, 0x00, 0x00, 0x00};
@@ -130,9 +130,7 @@ void* sender(void *ptr){
       MAsd[i].sendcount=0;                        // Initialize the number of pkt stored in the packet, used to determine when to send the packet.
     }
     printf("ST: eof dirty works.\n");
-    mySend = (sendProcess*)ptr;      // Extract the parameters that we got from our master, i.e. parent process..
-    nics = mySend->nics;             // The number of CIs I need to handle. 
-    sem_t* semaphore = mySend->semaphore;   // Semaphore stuff.
+
     sentPkts = 0;                    // Total number of mp_packets that I've passed into a sendbuffer. 
     writtenPkts = 0;                 // Total number of mp_packets that I've acctually sent to the network. Ie. sentPkts-writtenPkts => number of packets present in the send buffers. 
     printf("Sender Initializing. There are %d captures.\n", nics);

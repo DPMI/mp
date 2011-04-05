@@ -30,10 +30,12 @@
 #include "config.h"
 #endif /* HAVE_CONFIG_H */
 
+#include "capture.h"
+#include "sender.h"
+
 #include <string.h>
 #include <errno.h>
 
-#include "capture.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <getopt.h>
@@ -303,6 +305,20 @@ static int parse_argv(int argc, char** argv){
   return 0;
 }
 
+static int setup_sender(send_proc_t* proc, sem_t* sem){
+  int ret;
+
+  proc->nics = iflag;
+  proc->nic = *nic;
+  proc->semaphore = sem;
+  
+  if ( (ret=pthread_create(&senderPID, NULL, sender, proc)) != 0 ){
+    return ret;
+  }
+
+  return 0;
+}
+
 // Create childprocess for each Nic
 static int setup_capture(){
   int ret = 0;
@@ -344,7 +360,7 @@ int main (int argc, char **argv)
 {
   int i, ret = 0;
   //saveProcess mySave;
-  sendProcess mySend;
+  send_proc_t sender;
 
   globalDropcount=0;
   memDropcount=0;
@@ -465,21 +481,11 @@ int main (int argc, char **argv)
     }
   }
   
-  // Create childprocess for the Sender/Saver
-  mySend.nics=iflag;
-  mySend.nic=*nic;
-  mySend.semaphore=&semaphore;
-  
-  //mySave.nics=iflag;
-  //mySave.nic=*nic;
-  //mySave.semaphore=semaphore;
-  
-  if(destination==1) {  
-    if ( pthread_create( &senderPID, NULL, sender, &mySend) ){
-      printf("error creating thread.");
-      abort();
-    }
+  if ( destination == 1 && (ret=setup_sender(&sender, &semaphore)) != 0 ){
+    fprintf(stderr, "setup_sender() returned %d: %s\n", ret, strerror(ret));
+    return 1;
   }
+  // Create childprocess for the Sender/Saver
 
   if ( (ret=setup_capture()) != 0 ){
     fprintf(stderr, "setup_capture() returned %d: %s\n", ret, strerror(ret));
