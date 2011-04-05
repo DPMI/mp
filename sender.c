@@ -102,34 +102,9 @@ void* sender(void *ptr){
 
     int readPos[CI_NIC];               // array of memory positions
     int i;                           // index to active memory area
-    unsigned char dest_mac[6] = {0x01, 0x00, 0x00, 0x00, 0x00, 0x00};
+
     int exitnr=0;                      // flag for exit
     int nextPDUlen=0;                  // The length of PDUs stored in the selected consumer.
-
-    printf("ST: Initializing sendpointers. \n");
-    printf("Version : %s .\n", CAPUTILS_VERSION);
-    for(i=0;i<CONSUMERS;i++){
-      MAsd[i].status=0;
-      MAsd[i].dropCount=0;
-      MAsd[i].ethhead=(struct ethhdr*)sendmem[i]; // pointer to ethernet header.
-
-      memcpy(MAsd[i].ethhead->h_dest, dest_mac, ETH_ALEN);
-      memcpy(MAsd[i].ethhead->h_source, my_mac, ETH_ALEN);
-
-      MAsd[i].ethhead->h_proto=htons(MYPROTO);    // Set the protocol field of the ethernet header.
-      MAsd[i].ethhead->h_dest[5]=i;               // Adjust the mutlicast address last byte to become [i].. Dirty but works... 
-      MAsd[i].shead=(struct sendhead*)(sendmem[i]+sizeof(struct ethhdr)); // Set pointer to the sendhead, i.e. mp transmission protocol 
-      MAsd[i].shead->sequencenr=htons(0x0000);    // Initialize the sequencenr to zero.
-      MAsd[i].shead->nopkts=htons(0);                    // Initialize the number of packet to zero
-      MAsd[i].shead->flush=htons(0);                     // Initialize the flush indicator.
-      MAsd[i].shead->version.major=htons(CAPUTILS_VERSION_MAJOR); // Specify the file format used, major number
-      MAsd[i].shead->version.minor=htons(CAPUTILS_VERSION_MINOR); // Specify the file format used, minor number
-      /*shead[i]->losscounter=htons(0); */
-      MAsd[i].sendpointer=sendmem[i]+sizeof(struct ethhdr)+sizeof(struct sendhead);            // Set sendpointer to first place in sendmem where the packets will be stored.
-      MAsd[i].sendptrref=MAsd[i].sendpointer;          // Grab a copy of the pointer, simplifies treatment when we sent the packets.
-      MAsd[i].sendcount=0;                        // Initialize the number of pkt stored in the packet, used to determine when to send the packet.
-    }
-    printf("ST: eof dirty works.\n");
 
     sentPkts = 0;                    // Total number of mp_packets that I've passed into a sendbuffer. 
     writtenPkts = 0;                 // Total number of mp_packets that I've acctually sent to the network. Ie. sentPkts-writtenPkts => number of packets present in the send buffers. 
