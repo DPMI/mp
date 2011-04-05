@@ -66,7 +66,7 @@ void* dagbuf[CI_NIC];
 
 static int encrypt = 0;
 static int local = 0;       /* run in local-mode, don't try to contact MArCd */
-static int destination = 0;
+static int destination = 0; /* If set to 0, it will store data locally. If 1 it will send to a TCPserver (MA) 0 requires mpid and comment, 1 requires IP optional port. */
 static int bufsize = 1000;
 static int capsize = 90;
 
@@ -242,8 +242,6 @@ int main (int argc, char **argv)
   //saveProcess mySave;
   sendProcess mySend;
 
-  int destination;              // 0 locally to file, 1 to MA. Default 0.
-
   globalDropcount=0;
   memDropcount=0;
 
@@ -255,10 +253,6 @@ int main (int argc, char **argv)
     fprintf(stderr, "%s: sem_init() returned %d: %s\n", argv[0], saved, strerror(saved));
     exit(1);
   }
-
-  // If set to 0, it will store data locally. If 1 it will send to a TCPserver (MA)
-  // 0 requires mpid and comment, 1 requires IP optional port.
-  destination=0;
 
   // Configure rules.
   noRules=0;
@@ -417,7 +411,6 @@ int main (int argc, char **argv)
   //mySave.nics=iflag;
   //mySave.nic=*nic;
   //mySave.semaphore=semaphore;
-  
   
   if(destination==1) {  
     if ( pthread_create( &senderPID, NULL, sender, &mySend) ){

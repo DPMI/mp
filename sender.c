@@ -37,7 +37,7 @@ int wait_for_capture(sem_t* sem){
   }
 
   ts.tv_sec += SEMAPHORE_TIMEOUT_SEC;
-    
+  
   if ( sem_timedwait(sem, &ts) != 0 ){
     int saved = errno;
     switch ( saved ){
@@ -51,6 +51,47 @@ int wait_for_capture(sem_t* sem){
   }
   
   return 0;
+}
+
+void send_packet(struct consumer* con){
+  const size_t header_size = sizeof(struct ethhdr) + sizeof(struct sendhead);
+  const size_t payload_size = con->sendpointer - con->sendptrref;
+  const size_t packet_full_size = header_size + payload_size; /* includes ethernet, sendheader and payload */
+
+  con->shead->nopkts = htons(con->sendcount); //maSendsize;
+  /*con->shead->losscounter=htons((globalDropcount+memDropcount)-dropCount[whead->consumer]); */
+  con->dropCount = globalDropcount+memDropcount;
+
+  {
+    const u_char* data = con->sendptrref;
+    size_t data_size = payload_size;
+    
+    if ( con->want_sendhead ){
+      data -= header_size;
+      data_size += header_size;
+    }
+    
+    con->stream->write(con->stream, data, data_size);
+  }
+
+  uint32_t seqnr = ntohl(con->shead->sequencenr);
+
+  printf("SendThread %d sending: size: %zd\n", (int)pthread_self(), payload_size);
+  printf("\tcaputils-%d.%d\n", ntohs(con->shead->version.major), ntohs(con->shead->version.minor));
+  printf("\tdropCount[] = %d (g%d/m%d)\n", con->dropCount, globalDropcount, memDropcount);
+  printf("\tPacket length = %ld bytes, Eth %ld, Send %ld, Cap %ld bytes\n", packet_full_size, sizeof(struct ethhdr), sizeof(struct sendhead), sizeof(struct cap_header));
+  printf("\tSeqnr  = %04lx \t nopkts = %04x \t Losscount = %d\n", (unsigned long int)seqnr, ntohs(con->shead->nopkts), -1);
+  
+  //Update the sequence number.
+  con->shead->sequencenr = htonl(ntohl(con->shead->sequencenr)+1);
+  if ( ntohl(con->shead->sequencenr) > 0xFFFF ){
+    con->shead->sequencenr = htonl(0);
+  }
+  
+  writtenPkts += con->sendcount;// Update the total number of sent pkts. 
+  con->sendcount = 0;// Clear the number of packets in this sendbuffer
+  bzero(con->sendptrref,(maSendsize*(sizeof(cap_head)+PKT_CAPSIZE))); //Clear the memory location, for the packet data. 
+  con->sendpointer=con->sendptrref; // Restore the pointer to the first spot where the next packet will be placed.
 }
 
 void* sender(void *ptr){
@@ -179,50 +220,15 @@ void* sender(void *ptr){
       nextPDUlen = head->caplen;
       sentPkts++;
 
-      const size_t header_size = sizeof(struct ethhdr) + sizeof(struct sendhead);
       const size_t payload_size = con->sendpointer - con->sendptrref;
-      const size_t packet_full_size = header_size + payload_size; /* includes ethernet, sendheader and payload */
       const size_t mtu_size = MAmtu-2*(sizeof(cap_head)+nextPDUlen); // This row accounts for the fact that the consumer buffers only need extra space for one PDU of of the capture size for that particular filter. 
 
       /* still not enough payload, wait for more */
       if( payload_size < mtu_size ){
 	continue;
       }
-      
-      con->shead->nopkts = htons(con->sendcount); //maSendsize;
-      /*con->shead->losscounter=htons((globalDropcount+memDropcount)-dropCount[whead->consumer]); */
-      con->dropCount = globalDropcount+memDropcount;
 
-      {
-	const u_char* data = con->sendptrref;
-	size_t data_size = payload_size;
-
-	if ( con->want_sendhead ){
-	  data -= header_size;
-	  data_size += header_size;
-	}
-
-	con->stream->write(con->stream, data, data_size);
-      }
-
-      uint32_t seqnr = ntohl(con->shead->sequencenr);
-
-      printf("SendThread %d sending: size: %zd > mtu-pdu: %ld\n", (int)pthread_self(), payload_size, mtu_size);
-      printf("\tcaputils-%d.%d\n", con->shead->version.major, con->shead->version.minor);
-      printf("\tdropCount[] = %d (g%d/m%d)\n", con->dropCount, globalDropcount, memDropcount);
-      printf("\tPacket length = %ld bytes, Eth %ld, Send %ld, Cap %ld bytes\n", packet_full_size, sizeof(struct ethhdr), sizeof(struct sendhead), sizeof(struct cap_header));
-      printf("\tSeqnr  = %04lx \t nopkts = %04x \t Losscount = %d\n", (unsigned long int)seqnr, ntohs(con->shead->nopkts), -1);
-
-      //Update the sequence number.
-      con->shead->sequencenr=htonl(ntohl(con->shead->sequencenr)+1);
-      if ( ntohl(con->shead->sequencenr)>0xFFFF ){
-	con->shead->sequencenr=htonl(0);
-      }
-
-      writtenPkts += con->sendcount;// Update the total number of sent pkts. 
-      con->sendcount=0;// Clear the number of packets in this sendbuffer
-      bzero(con->sendptrref,(maSendsize*(sizeof(cap_head)+PKT_CAPSIZE))); //Clear the memory location, for the packet data. 
-      con->sendpointer=con->sendptrref; // Restore the pointer to the first spot where the next packet will be placed.
+      send_packet(con);
 
       if( terminateThreads > 0 ){ // program is ending and all packets are sent
 	exitnr=1;
