@@ -47,13 +47,13 @@ struct packet_stat{              // struct for interface statistics
   u_int	pkg_drop;
 };
 
-void setpromisc(int sd, char* device); // function for setting interfaces to listen on all traffic
-int packet_stats(int sd, struct packet_stat *stat); // function for collecting statistics
-//int tcp_connect(const char *host, int port); // function for connectiong to tcpserver
-//int udp_connect(const char *host, int port); // function for connectiong to tcpserver
-//int ethernet_connect(int index); // function for connectiong to tcpserver
+static void cleanup(int sig); // Runs when program terminates
+static void setpromisc(int sd, char* device); // function for setting interfaces to listen on all traffic
+static int packet_stats(int sd, struct packet_stat *stat); // function for collecting statistics
+static int iface_get_id(int fd, const char *device, char *ebuf); //comments in code
+static int iface_bind(int fd, int ifindex, char *ebuf); //comments in code
 
-void info(int sd);// function for presentating statistics
+static void info(int sd);// function for presentating statistics
 char ebuf[ERRBUF_SIZE]; // buffer for output of error messages
 
 short int iflag=0;  // number of capture interfaces
@@ -97,7 +97,7 @@ struct config_option {
   };
 };
 
-void ma_nic(const char* arg) {
+static void ma_nic(const char* arg) {
   struct ifreq ifr;
   destination=1;
 
@@ -145,17 +145,17 @@ void ma_nic(const char* arg) {
   close(s);
 }
 
-void ma_ip(const char* arg) {
+static void ma_ip(const char* arg) {
   MAIPaddr = strdup(arg);
 }
 
-void set_ci(const char* arg) {
+static void set_ci(const char* arg) {
   iflag++;
   strncpy(nic[iflag-1], arg, 10);
   printf("Setting CI(%d) = %s (%zd)\n", iflag-1, nic[iflag-1], strlen(nic[iflag-1]));
 }
 
-void set_td(const char* arg) {
+static void set_td(const char* arg) {
   tdflag++;
   tsAcc[tdflag-1]=atoi(arg);
   printf("Setting T_delta(%d) = %d.\n", iflag-1, atoi(arg));
@@ -172,7 +172,7 @@ static struct config_option myOptions[]={
   {"LOCAL",   0, OPTION_STORE_TRUE, {.ptr=&local}},
 };
 
-int parse_config(const char* filename){
+static int parse_config(const char* filename){
   static char line[256];
   static const int noOptions=sizeof(myOptions)/sizeof(struct config_option);
   int linenum = 0;
@@ -235,7 +235,7 @@ int parse_config(const char* filename){
   return 0;
 }
 
-int parse_argv(int argc, char** argv){
+static int parse_argv(int argc, char** argv){
   static struct option long_options[]= {
     {"local", 0, &local, 1},
     {"accuracy", 1, NULL, 'd'},
@@ -302,7 +302,7 @@ int parse_argv(int argc, char** argv){
 }
 
 // Create childprocess for each Nic
-int setup_capture(){
+static int setup_capture(){
   int ret = 0;
   printf("Creating capture_threads.\n");
 
@@ -549,7 +549,7 @@ int main (int argc, char **argv)
   return 0;
 } // Main end
 
-void cleanup(int sig) {
+static void cleanup(int sig) {
   /*  starts when program closes*/
   // activated by SIGTERM, SIGINT, SIGALRM
   pthread_t self=pthread_self();
@@ -569,7 +569,7 @@ void cleanup(int sig) {
 }
 
 //Function presenting dropped packets
-void info(int sd)
+static void info(int sd)
 {
   struct packet_stat stat;
 
@@ -585,7 +585,7 @@ void info(int sd)
 
 
 //Sets Nic to promisc mode
-void setpromisc(int sd, char* device)
+static void setpromisc(int sd, char* device)
 {
   struct ifreq	ifr;
   memset(&ifr, 0, sizeof(ifr));
@@ -613,7 +613,7 @@ void setpromisc(int sd, char* device)
 }
 
 //Get the right id for nic (ethX->interface index) Used for bind
-int iface_get_id(int sd, const char *device, char *ebuf)
+static int iface_get_id(int sd, const char *device, char *ebuf)
 {
   struct ifreq	ifr;
   memset(&ifr, 0, sizeof(ifr));
@@ -627,7 +627,7 @@ int iface_get_id(int sd, const char *device, char *ebuf)
 }
 
 //Bind socket to Interface
-int iface_bind(int fd, int ifindex, char *ebuf)
+static int iface_bind(int fd, int ifindex, char *ebuf)
 {
   struct sockaddr_ll	sll;
   memset(&sll, 0, sizeof(sll));

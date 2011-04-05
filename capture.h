@@ -260,9 +260,6 @@ void* sender(void*); // send thread
 void* saver(void*); // send thread
 void* control(void*); // Control thread
 
-int iface_get_id(int fd, const char *device, char *ebuf); //comments in code
-int iface_bind(int fd, int ifindex, char *ebuf); //comments in code
-void cleanup(int sig); // Runs when program terminates
 void CIstatus(int sig); // Runs when ever a ALRM signal is received.
 int filter(char* nic,void *pkt, struct cap_header*); //filtering routine
 int inet_atoP(char *dest,char *org); // Convert ASCII rep. of ethernet to normal rep.
