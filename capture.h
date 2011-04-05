@@ -140,8 +140,16 @@ typedef struct write_header  write_head;
 
 /* typedef struct captureProcess capProcess; */
 
+enum CIDriver {
+  DRIVER_UNKNOWN,
+  DRIVER_RAW,
+  DRIVER_PCAP,
+  DRIVER_DAG,
+};
+
 struct CI {
   int id;
+  enum CIDriver driver;
   int sd;
   u_char* datamem;
   sem_t* semaphore;

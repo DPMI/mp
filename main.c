@@ -400,6 +400,7 @@ static int setup_sender(send_proc_t* proc, sem_t* sem){
 static int init_capture(){
   for (int i=0; i < CI_NIC; i++) {
     CI[i].id = i;
+    CI[i].driver = DRIVER_UNKNOWN,
     CI[i].sd = -1;
     CI[i].datamem = NULL;
     CI[i].semaphore = NULL;
@@ -415,19 +416,50 @@ static int init_capture(){
 // Create childprocess for each Nic
 static int setup_capture(){
   int ret = 0;
+  int ifindex;
+  void* (*func)(void*) = NULL;
   fprintf(verbose, "Creating capture_threads.\n");
 
   for (int i=0; i < iflag; i++) {
     CI[i].semaphore = &semaphore;
-    void* (*func)(void*) = NULL;
-    
+    func = NULL;
+
     if ( strncmp("pcap", CI[i].nic, 4) == 0 ){
-      memmove(CI[i].nic, &CI[i].nic[4], strlen(&CI[i].nic[4])+1); /* plus terminating */
+      CI[i].driver = DRIVER_PCAP;
+    } else if (strncmp("dag", CI[i].nic, 3)==0) {
+      CI[i].driver = DRIVER_DAG;
+    } else {
+      CI[i].driver = DRIVER_RAW;
+    }
+      
+    switch ( CI[i].driver ){
+    case DRIVER_PCAP:
       fprintf(verbose, "\tpcap for %s.\n", CI[i].nic);
+
+      memmove(CI[i].nic, &CI[i].nic[4], strlen(&CI[i].nic[4])+1); /* plus terminating */
+
       func = pcap_capture;
-    } else { // Default is RAW_SOCKET.
+      break;
+
+    case DRIVER_RAW:
       fprintf(verbose, "\tRAW for %s.\n", CI[i].nic);
+
+      CI[i].sd = socket(PF_PACKET,SOCK_RAW,htons(ETH_P_ALL));
+      ifindex=iface_get_id(CI[i].sd, CI[i].nic);
+      iface_bind(CI[i].sd, ifindex);
+      setpromisc(CI[i].sd, CI[i].nic);
+
       func = capture;
+      break;
+
+    case DRIVER_DAG:
+      fprintf(verbose, "\tDAG for %s.\n", CI[i].nic);
+
+      break;
+
+    case DRIVER_UNKNOWN:
+      abort(); /* cannot happen, defaults to RAW */
+      break;
     }
 
     if ( (ret=pthread_create( &child[i], NULL, func, &CI[i])) != 0 ) {
@@ -559,22 +591,6 @@ int main (int argc, char **argv)
   // Thats a later story.
   // Create child process for configuration, OR let the config be running separately and use SHM.
   
-  //Bind Socket to Interfaces
-  for (i=0;i<iflag;i++) {
-    if (strncmp("dag", CI[i].nic, 3)==0) {
-      fprintf(verbose, "No need to bind dag to socket.\n");
-    } else if (strncmp("pcap", CI[i].nic, 4)==0) {
-      fprintf(verbose, "No need to bind pcap to socket.\n");
-    } else {
-      fprintf(verbose, "Bind PF_PACKET to raw_socket.\n");
-
-      int ifindex;
-      CI[i].sd = socket(PF_PACKET,SOCK_RAW,htons(ETH_P_ALL));
-      ifindex=iface_get_id(CI[i].sd, CI[i].nic);
-      iface_bind(CI[i].sd, ifindex);
-      setpromisc(CI[i].sd, CI[i].nic);
-    }
-  }
   
   if ( destination == 1 && (ret=setup_sender(&sender, &semaphore)) != 0 ){
     fprintf(stderr, "setup_sender() returned %d: %s\n", ret, strerror(ret));
