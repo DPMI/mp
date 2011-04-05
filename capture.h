@@ -104,7 +104,6 @@ unsigned char my_mac[6];            // The interface mac for MA communications.
 char* MAnic;                        // string containing interface that connects to MAc
 int MAmtu;                          // MTU of the MA interface.
 int noCI;                           // Number of Capture Interfaces
-int bufferUsage[CI_NIC];            // How many bytes of the buffer is used?
 int ENCRYPT;                        // If set to >0 then it will encrypt IP addresses...?
 char *MAIPaddr;                     // If set, this is the IP that should be used when talking on the MAnet.
 int bcastS;                         // Socket used to communicate with MArNetwork.
@@ -118,7 +117,7 @@ char *MAMPid;                      // String identifying the MySQL identity.
 
 int globalDropcount;               // Total amount of PDUs that were dropped by Interface.
 int memDropcount;                  // Total amount of PDUs that were dropped between CI and Sender.
-
+extern FILE* verbose;
 
 /* struct CI_stat CIstat[CI_NIC];                    // Statistics for capture interfaces. */
 
@@ -129,24 +128,30 @@ struct write_header //Used for marking a packet as read or written in the shared
 };
 typedef struct write_header  write_head;
 
-struct captureProcess {
-  int sd;                           /* Socket to listen to */
-  char* nic;                        /* String with nic identifier */
-  u_char* datamem;                  /* Pointer to my memory */
-  sem_t* semaphore;                    /* Semaphore Id. */
-  int id;                           /* Capture ID */
-  long pktCnt;                      /* How many packets have been read */
-  uint8_t accuracy;                  /* Accuracy of interface, read from config file. */
+/* struct captureProcess { */
+/*   int sd;                           /\* Socket to listen to *\/ */
+/*   char* nic;                        /\* String with nic identifier *\/ */
+/*   u_char* datamem;                  /\* Pointer to my memory *\/ */
+/*   sem_t* semaphore;                    /\* Semaphore Id. *\/ */
+/*   int id;                           /\* Capture ID *\/ */
+/*   long pktCnt;                      /\* How many packets have been read *\/ */
+/*   uint8_t accuracy;                   */
+/* }; */
 
+/* typedef struct captureProcess capProcess; */
+
+struct CI {
+  int id;
+  int sd;
+  u_char* datamem;
+  sem_t* semaphore;
+  long pktCnt;
+  int bufferUsage;    /* How many bytes of the buffer is used? */
+  char nic[10];       /* interface */
+  uint8_t accuracy;   /* Accuracy of interface, read from config file. */
 };
-typedef struct captureProcess capProcess;
 
-
-char nic[CI_NIC][10];                // array of nic names
-int tsAcc[CI_NIC];                   // array of timestamp accuracy to the ass. nics.
-int sd[CI_NIC];                      // array of sockets
-capProcess cp[CI_NIC];               // array of information to capture threads
-capProcess ourCaptures[CI_NIC];
+extern struct CI* _CI; /* DO _*NOT*_ USE! For backwards compability ONLY! */
 
 struct saverProcess{
   int nics;                         /* How many nics/capture processes will be present*/

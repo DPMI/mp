@@ -77,11 +77,11 @@ void send_packet(struct consumer* con){
 
   uint32_t seqnr = ntohl(con->shead->sequencenr);
 
-  printf("SendThread %d sending: size: %zd\n", (int)pthread_self(), payload_size);
-  printf("\tcaputils-%d.%d\n", ntohs(con->shead->version.major), ntohs(con->shead->version.minor));
-  printf("\tdropCount[] = %d (g%d/m%d)\n", con->dropCount, globalDropcount, memDropcount);
-  printf("\tPacket length = %ld bytes, Eth %ld, Send %ld, Cap %ld bytes\n", packet_full_size, sizeof(struct ethhdr), sizeof(struct sendhead), sizeof(struct cap_header));
-  printf("\tSeqnr  = %04lx \t nopkts = %04x \t Losscount = %d\n", (unsigned long int)seqnr, ntohs(con->shead->nopkts), -1);
+  fprintf(stdout,  "SendThread %p sending %zd bytes\n", pthread_self(), payload_size);
+  fprintf(verbose, "\tcaputils-%d.%d\n", ntohs(con->shead->version.major), ntohs(con->shead->version.minor));
+  fprintf(verbose, "\tdropCount[] = %d (g%d/m%d)\n", con->dropCount, globalDropcount, memDropcount);
+  fprintf(verbose, "\tPacket length = %ld bytes, Eth %ld, Send %ld, Cap %ld bytes\n", packet_full_size, sizeof(struct ethhdr), sizeof(struct sendhead), sizeof(struct cap_header));
+  fprintf(verbose, "\tSeqnr  = %04lx \t nopkts = %04x \t Losscount = %d\n", (unsigned long int)seqnr, ntohs(con->shead->nopkts), -1);
   
   //Update the sequence number.
   con->shead->sequencenr = htonl(ntohl(con->shead->sequencenr)+1);
@@ -173,10 +173,10 @@ void* sender(void *ptr){
       if(readPos[oldest]>=PKT_BUFFER){
 	readPos[oldest]=0;//when all posts in datamem is read begin from 0 again
       }
-      bufferUsage[oldest]--;
+      _CI[oldest].bufferUsage--;
       //	printf("ST: bufferUsage[%d]=%d\n", oldest,bufferUsage[oldest]);
-      if(bufferUsage[oldest]<0){
-	bufferUsage[oldest]=0;
+      if(_CI[oldest].bufferUsage<0){
+	_CI[oldest].bufferUsage=0;
       }
       //      These two rows were used when we used FIXED payload lenghts, PKT_CAPSIZE. 
       //	memcpy(sendpointer[whead->consumer],head,(sizeof(cap_head)+PKT_CAPSIZE)); //copy the packet to the sendbuffer

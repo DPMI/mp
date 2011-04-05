@@ -804,8 +804,9 @@ void* control(void* prt){
     
     
   }
-  _DEBUG_MSG (fprintf(stderr,"Child %ld My work here is done %s.\n", pthread_self(), nic[i]))
-  printf("Leaving Control Thread.\n");
+
+  fprintf(verbose, "Child %ld My work here is done %s.\n", pthread_self(), _CI[i].nic);
+  fprintf(verbose, "Leaving Control Thread.\n");
   return(NULL);
 
 }
@@ -1003,7 +1004,10 @@ void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
     
     sprintf(statusQ,"INSERT INTO %s_CIload SET noFilters='%d', matchedPkts='%d' ", MAMPid, noRules, matchPkts);
     for(i=0;i<noCI;i++){
-      sprintf(statusQ2,", CI%d='%s', PKT%d='%ld', BU%d='%d' ",i,ourCaptures[i].nic,i,ourCaptures[i].pktCnt, i, bufferUsage[i]);
+      sprintf(statusQ2,", CI%d='%s', PKT%d='%ld', BU%d='%d' ",
+	      i, _CI[i].nic,
+	      i, _CI[i].pktCnt,
+	      i, _CI[i].bufferUsage);
       query=strcat(query,ifStats);
     }
     
@@ -1018,7 +1022,10 @@ void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
     
     printf("Status report for %s\n\t%d Filters Present.\n\t%d Packets Matched Filters.\n", MAMPid, noRules,matchPkts);
     for(i=0;i<noCI;i++){
-      printf("\tCI%d=%s  PKT%d=%ld BU%d=%d\n",i,ourCaptures[i].nic,i,ourCaptures[i].pktCnt, i, bufferUsage[i]);
+      printf("\tCI%d=%s  PKT%d=%ld BU%d=%d\n",
+	     i, _CI[i].nic,
+	     i, _CI[i].pktCnt,
+	     i, _CI[i].bufferUsage);
     }
   } else { // Use UDP.
 
@@ -1036,7 +1043,10 @@ void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
     MPstat.matched=ntohl(matchPkts);
     MPstat.noCI=ntohl(noCI);
     for(i=0;i<noCI;i++){
-      sprintf(statusQ2,", CI%d='%s', PKT%d='%ld', BU%d='%d' ",i,ourCaptures[i].nic,i,ourCaptures[i].pktCnt, i, bufferUsage[i]);
+      sprintf(statusQ2,", CI%d='%s', PKT%d='%ld', BU%d='%d' ",
+	      i, _CI[i].nic,
+	      i, _CI[i].pktCnt,
+	      i, _CI[i].bufferUsage);
       query=strcat(query,ifStats);
     }
     sprintf(MPstat.CIstats,"%s",query);
@@ -1049,7 +1059,10 @@ void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
 
     printf("%s Status report for %s\n\t%d Filters Present\n\t%d Capture Interfaces.\n\t%d Packets Matched Filters.\n", chartest, MAMPid, noRules,noCI,matchPkts);
     for(i=0;i<noCI;i++){
-      printf("\tCI%d=%s  PKT%d=%ld BU%d=%d\n",i,ourCaptures[i].nic,i,ourCaptures[i].pktCnt, i, bufferUsage[i]);
+      printf("\tCI%d=%s  PKT%d=%ld BU%d=%d\n",
+	     i, _CI[i].nic,
+	     i, _CI[i].pktCnt,
+	     i, _CI[i].bufferUsage);
     }
     printf("Message was %d bytes long, and it was sent to the MArC.\n", slen);
   }

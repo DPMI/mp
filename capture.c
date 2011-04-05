@@ -49,11 +49,12 @@ struct sockaddr_ll  from;       //source address
 /* This is the RAW_SOCKET capturer..   */ 
 /* Lots of problems, use with caution. */
 void* capture(void* ptr){
-  int sd;                       // the socket
-  char nicString[4];            // The CI identifier
-  char* nic;                    // name of the network interface
-  int id;                       // number of this thread, used for memory access
-  capProcess* cProc=0;          // struct with parameters deliverd from main
+  struct CI* CI = (struct CI*)ptr;
+
+  //int sd;                       // the socket
+  //  char nicString[4];            // The CI identifier
+  //char* nic;                    // name of the network interface
+  //int id;                       // number of this thread, used for memory access
   cap_head *head;               // pointer cap_head
   write_head *whead;            // pointer write_head
   int fromlen;                  // length of from
@@ -62,36 +63,33 @@ void* capture(void* ptr){
   int packet_len=0;             // acctual length of packet
   struct timeval time;          // arrivaltime
   int consumer;                 // consumer identification.
-  cProc=(capProcess*)ptr;
-  int myTD=cProc->accuracy;     // Accuracy of this Capture Thread.
-  sd=cProc->sd;
 
-  nicString[0]=cProc->nic[0];   // [e]th0\0
-  nicString[1]=cProc->nic[3];   // eth[0]\0
-  nicString[2]=0;
-  nicString[3]=0;
-  nic=nicString;
+  //nicString[0]=cProc->nic[0];   // [e]th0\0
+  //nicString[1]=cProc->nic[3];   // eth[0]\0
+  //nicString[2]=0;
+  //nicString[3]=0;
+  //nic=nicString;
 
   printf("CAPt: here.\n");
-  sem_t* semaphore=cProc->semaphore;
-  id=cProc->id;
+  //sem_t* semaphore=cProc->semaphore;
+  //id=cProc->id;
   
-  _DEBUG_MSG (fprintf(stderr,"Capture for %s initializing, Memory at %p.\n",nic, &datamem[id]))
+  fprintf(verbose, "Capture for %s initializing, Memory at %p.\n", CI->nic, &datamem[CI->id]);
 
   struct timeval timeout;
   fd_set fds;
   timeout.tv_sec=5;
   timeout.tv_usec=0;
   FD_ZERO(&fds);
-  FD_SET(sd,&fds);
+  FD_SET(CI->sd, &fds);
   int selectReturn=0;
   
   while(terminateThreads==0)  {
-    _DEBUG_MSG  (fprintf(stderr,"CaptureThread %ld Pkts : %d \n",pthread_self(), recvPkts))
+    fprintf(verbose, "CaptureThread %ld Pkts : %d \n",pthread_self(), recvPkts);
     fromlen = sizeof(from);
     do { // read packet from interface
 
-      while( (selectReturn=select(sd+1,&fds,NULL,NULL, &timeout))<=0 && terminateThreads==0){
+      while( (selectReturn=select(CI->sd+1,&fds,NULL,NULL, &timeout))<=0 && terminateThreads==0){
 	if(terminateThreads!=0){
 	  perror("CAPTURE(RAW):Got a break signal.\n");
 	  break;
@@ -101,39 +99,39 @@ void* capture(void* ptr){
 	  //EXIT SOMEHOW
 	  pthread_exit(NULL);
 	} else if(selectReturn==0){
-	  FD_SET(sd, &fds);
+	  FD_SET(CI->sd, &fds);
 	  timeout.tv_sec=5;
 	  timeout.tv_usec=0;
 	}
       }
 	  
-      packet_len = recvfrom(sd, (&datamem[id][writePos][(sizeof(write_head)+sizeof(cap_head))]),
+      packet_len = recvfrom(CI->sd, (&datamem[CI->id][writePos][(sizeof(write_head)+sizeof(cap_head))]),
 			    buffsize, MSG_TRUNC,(struct sockaddr *) &from, &fromlen);
     }while (packet_len == -1 && errno == EINTR && terminateThreads==0);
     
     if (packet_len == -1)    {
       if (errno == EAGAIN)
-	fprintf(stderr,"CAPTURE_RAW[%s] ERROR Empty\n",nic);
+	fprintf(stderr,"CAPTURE_RAW[%s] ERROR Empty\n", CI->nic);
       else
-        fprintf(stderr,"CAPTURE_RAW[%s] ERROR %d\n",nic,errno);
+        fprintf(stderr,"CAPTURE_RAW[%s] ERROR %d: %s\n", CI->nic, errno, strerror(errno));
     }
     else {
 //This could be a problem if a new packet arrivs before timestamp???
-      ioctl(sd, SIOCGSTAMP, &time );//get time stamp associated with packet (C/O kernel)
+      ioctl(CI->sd, SIOCGSTAMP, &time );//get time stamp associated with packet (C/O kernel)
       recvPkts++;
-      cProc->pktCnt=cProc->pktCnt+1;
+      CI->pktCnt++;
 
 // int filter(void* pkt); 0=> DROP PKT. n, send to recipient n.
-      whead=(write_head*)datamem[id][writePos];
-      head=(cap_head*)&datamem[id][writePos][sizeof(write_head)];
-      consumer=filter(nic,&datamem[id][writePos][(sizeof(write_head)+sizeof(cap_head))],head);
+      whead=(write_head*)datamem[CI->id][writePos];
+      head=(cap_head*)&datamem[CI->id][writePos][sizeof(write_head)];
+      consumer=filter(CI->nic, &datamem[CI->id][writePos][(sizeof(write_head)+sizeof(cap_head))], head);
       if(consumer>=0)
       {
 	matchPkts++;
 //Mutex begin; prevent the reader from operating on the same chunk of memory.
 	pthread_mutex_lock( &mutex2 );
-	whead=(write_head*)datamem[id][writePos];
-	head=(cap_head*)&datamem[id][writePos][sizeof(write_head)];
+	whead=(write_head*)datamem[CI->id][writePos];
+	head=(cap_head*)&datamem[CI->id][writePos][sizeof(write_head)];
 	head->ts.tv_sec=time.tv_sec;  // Store arrival time in seconds
 	head->ts.tv_psec=time.tv_usec;// Write timestamp in picosec
 	head->ts.tv_psec*=1000;
@@ -141,27 +139,27 @@ void* capture(void* ptr){
 	head->len=packet_len; // Store packet lenght in header.
                               // head->caplen will set by the filter, when copying data to sender buffer.
 	/*head->tsAccuracy=myTD;*/
-	strncpy(head->nic,nic,4);
-	strncpy(head->mampid,MAMPid,8);
+	strncpy(head->nic, CI->nic,4);
+	strncpy(head->mampid, MAMPid,8);
 	
 	whead->free=whead->free+1; //marks the post that it has been written
 	whead->consumer=consumer;  //sets the recipient id.
 	
 	if(whead->free>1){ //Control buffer overrun
           fprintf(stderr,"OVERWRITING: %ld @ %d for the %d time \n",pthread_self(),writePos,whead->free);
-	  fprintf(stderr,"CT: bufferUsage[%d]=%d\n", id,bufferUsage[id]);
+	  fprintf(stderr,"CT: bufferUsage[%d]=%d\n", CI->id, CI->bufferUsage);
 	  memDropcount++;
 	}
 	pthread_mutex_unlock( &mutex2 );
 //Mutex end
 	packet_len=0;
 
-	if ( sem_post(semaphore) != 0 ){
+	if ( sem_post(CI->semaphore) != 0 ){
 	  fprintf(stderr, "sem_post() returned %d: %s\n", errno, strerror(errno));
 	}
 
 	writePos++;
-	bufferUsage[id]++;
+	CI->bufferUsage++;
         if(writePos<PKT_BUFFER){
         } else {
 	  writePos=0; //when all posts in datamem is written begin from 0 again
@@ -171,7 +169,7 @@ void* capture(void* ptr){
     }
   }
   // comes here when terminateThreads = 1
-  _DEBUG_MSG (fprintf(stderr,"Child %ld My work here is done %s.\n", pthread_self(),nic))
+  fprintf(verbose, "Child %ld My work here is done %s.\n", pthread_self(), CI->nic);
   return(NULL) ;
 }
 
@@ -180,23 +178,25 @@ void* capture(void* ptr){
 /* This is the PCAP_SOCKET capturer..   */ 
 /* Lots of problems, use with caution. */
 void* pcap_capture(void* ptr){
+  struct CI* CI = (struct CI*)ptr;
+
 //  char nicString[4];            // The CI identifier
-  char* nic;                    // name of the network interface
-  int id;                       // number of this thread, used for memory access
-  capProcess* cProc;            // struct with parameters deliverd from main
+//  char* nic;                    // name of the network interface
+//  int id;                       // number of this thread, used for memory access
+//  capProcess* cProc;            // struct with parameters deliverd from main
 
   int writePos=0;               // Position in memory where to write
 //  struct timeval time;          // arrivaltime
   int consumer;                 // consumer identification.
-  int myTD;                     // Accuracy of this Capture Thread.;
+  //  int myTD;                     // Accuracy of this Capture Thread.;
 
-  cProc=(capProcess*)ptr;
-  nic=cProc->nic;
-  sem_t* semaphore=cProc->semaphore;
-  id=cProc->id;
-  myTD=cProc->accuracy;     
+  //  cProc=(capProcess*)ptr;
+  //  nic=cProc->nic;
+  //  sem_t* semaphore=cProc->semaphore;
+  //  id=cProc->id;
+  //  myTD=cProc->accuracy;     
   
-  _DEBUG_MSG (fprintf(stderr,"Capture for %s initializing, Memory at %p.\n",nic, &datamem[id]))
+  fprintf(verbose, "Capture for %s initializing, Memory at %p.\n", CI->nic, &datamem[CI->id]);
 
   char errbuf[PCAP_ERRBUF_SIZE];
   pcap_t *descr;
@@ -204,15 +204,14 @@ void* pcap_capture(void* ptr){
   struct pcap_pkthdr pcaphead;	/* pcap.h */
 
 
-  _DEBUG_MSG (fprintf(stderr," Open pcap_open_live(%s, %d,1,-1,%p)\n",nic,BUFSIZ,errbuf))
-  descr = pcap_open_live (nic, BUFSIZ, 1, 0, errbuf);   /* open device for reading */
+  fprintf(verbose, " Open pcap_open_live(%s, %d,1,-1,%p)\n", CI->nic, BUFSIZ, errbuf);
+  descr = pcap_open_live (CI->nic, BUFSIZ, 1, 0, errbuf);   /* open device for reading */
   if (NULL == descr)
   {
     printf ("pcap_open_live(): %s\n", errbuf);
     exit (1);
   }
 
-  
   while(terminateThreads==0)  {
     payload = pcap_next(descr, &pcaphead);
     if(payload==NULL) {
@@ -223,7 +222,7 @@ void* pcap_capture(void* ptr){
     const size_t data_len = MIN(pcaphead.caplen, PKT_CAPSIZE);
     const size_t padding = PKT_CAPSIZE - data_len;
 
-    unsigned char* raw_buffer = datamem[id][writePos];
+    unsigned char* raw_buffer = datamem[CI->id][writePos];
 
     write_head* whead   = (write_head*)raw_buffer;
     cap_head* head      = (cap_head*)(raw_buffer + sizeof(write_head));
@@ -233,10 +232,10 @@ void* pcap_capture(void* ptr){
     memset(packet_buffer + data_len, 0, padding);
     
     recvPkts++;
-    (cProc->pktCnt)++;
+    CI->pktCnt++;
 
 // int filter(void* pkt); 0=> DROP PKT. n, send to recipient n.
-    if ( (consumer=filter(nic, packet_buffer, head)) == -1 ){ /* no match */
+    if ( (consumer=filter(CI->nic, packet_buffer, head)) == -1 ){ /* no match */
       continue;
     }
 
@@ -251,25 +250,25 @@ void* pcap_capture(void* ptr){
                               // head->caplen will set by the filter, when copying data to sender buffer.
     /*head->tsAccuracy=myTD; */
     
-    strcpy(head->nic, nic);
-    strncpy(head->mampid, MAMPid, 8);
+    strncpy(head->nic, CI->nic, 8); head->nic[7] = 0;
+    strncpy(head->mampid, MAMPid, 8); head->mampid[7] = 0;
     whead->free++; //marks the post that it has been written
     whead->consumer=consumer;  //sets the recipient id.
     
     if(whead->free>1){ //Control buffer overrun
       fprintf(stderr,"OVERWRITING: %ld @ %d for the %d time \n",pthread_self(),writePos,whead->free);
-      fprintf(stderr,"CT: bufferUsage[%d]=%d\n", id,bufferUsage[id]);
+      fprintf(stderr,"CT: bufferUsage[%d]=%d\n", CI->id, CI->bufferUsage);
     }
     
     pthread_mutex_unlock( &mutex2 );
     //Mutex end
 
-    if ( sem_post(semaphore) != 0 ){
+    if ( sem_post(CI->semaphore) != 0 ){
       fprintf(stderr, "sem_post() returned %d: %s\n", errno, strerror(errno));
     }
 
     writePos++;
-    bufferUsage[id]++;
+    CI->bufferUsage++;
     if(writePos<PKT_BUFFER){
     } else {
       writePos=0; //when all posts in datamem is written begin from 0 again
@@ -278,10 +277,6 @@ void* pcap_capture(void* ptr){
 
   // comes here when terminateThreads = 1
 
-  _DEBUG_MSG (fprintf(stderr,"Child %ld My work here is done %s.\n", pthread_self(),nic))
-    return(NULL) ;
+  fprintf(verbose, "Child %ld My work here is done %s.\n", pthread_self(), CI->nic);
+  return(NULL) ;
 }
-
-
-
-

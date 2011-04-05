@@ -72,7 +72,10 @@ static int bufsize = 1000;
 static int capsize = 90;
 static int port = 0;
 static const char* capfile = NULL;
-static FILE* verbose = NULL; /* stdout if verbose is enabled, /dev/null otherwise */
+static struct CI CI[CI_NIC];
+struct CI* _CI = CI;
+
+FILE* verbose = NULL; /* stdout if verbose is enabled, /dev/null otherwise */
 
 static pthread_t child[CI_NIC];           // array of capture threads
 static pthread_t senderPID;               // thread id for the sender thread
@@ -178,21 +181,24 @@ static void set_ci(const char* arg) {
     exit(1);
   }
 
-  iflag++;
-  strncpy(nic[iflag-1], arg, 10);
+  strncpy(CI[iflag].nic, arg, 10);
+  CI[iflag].nic[9] = 0; /* force null-terminator */
   
   if ( verbose_flag ){
-    printf("Setting CI(%d) = %s (%zd)\n", iflag-1, nic[iflag-1], strlen(nic[iflag-1]));
+    printf("Setting CI(%d) = %s (%zd)\n", iflag, CI[iflag].nic, strlen(CI[iflag].nic));
   }
+
+  iflag++;
 }
 
 static void set_td(const char* arg) {
-  tdflag++;
-  tsAcc[tdflag-1]=atoi(arg);
+  CI[tdflag].accuracy = atoi(arg);
 
   if ( verbose_flag ){
-    printf("Setting T_delta(%d) = %d.\n", iflag-1, atoi(arg));
+    printf("Setting T_delta(%d) = %d.\n", iflag, CI[tdflag].accuracy);
   }
+
+  tdflag++;
 }
 
 static struct config_option myOptions[]={
@@ -375,11 +381,26 @@ static int setup_sender(send_proc_t* proc, sem_t* sem){
   int ret;
 
   proc->nics = iflag;
-  proc->nic = *nic;
+  //proc->nic = CI;
   proc->semaphore = sem;
   
   if ( (ret=pthread_create(&senderPID, NULL, sender, proc)) != 0 ){
     return ret;
+  }
+
+  return 0;
+}
+
+static int init_capture(){
+  for (int i=0; i < CI_NIC; i++) {
+    CI[i].id = i;
+    CI[i].sd = -1;
+    CI[i].datamem = NULL;
+    CI[i].semaphore = NULL;
+    CI[i].pktCnt = 0;
+    CI[i].bufferUsage = 0;
+    CI[i].nic[0] = 0;
+    CI[i].accuracy = 0;
   }
 
   return 0;
@@ -391,29 +412,19 @@ static int setup_capture(){
   fprintf(verbose, "Creating capture_threads.\n");
 
   for (int i=0; i < iflag; i++) {
-    const char* current = nic[i];
-
-    ourCaptures[i].semaphore = &semaphore;
-    ourCaptures[i].nic = nic[i];
-    ourCaptures[i].id = i;
-    ourCaptures[i].sd = -1;
-    ourCaptures[i].accuracy=tsAcc[i];
-    ourCaptures[i].pktCnt=0;
-
+    CI[i].semaphore = &semaphore;
     void* (*func)(void*) = NULL;
     
-    if ( strncmp("pcap", current, 4) == 0 ){
-      memmove(nic[i], &current[4], strlen(&current[4])+1); /* plus terminating */
-      fprintf(verbose, "\tpcap for %s.\n", current);
-      ourCaptures[i].sd = sd[i];
+    if ( strncmp("pcap", CI[i].nic, 4) == 0 ){
+      memmove(CI[i].nic, &CI[i].nic[4], strlen(&CI[i].nic[4])+1); /* plus terminating */
+      fprintf(verbose, "\tpcap for %s.\n", CI[i].nic);
       func = pcap_capture;
     } else { // Default is RAW_SOCKET.
-      fprintf(verbose, "\tRAW for %s.\n", current);
-       // DAG doesn't use sockets
+      fprintf(verbose, "\tRAW for %s.\n", CI[i].nic);
       func = capture;
     }
 
-    if ( (ret=pthread_create( &child[i], NULL, func, &ourCaptures[i])) != 0 ) {
+    if ( (ret=pthread_create( &child[i], NULL, func, &CI[i])) != 0 ) {
       fprintf(stderr,"Error creating capture thread.");
       return ret;
     }
@@ -458,6 +469,7 @@ int main (int argc, char **argv)
   //prio.sched_priority=sched_get_priority_max(SCHED_RR)-10;
   //sched_setscheduler(0, SCHED_RR,&prio);
 
+  init_capture();
 
   /*Get my PID*/
   mainPID=pthread_self(); // This is the PID for the main thread.
@@ -496,10 +508,10 @@ int main (int argc, char **argv)
   
   printf("Capture Interfaces \n");
   for (i=0; i < iflag; i++) {
-    printf(" CI[%d]=%s (%zd) T_delta = %d digits\n", i, nic[i], strlen(nic[i]),tsAcc[i]);
-    if (!strncmp("dag", nic[i], 3)) {
+    printf(" CI[%d]=%s (%zd) T_delta = %d digits\n", i, CI[i].nic, strlen(CI[i].nic), CI[i].accuracy);
+    if (!strncmp("dag", CI[i].nic, 3)) {
       strcpy(dagdev,"/dev/");
-      strncat(dagdev,nic[i], 4);
+      strncat(dagdev, CI[i].nic, 4);
       printf("nic[%d]=%s (%zd)\n", i, dagdev,strlen(dagdev));
       printf("No support for DAG in this version, only RAW and PCAP.\n");
       exit(1);
@@ -543,18 +555,18 @@ int main (int argc, char **argv)
   
   //Bind Socket to Interfaces
   for (i=0;i<iflag;i++) {
-    if (strncmp("dag", nic[i], 3)==0) {
+    if (strncmp("dag", CI[i].nic, 3)==0) {
       fprintf(verbose, "No need to bind dag to socket.\n");
-    } else if (strncmp("pcap",nic[i], 4)==0) {
+    } else if (strncmp("pcap", CI[i].nic, 4)==0) {
       fprintf(verbose, "No need to bind pcap to socket.\n");
     } else {
       fprintf(verbose, "Bind PF_PACKET to raw_socket.\n");
 
       int ifindex;
-      sd[i]=socket(PF_PACKET,SOCK_RAW,htons(ETH_P_ALL));
-      ifindex=iface_get_id(sd[i], nic[i]);
-      iface_bind(sd[i], ifindex);
-      setpromisc(sd[i],nic[i]);
+      CI[i].sd = socket(PF_PACKET,SOCK_RAW,htons(ETH_P_ALL));
+      ifindex=iface_get_id(CI[i].sd, CI[i].nic);
+      iface_bind(CI[i].sd, ifindex);
+      setpromisc(CI[i].sd, CI[i].nic);
     }
   }
   
@@ -578,13 +590,13 @@ int main (int argc, char **argv)
     abort();
   }
   
-  printf("my Children.\n");
+  fprintf(verbose, "my Children.\n");
   for(i=0;i<iflag;i++)
   {
-    _DEBUG_MSG (fprintf(stderr,"Child %d known as %d working on %s.\n",i,(int)child[i],nic[i]))
+    fprintf(verbose, "Child %d known as %d working on %s.\n",i,(int)child[i],CI[i].nic);
   }
-  _DEBUG_MSG (fprintf(stderr,"Child %d working on sender.\n", (int)senderPID))
-  _DEBUG_MSG (fprintf(stderr,"Child %d working as controller.\n",(int)controlPID))
+  fprintf(verbose, "Child %d working on sender.\n", (int)senderPID);
+  fprintf(verbose, "Child %d working as controller.\n",(int)controlPID);
 
   //Main will wait here for all children
     printf("Waiting for them to die.\n");
@@ -602,12 +614,12 @@ int main (int argc, char **argv)
 //Print out statistics on screen  
   printf("Socket stats.\n");
   for (i=0;i<iflag;i++)  {
-    printf("%s\n",nic[i]);
-    if (!strncmp("dag", nic[i], 3)) {
+    printf("%s\n", CI[i].nic);
+    if (!strncmp("dag", CI[i].nic, 3)) {
 
     } else {
-      info(sd[i]);
-      close(sd[i]);
+      info(CI[i].sd);
+      close(CI[i].sd);
     }
   }
   
