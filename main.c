@@ -71,6 +71,7 @@ static int destination = 0; /* If set to 0, it will store data locally. If 1 it 
 static int bufsize = 1000;
 static int capsize = 90;
 static int port = 0;
+static const char* capfile = NULL;
 
 typedef void (*option_callback)(const char* line);
 
@@ -242,6 +243,7 @@ int parse_argv(int argc, char** argv){
     {"manic", 1, NULL, 's'},
     {"help", 0, NULL, 'h'},
     {"port", 1, NULL, 'p'},
+    {"capfile", 1, NULL, 'c'},
     {0, 0, 0, 0}
   };
   
@@ -270,6 +272,10 @@ int parse_argv(int argc, char** argv){
       port = atoi(optarg);
       break;
 
+    case 'c': /* --capfile */
+      capfile = optarg;
+      break;
+
     case 'h': /*Help*/
       printf("Measurement Point " VERSION " (caputils-" CAPUTILS_VERSION ")\n");
       printf("(C) 2004 patrik.arlos@bth.se\n");
@@ -277,23 +283,64 @@ int parse_argv(int argc, char** argv){
       printf("Usage: %s [OPTION]... -i INTERFACE... -s INTERFACE\n", argv[0]);
       printf(" -h, --help                  help (this text)\n");
       printf(" -s, --manic=INTERFACE       MA Interface.\n");
-      printf(" -p, --port=PORT             Receiver Portnumber (default 1500)\n");
+      printf(" -p, --port=PORT             Control interface listen port (default 1500)\n");
       printf(" -i, --interface=INTERFACE   Capture Interface (REQUIRED)\n");
-      printf("     --local                 LOCAL MODE, do not talk to MArC, capture everything and store to file.\n"); 
+      printf("     --local                 LOCAL MODE, do not talk to MArC, capture\n"
+             "                             everything and store to file.\n");
+      printf("     --capfile=FILE          Store all captured packets in this capfile (in\n"
+             "                             addition to filter dst). Multiple filters are\n"
+             "                             aggregated.\n");
       exit(0);
       break;
 
     default:
-      fprintf(stderr, "unhandled argument: %s\n", optarg);
+      assert(0 && "declared but unhandled argument");
       break;
     }
 
   return 0;
 }
 
+// Create childprocess for each Nic
+int setup_capture(){
+  int ret = 0;
+  printf("Creating capture_threads.\n");
+
+  for (int i=0; i < iflag; i++) {
+    const char* current = nic[i];
+
+    ourCaptures[i].semaphore = &semaphore;
+    ourCaptures[i].nic = nic[i];
+    ourCaptures[i].id = i;
+    ourCaptures[i].sd = -1;
+    ourCaptures[i].accuracy=tsAcc[i];
+    ourCaptures[i].pktCnt=0;
+
+    void* (*func)(void*) = NULL;
+    
+    if ( strncmp("pcap", current, 4) == 0 ){
+      memmove(nic[i], &current[4], strlen(&current[4])+1); /* plus terminating */
+      printf("\tpcap for %s.\n", current);
+      ourCaptures[i].sd = sd[i];
+      func = pcap_capture;
+    } else { // Default is RAW_SOCKET.
+      printf("\tRAW for %s.\n", current);
+       // DAG doesn't use sockets
+      func = capture;
+    }
+
+    if ( (ret=pthread_create( &child[i], NULL, func, &ourCaptures[i])) != 0 ) {
+      fprintf(stderr,"Error creating capture thread.");
+      return ret;
+    }
+  }
+
+  return 0;
+}
+
 int main (int argc, char **argv)
 {
-  int i;
+  int i, ret = 0;
   //saveProcess mySave;
   sendProcess mySend;
 
@@ -368,7 +415,6 @@ int main (int argc, char **argv)
     }
   }
   
-//End Parsing Command options
 /*
   tid1.tv_sec=60;
   tid1.tv_usec=0;
@@ -434,34 +480,8 @@ int main (int argc, char **argv)
     }
   }
 
-  // Create childprocess for each Nic
-  printf("Creating capture_threads.\n");
-  for (i=0;i<iflag;i++) {
-    const char* current = nic[i];
-
-    ourCaptures[i].semaphore = &semaphore;
-    ourCaptures[i].nic = nic[i];
-    ourCaptures[i].id = i;
-    ourCaptures[i].accuracy=tsAcc[i];
-    ourCaptures[i].pktCnt=0;
-
-    void* (*func)(void*) = NULL;
-    
-    if ( strncmp("pcap", current, 4) == 0 ){
-      memmove(nic[i], &current[4], strlen(&current[4])+1); /* plus terminating */
-      printf("\tpcap for %s.\n", current);
-      ourCaptures[i].sd=sd[i];
-      func = pcap_capture;
-    } else { // Default is RAW_SOCKET.
-      printf("\tRAW for %s.\n", current);
-      ourCaptures[i].sd = -1; // DAG doesn't use sockets
-      func = capture;
-    }
-
-    if ( pthread_create( &child[i], NULL, func, &ourCaptures[i]) ) {
-      fprintf(stderr,"Error creating capture thread.");
-      abort();
-    }
+  if ( (ret=setup_capture()) != 0 ){
+    fprintf(stderr, "setup_capture() returned %d: %s\n", ret, strerror(ret));
   }
   
   printf("Waiting 1s befor starting controler thread.\n");
