@@ -36,6 +36,7 @@
 #include "capture.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <getopt.h>
 #include <assert.h>
 #include <caputils/caputils.h>
 
@@ -69,6 +70,7 @@ static int local = 0;       /* run in local-mode, don't try to contact MArCd */
 static int destination = 0; /* If set to 0, it will store data locally. If 1 it will send to a TCPserver (MA) 0 requires mpid and comment, 1 requires IP optional port. */
 static int bufsize = 1000;
 static int capsize = 90;
+static int port = 0;
 
 typedef void (*option_callback)(const char* line);
 
@@ -81,7 +83,7 @@ enum OptionFlags {
   OPTION_STORE_CONST = (1<<4), /* store value in ptr */
 };
 
-struct option {
+struct config_option {
   const char *name;
   int has_arg;
   int flag;
@@ -158,7 +160,7 @@ void set_td(const char* arg) {
   printf("Setting T_delta(%d) = %d.\n", iflag-1, atoi(arg));
 }
 
-static struct option myOptions[]={
+static struct config_option myOptions[]={
   {"MAnic=",  1, OPTION_FUNC, {.callback=ma_nic}},
   {"ENCRYPT", 0, OPTION_STORE_TRUE, {.ptr=&encrypt}},
   {"BUFFER=", 1, OPTION_STORE, {.ptr=&bufsize}},
@@ -171,7 +173,7 @@ static struct option myOptions[]={
 
 int parse_config(const char* filename){
   static char line[256];
-  static const int noOptions=sizeof(myOptions)/sizeof(struct option);
+  static const int noOptions=sizeof(myOptions)/sizeof(struct config_option);
   int linenum = 0;
 
   assert(filename);
@@ -205,7 +207,7 @@ int parse_config(const char* filename){
       continue;
     }
 
-    struct option* opt = &myOptions[optionIndex];
+    struct config_option* opt = &myOptions[optionIndex];
 
     if ( opt->flag & OPTION_STORE_TRUE ){
       *opt->ptr = 1;
@@ -232,13 +234,66 @@ int parse_config(const char* filename){
   return 0;
 }
 
+int parse_argv(int argc, char** argv){
+  static struct option long_options[]= {
+    {"local", 0, &local, 1},
+    {"accuracy", 1, NULL, 'd'},
+    {"interface", 1, NULL, 'i'},
+    {"manic", 1, NULL, 's'},
+    {"help", 0, NULL, 'h'},
+    {"port", 1, NULL, 'p'},
+    {0, 0, 0, 0}
+  };
+  
+  int option_index = 0;
+  int op;
+
+  while ( (op = getopt_long(argc, argv, "hd:i:s:p:", long_options, &option_index)) != -1 )
+    switch (op){
+    case 'd': // interface to listen on
+      set_td(optarg);
+      break;
+      
+    case 'i': // interface to listen on
+      set_ci(optarg);
+      break;
+      
+    case 's':  // MA Network Interface name
+      if(destination==1) { // Overwriting config file
+	printf("Overriding mp.conf for MAnic.\n");
+	free(MAnic);
+      }
+      ma_nic(optarg);
+      break;
+
+    case 'p': // server port
+      port = atoi(optarg);
+      break;
+
+    case 'h': /*Help*/
+      printf("Measurement Point " VERSION " (caputils-" CAPUTILS_VERSION ")\n");
+      printf("(C) 2004 patrik.arlos@bth.se\n");
+      printf("(C) 2011 david.sveningsson@bth.se\n"),
+      printf("Usage: %s [OPTION]... -i INTERFACE... -s INTERFACE\n", argv[0]);
+      printf(" -h, --help                  help (this text)\n");
+      printf(" -s, --manic=INTERFACE       MA Interface.\n");
+      printf(" -p, --port=PORT             Receiver Portnumber (default 1500)\n");
+      printf(" -i, --interface=INTERFACE   Capture Interface (REQUIRED)\n");
+      printf("     --local                 LOCAL MODE, do not talk to MArC, capture everything and store to file.\n"); 
+      exit(0);
+      break;
+
+    default:
+      fprintf(stderr, "unhandled argument: %s\n", optarg);
+      break;
+    }
+
+  return 0;
+}
+
 int main (int argc, char **argv)
 {
-
-  int op;
   int i;
-  int __attribute__((__unused__)) port;            // portnumber and interfaceindex
-
   //saveProcess mySave;
   sendProcess mySend;
 
@@ -295,51 +350,11 @@ int main (int argc, char **argv)
       perror("parse_config");
     }
   }
- 
-//Begin Parsing Command options
-  while ( (op =getopt(argc, argv, "Lhd:i:s:p:"))!=EOF)
-    switch (op){
-    case 'L':  // LOCAL
-      local=1;
-      break;
-      
-    case 'd': // interface to listen on
-      set_td(optarg);
-      break;
 
-    case 'i': // interface to listen on
-      set_ci(optarg);
-      break;
-      
-    case 's':  // MA Network Interface name
-      if(destination==1) { // Overwriting config file
-	printf("Overriding mp.conf for MAnic.\n");
-	free(MAnic);
-      }
-      ma_nic(optarg);
-      break;
-
-    case 'p': // server port
-      port = atoi(optarg);
-      break;
-
-    case 'h': /*Help*/
-      printf("Measurement Point " VERSION " caputils-" CAPUTILS_VERSION "\n");
-      printf("This is a MP that uses ETHERNET to multicast its measurement data.\n");
-      printf("This software was developed for the INGA project in 2004.\n");
-      printf("(C)2004 patrik.arlos@bth.se\n");
-      printf("(C)2011 david.sveningsson@bth.se\n"),
-      printf("Usage: %s -i <interface> ... -i <interface> -s <BROADCASTIP> -p <PORT> -t \n", argv[0]);
-      printf(" -h             help (this text)\n");
-      printf(" -s [MA NIC]    MA Interface.\n");
-      printf(" -p [PORT]      Receiver Portnumber        (default 1500)\n");
-      printf(" -i [NIC]       Capture Interface          (REQUIRED)\n\n");
-      printf(" -t             Throw away (skip) frames with any of the \n");
-      printf("                error flags set\n");
-      printf(" -L             LOCAL MODE, do not talk to MArC, capture everything and store to file.\n"); 
-      exit(0);
-      break;
-  }
+  if ( parse_argv(argc, argv) != 0 ){
+    perror("parse_argv");
+    exit(1);
+  } 
   
   printf("Capture Interfaces \n");
   for (i=0; i < iflag; i++) {
