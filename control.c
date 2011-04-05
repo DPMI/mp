@@ -81,10 +81,13 @@ MYSQL_RES *result;
 MYSQL_ROW row;
 MYSQL *connection, mysql;
 int state;
+static int useVersion;                     // What Communication version to use, 1= v0.5 MySQL, 2=v0.6 and UDP.
+static char hostname[200] = {0,};
+static struct sockaddr_in servAddr;        // Address structure for MArCD
+static struct sockaddr_in clientAddr;      // Address structure for MP
 
 void* control(void* prt){
-
-struct sockaddr_in myAddr;          
+  struct sockaddr_in myAddr;          
   struct Generic *mpmamsgPtr;
   int cliLen;
   struct ifreq IFinfo;
@@ -93,8 +96,8 @@ struct sockaddr_in myAddr;
   MAMPid=0;
   struct timeval tid1, tid2;    // times used with runtime
   struct itimerval difftime;    // timer used with runtime
+
   bzero(&statusQ,sizeof(statusQ));
-  bzero(&hostname,sizeof(hostname));
   
   result=0;
   connection=0;
@@ -194,7 +197,7 @@ struct sockaddr_in myAddr;
     //    exit(1);
   }
 
-  gethostname(hostname,200);
+  gethostname(hostname, sizeof(hostname));
   useVersion=maInfo->version;
 
   if(useVersion==1) { /* Stuck in MySQL land */

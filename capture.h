@@ -70,12 +70,11 @@
 
 #define PKT_BUFFER  10000          //size of capture buffer in packets
 
-#define ERRBUF_SIZE 256             //write buffer for errors
 #define CI_NIC 2                    // number of capture interfaces
 
 #define MIN(A,B) ((A) < (B) ? (A):(B))
 
-#define minSENDSIZE 1                 // Number of packets for each send to tcpserver
+#define minSENDSIZE 1                 // Number of packets for each send to tcpserver */
 #define maxSENDSIZE 70
 #define CONSUMERS 20                // Number of consumers, this also places a maximum on the number of filters.
 #define MYPROTO 0x0810              // Link Protocol.. Identifies a MP data frame.
@@ -91,48 +90,37 @@ struct consumer {
   int sendcount;                     // number of packets recieved but not sent
   uint16_t dropCount;                // number of drops during CONSUMERn collection time.
   void* sendpointer;                 // pointer to packet in sendmem
-  void* sendptrref;                  // pointer to packet in sendmem, REFERENCE!!! 
+  void* sendptrref;                  // pointer to packet in sendmem, REFERENCE!!!
   struct sendhead* shead;            // pointer to sendheaders.
-  struct ethhdr* ethhead;            // pointer to ethernet header 
+  struct ethhdr* ethhead;            // pointer to ethernet header
 };
 
-// Global variables.
+/* // Global variables. */
 int maSendsize;                     // number of packets to include in capture payload.
 struct consumer MAsd[CONSUMERS];
-FILE *FILEd;                        // File descriptor for FILE.
 int terminateThreads;               //used for signaling thread to terminate
 int recvPkts,sentPkts, writtenPkts, matchPkts; // counters for captured ans sent packets
 unsigned char my_mac[6];            // The interface mac for MA communications.
-int ifindex;                        // The interface id of MAnic
 char* MAnic;                        // string containing interface that connects to MAc
 int MAmtu;                          // MTU of the MA interface.
-int noCI;                           // Number of Capture Interfaces 
-char hostname[200];                 // Hostname of MP.
+int noCI;                           // Number of Capture Interfaces
 int bufferUsage[CI_NIC];            // How many bytes of the buffer is used?
 int ENCRYPT;                        // If set to >0 then it will encrypt IP addresses...?
 char *MAIPaddr;                     // If set, this is the IP that should be used when talking on the MAnet.
-int useVersion;                     // What Communication version to use, 1= v0.5 MySQL, 2=v0.6 and UDP.
 int bcastS;                         // Socket used to communicate with MArNetwork.
-struct sockaddr_in servAddr;        // Address structure for MArCD
-struct sockaddr_in clientAddr;      // Address structure for MP
-
-pthread_t child[CI_NIC];           // array of capture threads
-pthread_t senderPID;               // thread id for the sender thread
-pthread_t controlPID;              // thread id for the control thread
-pthread_t mainPID;                 // thread id for the main process, ie. the daddy of all threads.
 
 char *MAMPid;                      // String identifying the MySQL identity.
 
-struct CI_stat{
-  int recvpkts;                    // Packets that were sent to the interface
-  int droppkts;                    // Packets that were dropped by the interface
-};
+/* struct CI_stat{ */
+/*   int recvpkts;                    // Packets that were sent to the interface */
+/*   int droppkts;                    // Packets that were dropped by the interface */
+/* }; */
 
 int globalDropcount;               // Total amount of PDUs that were dropped by Interface.
 int memDropcount;                  // Total amount of PDUs that were dropped between CI and Sender.
 
 
-struct CI_stat CIstat[CI_NIC];                    // Statistics for capture interfaces.
+/* struct CI_stat CIstat[CI_NIC];                    // Statistics for capture interfaces. */
 
 struct write_header //Used for marking a packet as read or written in the shared memory
 {

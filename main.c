@@ -50,11 +50,10 @@ struct packet_stat{              // struct for interface statistics
 static void cleanup(int sig); // Runs when program terminates
 static void setpromisc(int sd, char* device); // function for setting interfaces to listen on all traffic
 static int packet_stats(int sd, struct packet_stat *stat); // function for collecting statistics
-static int iface_get_id(int fd, const char *device, char *ebuf); //comments in code
-static int iface_bind(int fd, int ifindex, char *ebuf); //comments in code
+static int iface_get_id(int fd, const char *device); //comments in code
+static int iface_bind(int fd, int ifindex); //comments in code
 
 static void info(int sd);// function for presentating statistics
-char ebuf[ERRBUF_SIZE]; // buffer for output of error messages
 
 short int iflag=0;  // number of capture interfaces
 short int tdflag=0; // Number of T_delta definitions.
@@ -64,13 +63,18 @@ sem_t semaphore;
 int dagfd[CI_NIC];
 void* dagbuf[CI_NIC];
 
-static int encrypt = 0;
 static int local = 0;       /* run in local-mode, don't try to contact MArCd */
 static int destination = 0; /* If set to 0, it will store data locally. If 1 it will send to a TCPserver (MA) 0 requires mpid and comment, 1 requires IP optional port. */
 static int bufsize = 1000;
 static int capsize = 90;
 static int port = 0;
 static const char* capfile = NULL;
+
+static pthread_t child[CI_NIC];           // array of capture threads
+static pthread_t senderPID;               // thread id for the sender thread
+static pthread_t controlPID;              // thread id for the control thread
+static pthread_t mainPID;                 // thread id for the main process, ie. the daddy of all threads.
+
 
 typedef void (*option_callback)(const char* line);
 
@@ -110,8 +114,7 @@ static void ma_nic(const char* arg) {
     perror("SIOCGIFINDEX");
     exit(1);
   }
-  ifindex = ifr.ifr_ifindex;
-  printf("MA interface index = %d\t",ifindex);
+  printf("MA interface index = %d\t", ifr.ifr_ifindex);
 
   /*Get my MAC */
   if(ioctl(s,SIOCGIFHWADDR,&ifr) == -1) {
@@ -162,7 +165,7 @@ static void set_td(const char* arg) {
 
 static struct config_option myOptions[]={
   {"MAnic=",  1, OPTION_FUNC, {.callback=ma_nic}},
-  {"ENCRYPT", 0, OPTION_STORE_TRUE, {.ptr=&encrypt}},
+  {"ENCRYPT", 0, OPTION_STORE_TRUE, {.ptr=&ENCRYPT}},
   {"BUFFER=", 1, OPTION_STORE, {.ptr=&bufsize}},
   {"CAPSIZE=",1, OPTION_STORE, {.ptr=&capsize}},
   {"CI=",     1, OPTION_FUNC, {.callback=set_ci}},
@@ -430,9 +433,6 @@ int main (int argc, char **argv)
     destination=0;
   }
 
-// Start of realprogram :)
-  FILEd=0;
-
   for(i=0; i<CONSUMERS; i++) {
     MAsd[i].stream = NULL;
     MAsd[i].status = 0;
@@ -455,10 +455,12 @@ int main (int argc, char **argv)
     } else if (strncmp("pcap",nic[i], 4)==0) {
       _DEBUG_MSG (fprintf(stderr,"No need to bind pcap to socket.\n"))
     } else {
+      int ifindex;
+
       _DEBUG_MSG (fprintf(stderr,"Bind PF_PACKET to raw_socket.\n"))
       sd[i]=socket(PF_PACKET,SOCK_RAW,htons(ETH_P_ALL));
-      ifindex=iface_get_id(sd[i],nic[i] , ebuf);
-      iface_bind(sd[i], ifindex,ebuf);
+      ifindex=iface_get_id(sd[i],nic[i]);
+      iface_bind(sd[i], ifindex);
       setpromisc(sd[i],nic[i]);
     }
   }
@@ -612,31 +614,28 @@ static void setpromisc(int sd, char* device)
 }
 
 //Get the right id for nic (ethX->interface index) Used for bind
-static int iface_get_id(int sd, const char *device, char *ebuf)
-{
+static int iface_get_id(int sd, const char *device) {
   struct ifreq	ifr;
   memset(&ifr, 0, sizeof(ifr));
   strncpy(ifr.ifr_name, device, sizeof(ifr.ifr_name));
-  if (ioctl(sd, SIOCGIFINDEX, &ifr) == -1)
-  {
-    printf("ioctl: %d",errno);
+  if (ioctl(sd, SIOCGIFINDEX, &ifr) == -1) {
+    fprintf(stderr, "ioctl SIOCGIFINDEX: %d: %s",errno, strerror(errno));
     return -1;
   }
-	return ifr.ifr_ifindex;
+
+  return ifr.ifr_ifindex;
 }
 
 //Bind socket to Interface
-static int iface_bind(int fd, int ifindex, char *ebuf)
-{
+static int iface_bind(int fd, int ifindex){
   struct sockaddr_ll	sll;
   memset(&sll, 0, sizeof(sll));
   sll.sll_family		= PF_PACKET;
   sll.sll_ifindex		= ifindex;
   sll.sll_protocol	= htons(ETH_P_ALL);
 
-  if (bind(fd, (struct sockaddr *) &sll, sizeof(sll)) == -1)
-  {
-    printf("bind: %d", errno);
+  if (bind(fd, (struct sockaddr *) &sll, sizeof(sll)) == -1) {
+    fprintf(stderr, "bind: %d: %s", errno, strerror(errno));
     return -1;
   }
   return 0;
@@ -679,83 +678,83 @@ int packet_stats(int sd, struct packet_stat *stats)
   return 0;
 }
 
-// Function for connecting to tcpserver
-int tcp_connect(const char *serv, int port){
-  printf("tcp_connect() \n");
-  int sockfd,result;
-  struct sockaddr_in	servaddr;
-  sockfd = socket(AF_INET, SOCK_STREAM , 0);
-  iface_bind(sockfd,ifindex,ebuf); // Bind to MArC interface.
+/* // Function for connecting to tcpserver */
+/* int tcp_connect(const char *serv, int port){ */
+/*   printf("tcp_connect() \n"); */
+/*   int sockfd,result; */
+/*   struct sockaddr_in	servaddr; */
+/*   sockfd = socket(AF_INET, SOCK_STREAM , 0); */
+/*   iface_bind(sockfd,ifindex); // Bind to MArC interface. */
 
-  bzero(&servaddr, sizeof(servaddr));
-  servaddr.sin_family = AF_INET;
-  servaddr.sin_port=htons(port);
-  inet_aton(serv, &servaddr.sin_addr);
-  setsockopt(sockfd,SOL_SOCKET,SO_REUSEADDR,(void*)1,sizeof(int));
+/*   bzero(&servaddr, sizeof(servaddr)); */
+/*   servaddr.sin_family = AF_INET; */
+/*   servaddr.sin_port=htons(port); */
+/*   inet_aton(serv, &servaddr.sin_addr); */
+/*   setsockopt(sockfd,SOL_SOCKET,SO_REUSEADDR,(void*)1,sizeof(int)); */
 
-  result=connect(sockfd,(struct sockaddr*)&servaddr,sizeof(servaddr));
-  if(result!=0)  {
-    perror("tcp_connect, fail ");
-    return(0);
-  }
+/*   result=connect(sockfd,(struct sockaddr*)&servaddr,sizeof(servaddr)); */
+/*   if(result!=0)  { */
+/*     perror("tcp_connect, fail "); */
+/*     return(0); */
+/*   } */
 
-  printf("tcp_connect, successfull. %s:%d \n", serv, port);
+/*   printf("tcp_connect, successfull. %s:%d \n", serv, port); */
 
-  struct sendhead SH;
-  SH.sequencenr=-1;
-  SH.nopkts=0;
-  SH.flush=0;
-  SH.version.major=htons(CAPUTILS_VERSION_MAJOR);
-  SH.version.minor=htons(CAPUTILS_VERSION_MINOR);
-  write(sockfd,&SH,sizeof(struct sendhead));
-  printf("Sent File header.\n");
+/*   struct sendhead SH; */
+/*   SH.sequencenr=-1; */
+/*   SH.nopkts=0; */
+/*   SH.flush=0; */
+/*   SH.version.major=htons(CAPUTILS_VERSION_MAJOR); */
+/*   SH.version.minor=htons(CAPUTILS_VERSION_MINOR); */
+/*   write(sockfd,&SH,sizeof(struct sendhead)); */
+/*   printf("Sent File header.\n"); */
 
-  return(sockfd);
-}
-/* end tcp_connect */
+/*   return(sockfd); */
+/* } */
+/* /\* end tcp_connect *\/ */
 
 
 
-// Function for connecting to tcpserver
-int udp_connect(const char *serv, int port){
-  printf("udp_connect() \n");
-  int sockfd,result,rc;
-  struct sockaddr_in	servaddr, cliaddr;
-  sockfd = socket(AF_INET, SOCK_DGRAM , 0);
-//  setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, &option, sizeof(option) );
-  bzero(&servaddr, sizeof(servaddr));
-  servaddr.sin_family = AF_INET;
-  servaddr.sin_port=htons(port);
-  inet_aton(serv, &servaddr.sin_addr);
-  cliaddr.sin_family = AF_INET;
-  cliaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-  cliaddr.sin_port = 0;
+/* // Function for connecting to tcpserver */
+/* int udp_connect(const char *serv, int port){ */
+/*   printf("udp_connect() \n"); */
+/*   int sockfd,result,rc; */
+/*   struct sockaddr_in	servaddr, cliaddr; */
+/*   sockfd = socket(AF_INET, SOCK_DGRAM , 0); */
+/* //  setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, &option, sizeof(option) ); */
+/*   bzero(&servaddr, sizeof(servaddr)); */
+/*   servaddr.sin_family = AF_INET; */
+/*   servaddr.sin_port=htons(port); */
+/*   inet_aton(serv, &servaddr.sin_addr); */
+/*   cliaddr.sin_family = AF_INET; */
+/*   cliaddr.sin_addr.s_addr = htonl(INADDR_ANY); */
+/*   cliaddr.sin_port = 0; */
 
-  rc=bind(sockfd, (struct sockaddr *)&cliaddr,sizeof(cliaddr));
-  if(rc<0){
-    perror("udp_connect, fail to bind.");
-    return(0);
-  }
-  iface_bind(sockfd,ifindex,ebuf); // Bind to MArC interface.
-  result=connect(sockfd,(struct sockaddr*)&servaddr,sizeof(servaddr));
-  if(result!=0)  {
-    perror("udp_connect, fail");
-    return(0);
-  }
+/*   rc=bind(sockfd, (struct sockaddr *)&cliaddr,sizeof(cliaddr)); */
+/*   if(rc<0){ */
+/*     perror("udp_connect, fail to bind."); */
+/*     return(0); */
+/*   } */
+/*   iface_bind(sockfd,ifindex); // Bind to MArC interface. */
+/*   result=connect(sockfd,(struct sockaddr*)&servaddr,sizeof(servaddr)); */
+/*   if(result!=0)  { */
+/*     perror("udp_connect, fail"); */
+/*     return(0); */
+/*   } */
 
-  printf("udp_connect, successfull. %s:%d \n", serv, port);
-  return(sockfd);
-}
-/* end udp_connect */
+/*   printf("udp_connect, successfull. %s:%d \n", serv, port); */
+/*   return(sockfd); */
+/* } */
+/* /\* end udp_connect *\/ */
 
-void socket_stats(int sd,int cid) {
-  struct packet_stat stat;
-  if (packet_stats(sd, &stat) < 0)
-  {
-    (void)fprintf(stderr, "packet_stats failed\n");
-    return;
-  }
-  CIstat[cid].recvpkts=stat.pkg_recv;
-  CIstat[cid].droppkts=stat.pkg_drop;
-  return;
-}
+/* static void socket_stats(int sd,int cid) { */
+/*   struct packet_stat stat; */
+/*   if (packet_stats(sd, &stat) < 0) */
+/*   { */
+/*     (void)fprintf(stderr, "packet_stats failed\n"); */
+/*     return; */
+/*   } */
+/*   CIstat[cid].recvpkts=stat.pkg_recv; */
+/*   CIstat[cid].droppkts=stat.pkg_drop; */
+/*   return; */
+/* } */
