@@ -292,7 +292,7 @@ static int parse_argv(int argc, char** argv){
   int option_index = 0;
   int op;
 
-  while ( (op = getopt_long(argc, argv, "hd:i:s:p:", long_options, &option_index)) != -1 )
+  while ( (op = getopt_long(argc, argv, "hvd:i:s:p:", long_options, &option_index)) != -1 )
     switch (op){
     case 0: /* longopt with flag set */
       break;
@@ -321,6 +321,10 @@ static int parse_argv(int argc, char** argv){
       capfile = optarg;
       break;
 
+    case 'v':
+      verbose_flag = 1;
+      break;
+
     case 'h': /*Help*/
       printf("(C) 2004 patrik.arlos@bth.se\n");
       printf("(C) 2011 david.sveningsson@bth.se\n"),
@@ -334,6 +338,8 @@ static int parse_argv(int argc, char** argv){
       printf("     --capfile=FILE          Store all captured packets in this capfile (in\n"
              "                             addition to filter dst). Multiple filters are\n"
              "                             aggregated.\n");
+      printf(" -v, --verbose               Verbose output\n");
+      printf("     --quiet                 Less output (inverse of --verbose)\n");
       exit(0);
       break;
 
