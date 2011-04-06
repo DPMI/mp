@@ -29,7 +29,6 @@
 #include <sys/time.h>
 
 static int convUDPtoFPI(struct FPI *rule,  struct FPI result);// 
-static int inet_atoP(char *dest,char *org); // Convert ASCII rep. of ethernet to normal rep.
 static void CIstatus(int sig); // Runs when ever a ALRM signal is received.
 static char hex_string[IFHWADDRLEN * 3] = "00:00:00:00:00:00";
 
@@ -61,11 +60,8 @@ struct MPstatus {
   char CIstats[1100]; // String specifying SI status. 
 };
 
-static int state;
-static int useVersion;                     // What Communication version to use, 1= v0.5 MySQL, 2=v0.6 and UDP.
-//static char hostname[200] = {0,};
-static struct sockaddr_in servAddr;        // Address structure for MArCD
-//static struct sockaddr_in clientAddr;      // Address structure for MP
+//static int useVersion;                     // What Communication version to use, 1= v0.5 MySQL, 2=v0.6 and UDP.
+//static struct sockaddr_in servAddr;        // Address structure for MArCD
 
 static void mp_auth(struct MPinitialization* event){
   if( strlen(event->MAMPid) > 0 ){
@@ -465,33 +461,6 @@ void* control(void* prt){
 
 }
 
-
-static int inet_atoP(char *dest,char *org){
-  printf("org = %p\n",org);
-  if(useVersion==2) {
-    strncpy(dest,org, ETH_ALEN);
-    printf("ethlen=%d, \n",ETH_ALEN);
-    printf("org = %02x:%02x:%02x:%02x:%02x:%02x \n",*(org),*(org+1),*(org+2),*(org+3),*(org+4),*(org+5));
-    printf("dst = %02x:%02x:%02x:%02x:%02x:%02x \n",*(dest),*(dest+1),*(dest+2),*(dest+3),*(dest+4),*(dest+5));
-    return 1;
-  }
-
-  char tmp[3];
-  tmp[2]='\0';
-  int j,k;
-  j=k=0;
-  int t;
-  for(j=0;j<ETH_ALEN;j++){
-    strncpy(tmp,org+k,2);
-    t=(int)strtoul(tmp,NULL,16);
-    printf("%02x ",t);
-    *(dest+j)=t;
-    k=k+2;
-  }
-  return 1;
-}
-
-
 char *hexdump_address (const unsigned char address[IFHWADDRLEN]){
   int i;
 
@@ -588,8 +557,6 @@ static void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
     printf("Not authorized. No need to inform MArC about the status.\n");
     return;
   }
-  if(useVersion==1) { // Use MYSQL 
-  } else { // Use UDP.
 
     bzero(&statusQ,sizeof(statusQ));
     bzero(&statusQ2,sizeof(statusQ2));
@@ -613,7 +580,8 @@ static void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
     }
     sprintf(MPstat.CIstats,"%s",query);
 
-    slen=sendto(bcastS,&MPstat,sizeof(MPstat),0,(struct sockaddr*)&servAddr,sizeof(servAddr));
+    /* commented because servAddr is dropped */
+    //slen=sendto(bcastS,&MPstat,sizeof(MPstat),0,(struct sockaddr*)&servAddr,sizeof(servAddr));
     if(slen==-1){
       perror("Cannot send data.\n");
       exit(1);
@@ -627,7 +595,6 @@ static void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
 	     i, _CI[i].bufferUsage);
     }
     printf("Message was %d bytes long, and it was sent to the MArC.\n", slen);
-  }
     
   return;
 }
