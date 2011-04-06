@@ -28,13 +28,11 @@
 #include <errno.h>
 #include <sys/time.h>
 
+#define STATUS_INTERVAL 60
+
 static int convUDPtoFPI(struct FPI *rule,  struct FPI result);// 
 static void CIstatus(int sig); // Runs when ever a ALRM signal is received.
 static char hex_string[IFHWADDRLEN * 3] = "00:00:00:00:00:00";
-
-char query[2000];
-char statusQ[2000];
-char statusQ2[100];
 
 /* Structures used in MA-MP communications */
 
@@ -51,17 +49,9 @@ struct MPVerifyFilter {
   struct FPI theFilter; // Filter
 };
 
-struct MPstatus {
-  int type;       // Type of message (2). This is present in _ALL_ structures.
-  char MAMPid[16]; // Name of MP.
-  int noFilters; // Number of filters present on MP.
-  int matched; // Number of matched packets
-  int noCI;  // Number of CIs
-  char CIstats[1100]; // String specifying SI status. 
-};
-
 //static int useVersion;                     // What Communication version to use, 1= v0.5 MySQL, 2=v0.6 and UDP.
 //static struct sockaddr_in servAddr;        // Address structure for MArCD
+static marc_context_t client = NULL;
 
 static void mp_auth(struct MPinitialization* event){
   if( strlen(event->MAMPid) > 0 ){
@@ -86,7 +76,6 @@ static void mp_filter(struct MPFilter* event){
 }
 
 void* control(void* prt){
-  marc_context_t ctx;
   int ret;
 
   /* setup libmarc */
@@ -96,7 +85,7 @@ void* control(void* prt){
     info.client_port = 0;
     info.max_filters = CONSUMERS;
     info.noCI = noCI;
-    if ( (ret=marc_init_client(&ctx, MAnic, &info)) != 0 ){
+    if ( (ret=marc_init_client(&client, MAnic, &info)) != 0 ){
       fprintf(stderr, "marc_init_client() returned %d: %s\n", ret, strerror(ret));
       exit(1);
     }
@@ -105,9 +94,9 @@ void* control(void* prt){
   /* setup status ALRM handler */
   {
     struct itimerval difftime;
-    difftime.it_interval.tv_sec = 60;
+    difftime.it_interval.tv_sec = STATUS_INTERVAL;
     difftime.it_interval.tv_usec = 0;
-    difftime.it_value.tv_sec = 60;
+    difftime.it_value.tv_sec = STATUS_INTERVAL;
     difftime.it_value.tv_usec = 0;
     signal(SIGALRM, CIstatus);
     setitimer(ITIMER_REAL, &difftime, NULL);
@@ -117,7 +106,7 @@ void* control(void* prt){
   MPMessage event;
   while( terminateThreads==0 ){
     /* get next message */
-    switch ( (ret=marc_poll_event(ctx, &event, NULL)) ){
+    switch ( (ret=marc_poll_event(client, &event, NULL)) ){
     case EAGAIN: /* delivered if using a timeout */
     case EINTR:  /* interuped */
       continue;
@@ -532,72 +521,52 @@ static int convUDPtoFPI(struct FPI *rule,  struct FPI result){
 
 
 static void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
-  int slen;
-  struct timeval tid1;
-  char chartest[20];
-  chartest[19]='\0';
-  struct tm *dagtid;
-
-
-
-  gettimeofday(&tid1,NULL);
-  dagtid=localtime(&tid1.tv_sec);
-  strftime(chartest,20,"%Y-%m-%d %H.%M.%S",dagtid);
-
-  /*
-  printf("%s %d packets recived, %d lost packets \n", chartest, msgcounter, lossCounter);
-  printf("THREAD %llu/%llu wish to do CIstatus..\n",pthread_self(),controlPID);
-
-  printf("mainPID= %ld\tctrlPID=%ld\tsenderPID=%ld\n",mainPID,controlPID,senderPID);
-  if(pthread_self()!=controlPID) {
-    printf("You dont belong here..\n");
-    return;
-  }
-  */
-  if(MAMPid==0){
+  if( MAMPid==0 ){
     printf("Not authorized. No need to inform MArC about the status.\n");
     return;
   }
 
-    bzero(&statusQ,sizeof(statusQ));
-    bzero(&statusQ2,sizeof(statusQ2));
-    int i=0;
-    char *query,*ifStats;
-    query=statusQ;
-    ifStats=statusQ2;
-    
-    struct MPstatus MPstat;
-    sprintf(MPstat.MAMPid,"%s",MAMPid);
-    MPstat.type=htonl(2);
-    MPstat.noFilters=ntohl(noRules);
-    MPstat.matched=ntohl(matchPkts);
-    MPstat.noCI=ntohl(noCI);
-    for(i=0;i<noCI;i++){
-      sprintf(statusQ2,", CI%d='%s', PKT%d='%ld', BU%d='%d' ",
-	      i, _CI[i].nic,
-	      i, _CI[i].pktCnt,
-	      i, _CI[i].bufferUsage);
-      query=strcat(query,ifStats);
-    }
-    sprintf(MPstat.CIstats,"%s",query);
+  struct timeval tid1;
+  gettimeofday(&tid1,NULL);
 
-    /* commented because servAddr is dropped */
-    //slen=sendto(bcastS,&MPstat,sizeof(MPstat),0,(struct sockaddr*)&servAddr,sizeof(servAddr));
-    if(slen==-1){
-      perror("Cannot send data.\n");
-      exit(1);
-    }
+  struct tm *dagtid;  
+  dagtid=localtime(&tid1.tv_sec);
 
-    printf("%s Status report for %s\n\t%d Filters Present\n\t%d Capture Interfaces.\n\t%d Packets Matched Filters.\n", chartest, MAMPid, noRules,noCI,matchPkts);
-    for(i=0;i<noCI;i++){
-      printf("\tCI%d=%s  PKT%d=%ld BU%d=%d\n",
-	     i, _CI[i].nic,
-	     i, _CI[i].pktCnt,
-	     i, _CI[i].bufferUsage);
-    }
-    printf("Message was %d bytes long, and it was sent to the MArC.\n", slen);
-    
-  return;
+  char time[20] = {0,};  
+  strftime(time, sizeof(time), "%Y-%m-%d %H.%M.%S", dagtid);
+
+  struct MPstatus stat;
+  stat.type = htonl(MP_STATUS_EVENT);
+  strncpy(stat.MAMPid, MAMPid, 16);
+  stat.noFilters = ntohl(noRules);
+  stat.matched   = ntohl(matchPkts);
+  stat.noCI      = ntohl(noCI);
+  
+  char* dst = stat.CIstats;
+  for( int i=0; i < noCI; i++){
+    /* OMFG! This string is executed as SQL in MArCd */
+    dst += sprintf(dst,", CI%d='%s', PKT%d='%ld', BU%d='%d' ",
+		   i, _CI[i].nic,
+		   i, _CI[i].pktCnt,
+		   i, _CI[i].bufferUsage);
+  }
+  
+  int ret;
+  if ( (ret=marc_push_event(client, (MPMessage*)&stat, NULL)) != 0 ){
+    fprintf(stderr, "marc_push_event() returned %d: %s\n", ret, strerror(ret));
+  }
+  
+  printf("%s Status report for %s\n"
+	 "\t%d Filters Present\n"
+	 "\t%d Capture Interfaces.\n"
+	 "\t%d Packets Matched Filters.\n",
+	 time, MAMPid, noRules,noCI,matchPkts);
+  for( int i=0; i < noCI; i++){
+    printf("\tCI[%d]=%s  PKT[%d]=%ld BU[%d]=%d\n",
+	   i, _CI[i].nic,
+	   i, _CI[i].pktCnt,
+	   i, _CI[i].bufferUsage);
+  }
 }
 
 void flushBuffer(int i){
