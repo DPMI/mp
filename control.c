@@ -20,10 +20,13 @@
  ***************************************************************************/ 
 
 #include "capture.h"
+#include <libmarc/libmarc.h>
 #include <mysql.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <assert.h>
+#include <errno.h>
 #include <sys/time.h>
 
 int convMySQLtoFPI(struct FPI *rule,  MYSQL_RES *result);// 
@@ -42,33 +45,6 @@ struct Generic{
   char payload[1400];
 };
 
-struct MPinitialization {
-  int type;          // Type of message (1). This is present in _ALL_ structures. 
-  char mac[8];            // MAC address of Measurement Point
-  char name[200];         // Name of MP
-  uint8_t ipaddress[4];   // ipaddress 
-  uint16_t port;          // UDP port that the MP listens to
-  uint16_t maxFilters;    // Maximum number of filters
-  uint16_t noCI;          // Number of capture interfaces
-  char MAMPid[16];        // ID string provided by MARC.
-};
-
-struct MPstatus {
-  int type; // Type of message (2).
-  char MAMPid[16]; // Name of MP
-  int noFilters; // Number of filters present on MP.
-  int matched; // Number of matched packets.
-  int noCI; // Number of CIs.
-  char CIstats[1100]; // String specifying CI status.
-};
-
-  
-struct MPFilter {
-  int type;   // Type of message (3).
-  char MAMPid[16]; // Name of MP
-  struct FPI theFilter; // Filter
-};
-
 struct MPVerifyFilter {
   int type;  // Type of message (6).
   char MAMPid[16]; // Name of MP
@@ -77,736 +53,458 @@ struct MPVerifyFilter {
   struct FPI theFilter; // Filter
 };
 
+struct MPstatus {
+  int type;       // Type of message (2). This is present in _ALL_ structures.
+  char MAMPid[16]; // Name of MP.
+  int noFilters; // Number of filters present on MP.
+  int matched; // Number of matched packets
+  int noCI;  // Number of CIs
+  char CIstats[1100]; // String specifying SI status. 
+};
+
 MYSQL_RES *result;
 MYSQL_ROW row;
 MYSQL *connection, mysql;
 int state;
 static int useVersion;                     // What Communication version to use, 1= v0.5 MySQL, 2=v0.6 and UDP.
-static char hostname[200] = {0,};
+//static char hostname[200] = {0,};
 static struct sockaddr_in servAddr;        // Address structure for MArCD
-static struct sockaddr_in clientAddr;      // Address structure for MP
+//static struct sockaddr_in clientAddr;      // Address structure for MP
+
+void mp_auth(struct MPinitialization* event){
+  if( strlen(event->MAMPid) > 0 ){
+    MAMPid = strdup(event->MAMPid);
+    printf("This MP is known as %s.\n", MAMPid);
+  } else {
+    printf("This is a unauthorized MP.\n");
+  }
+}
+
+void mp_filter(struct MPFilter* event){
+  if( strcmp(event->MAMPid, MAMPid) != 0){
+    fprintf(stderr, "This reply was intened for a different MP (%s).\n", event->MAMPid);
+    return;
+  }
+
+  struct FPI* rule = malloc(sizeof(struct FPI));
+  convUDPtoFPI(rule, event->filter);
+  addFilter(rule);
+  printFilter(stdout, rule);
+  printf("Added the filter.\n");
+}
 
 void* control(void* prt){
-  struct sockaddr_in myAddr;          
-  struct Generic *mpmamsgPtr;
-  int cliLen;
-  struct ifreq IFinfo;
-  int option=1;
-  int i,slen;
-  MAMPid=0;
-  struct timeval tid1, tid2;    // times used with runtime
-  struct itimerval difftime;    // timer used with runtime
+  struct marc_client_info info;
+  marc_context_t ctx;
+  int ret;
 
-  bzero(&statusQ,sizeof(statusQ));
-  
-  result=0;
-  connection=0;
-
-  printf("Control Thread %ld\n", pthread_self());
-  bcastS=socket(AF_INET, SOCK_DGRAM, 0);
-  if(bcastS<0) {
-    perror("Cannot open socket for MA communication.\n");
-    /* I.e the shit has hit the fan, how do we terminate all other threads?? */
+  info.client_ip = NULL;
+  info.client_port = 0;
+  info.max_filters = CONSUMERS;
+  info.noCI = noCI;
+  if ( (ret=marc_init_client(&ctx, MAnic, &info)) != 0 ){
+    fprintf(stderr, "marc_init_client() returned %d: %s\n", ret, strerror(ret));
     exit(1);
   }
 
-  printf("CT: IP stuff\n");
-  memset(&IFinfo,0,sizeof(IFinfo));
-  strncpy(IFinfo.ifr_name, MAnic, IFNAMSIZ);
-  if(ioctl(bcastS,SIOCGIFADDR, &IFinfo) == -1 ) {
-    perror("Obtaining IP address of interface .\n");
-    exit(1);
-  }
-  if(IFinfo.ifr_addr.sa_family == AF_INET) {
-    memcpy(&myAddr, &(IFinfo.ifr_addr), sizeof(struct sockaddr_in));
-  } else { 
-    perror("INTERFACE DOES NOT HAVE A IP ADDRESS!\n");
-    exit(1);
-  }
+  printf("\n\n\nmarc_init_client ok\n\n\n");
 
-  if(MAIPaddr!=0){
-    inet_aton(MAIPaddr,&myAddr.sin_addr);
-    
-  }
-  printf("Interface IP: %s \n",inet_ntoa(myAddr.sin_addr));  
+  MPMessage event;
+  while( terminateThreads==0 ){
+    assert(ctx);
 
-  if(setsockopt(bcastS,SOL_SOCKET,SO_BROADCAST, &option,sizeof(option))<0){
-    perror("Cannot set broadcast option for socket.\n");
-    exit(1);
-  }
-  
-  bzero(&servAddr,sizeof(servAddr)); /* Make sure that the struct is empty */
-  servAddr.sin_family = AF_INET;
-  servAddr.sin_port   = htons(MAPORT);
-  servAddr.sin_addr.s_addr = htonl(INADDR_BROADCAST);
+    switch ( (ret=marc_poll_event(ctx, &event, NULL)) ){
+    case EAGAIN:
+    case EINTR:
+      continue;
 
-  printf("Should be 255.255.255.255 --> %s \n",inet_ntoa(servAddr.sin_addr));
-
-  /* We should now be able to send a message to the ma */
-  /* But we cannot read the reply, since its reply will be to my local addres. */
-  /* bcastS listens to the broadcast address... */
-
-  clientAddr.sin_family = AF_INET;
-  clientAddr.sin_addr.s_addr = myAddr.sin_addr.s_addr;
-  clientAddr.sin_port = htons(MYPORT);
-
-  if(bind(bcastS,(struct sockaddr*)&clientAddr,sizeof(clientAddr))){
-    perror("Cannot bind to local port. \n");
-    exit(1);
-  }
-
-
-  struct MAINFO myInfo;
-  myInfo.version=2;
-  sprintf(myInfo.address,"%s",inet_ntoa(clientAddr.sin_addr));
-  myInfo.port=clientAddr.sin_port;
-
-  printf("Sending %s:%d -> ",inet_ntoa(clientAddr.sin_addr),ntohs(clientAddr.sin_port));
-  printf("%s:%d\n",inet_ntoa(servAddr.sin_addr),ntohs(servAddr.sin_port));
-  
-  slen=sendto(bcastS,&myInfo,sizeof(struct MAINFO),0,(struct sockaddr*)&servAddr,sizeof(servAddr));
-  if(slen==-1){
-    perror("Cannot send data.\n");
-    exit(1);
-  }
-  printf("Sent %d bytes.\n", slen);
-
-
-  char message[250];
-//  i=read(bcastS, message, 100);//, (struct sockaddr *)&clientAddr, (socklen_t*)slen);
-  cliLen = sizeof(clientAddr);
-  i = recvfrom(bcastS, message, sizeof(message), 0, (struct sockaddr *) &clientAddr,(socklen_t*) &cliLen);
-  if(i<0) {
-    perror("Cannot receive data.. \n");
-    exit(1);
-  }
-  printf("GOT  %d bytes from ", i );
-  printf("%s:%d (MArelayD)\n",inet_ntoa(clientAddr.sin_addr),ntohs(clientAddr.sin_port));
-
-  struct MAINFO *maInfo=(struct MAINFO*)message;
-  printf("The MA information is:\n\tMArC (%d) :%s\n\tPORT:%d  / %d\n",maInfo->version,maInfo->address,maInfo->port,maInfo->portUDP);
-  printf("\tDatabase: %s\n\tUser: %s\n\tPassword: %s\n",maInfo->database, maInfo->user,maInfo->password);
-
-
-  if(maInfo->version<2) {
-    printf("The MArelayD has only version 0.5 information. ");
-    printf("This MP uses v 0.6, i.e., it preferes UDP not MySQL for \n");
-    printf("information exchange. However, v 0.6  is backward compatible.");
-    printf("Please update MArelayD, v 0.7 will not be backward compatible.\n");
-    printf("Returned version number is %d\n", maInfo->version);
-    //    exit(1);
-  }
-
-  gethostname(hostname, sizeof(hostname));
-  useVersion=maInfo->version;
-
-  if(useVersion==1) { /* Stuck in MySQL land */
-    printf("Stuck in MySQL land.\n");
-    /* Now we can connect to the mysql DB */
-    /*  MYSQL_RES *result;
-	MYSQL_ROW row;
-	MYSQL *connection, mysql;
-	int state;*/
-    int k;
-    
-    /* connect to the MySQL database at localhost */
-    mysql_init(&mysql);
-    connection = mysql_real_connect(&mysql, 
-				    maInfo->address, 
-				    maInfo->user, //"genmp",
-				    maInfo->password,
-				    maInfo->database, //"measproj", 
-				    0,
-				    0,0);
-    /* check for a connection error */
-    if ( connection == NULL) { /* print the message */
-      printf("%s\n", mysql_error(&mysql));
-      exit(1);
-    }
-    /*  char query[2000];
-	char hostname[200];*/
-    
-    sprintf(query, "SELECT * FROM measurementpoints WHERE mac='%s' AND name='%s'",hexdump_address(my_mac),hostname);
-    state=mysql_query(connection,query);
-    if(state != 0) {
-      printf("%s\n", mysql_error(connection));
-      exit(1);
-    }
-    result=mysql_store_result(connection);
-    if(mysql_num_rows(result)==0){ /* WE are a new MP..  */
-      mysql_free_result(result);
-      sprintf(query, "INSERT INTO measurementpoints SET name='%s',ip='%s',port='%d',mac='%s',maxFilters=%d,noCI=%d"
-	      ,hostname
-	      ,inet_ntoa(clientAddr.sin_addr)
-	      ,MYPORT
-	      ,hexdump_address(my_mac)
-	      ,CONSUMERS
-	      ,noCI);
-      printf("Adding using this QUERY\n%s\n",query);
-      state=mysql_query(connection,query);
-      if(state != 0) {
-	printf("%s\n", mysql_error(connection));
-	exit(1);
-      }
-      printf("VERIFYING.\n");
-      state = mysql_query(connection,"SELECT name,ip,mac FROM measurementpoints");
-      if(state != 0) {
-	printf("%s\n", mysql_error(connection));
-	exit(1);
-      }
-      /* must call mysql_store_results() */
-      result = mysql_store_result(connection);
-      printf("Rows: %d\n",(int)mysql_num_rows(result));
-      printf("Cols: %d\n",mysql_num_fields(result));
-      
-      /*process each row*/
-      while( (row=mysql_fetch_row(result)) != NULL ) {
-	for(k=0;k<mysql_num_fields(result);k++){
-	  printf("%s\t",(row[k] ? row[k] : "NULL"));
-	}
-	printf("\n");
-      }
-      /* free the result set */
-      mysql_free_result(result);
-      /* close connection */
-//    mysql_close(connection);
-      printf("Done.\n");
-    } else { /* This is Version 0.6 */
-      printf("The MP exists in MA.\n");
-      row=mysql_fetch_row(result);
-      MAMPid=malloc(strlen(row[7]));
-      strcpy(MAMPid,row[7]);
-      mysql_free_result(result);
-      printf("MAMPid = %s (%zd) \n", MAMPid, strlen(MAMPid));
-      if(strlen(MAMPid)!=0){ // The MP exists, but isnt authorized.
-/* Lets check if we have any filters waiting for us? */
-	printf("Checking for filters, %s_filterlist.\n",MAMPid);
-	sprintf(query, "SELECT * from %s_filterlist",MAMPid);
-	state=mysql_query(connection,query);
-	if(state != 0) {
-	  printf("%s\n", mysql_error(connection));
-	  exit(1);
-	}
-	/* must call mysql_store_results() */
-	int rows;
-	result = mysql_store_result(connection);
-	rows=(int)mysql_num_rows(result);
-	printf("We have %d filters waiting for us..\n",rows);
-
-	/*process each row*/
-	struct FPI *newRule;
-	for(k=0;k<rows;k++){
-	  newRule=calloc(1, sizeof(struct FPI));
-	  convMySQLtoFPI(newRule,result);
-	  addFilter(newRule);
-	  printFilter(stdout, newRule);	  
-	}
-	/* free the result set */
-	mysql_free_result(result);
-      } else {
-	printf("However, it is not authorized.\n");
-      }
-    }
-
-  } else { /* if(maInfo->version==1) stuck in MySQL land */
-    printf("UDP com.\n");
-    struct MPinitialization MPinit;
-    MPinit.type=htonl(1);
-    bzero(MPinit.mac,8);
-    memcpy(MPinit.mac,my_mac,6);
-    memcpy(MPinit.name,hostname,sizeof(hostname));
-    memcpy(MPinit.ipaddress,&myAddr.sin_addr.s_addr,sizeof(struct in_addr));
-    MPinit.port=htons(MYPORT); //clientAddr.sin_port;
-    MPinit.maxFilters=htons(CONSUMERS);
-    MPinit.noCI=htons(noCI);
-    bzero(MPinit.MAMPid,16);
-
-
-    printf("type   = %d\n",ntohl(MPinit.type));
-    printf("mac    = %s\n",MPinit.mac);
-    printf("name   = %s\n",MPinit.name);
-    printf("port   = %d\n",ntohs(MPinit.port));
-    printf("maxF   = %d\n",ntohs(MPinit.maxFilters));
-    printf("noCI   = %d / %d \n",ntohs(MPinit.noCI), noCI);
-    printf("ipaddr = 0x%02x%02x%02x%02x \n", MPinit.ipaddress[0], MPinit.ipaddress[1], MPinit.ipaddress[2], MPinit.ipaddress[3]);
-   /* Reusing socket, just disable broadcast. */
-    option=0; 
-    if(setsockopt(bcastS,SOL_SOCKET,SO_BROADCAST, &option,sizeof(option))<0){
-      perror("Cannot disable broadcast option for socket.\n");
-      exit(1);
-    }
-  
-    bzero(&servAddr,sizeof(servAddr)); /* Make sure that the struct is empty */
-    servAddr.sin_family = AF_INET;
-    servAddr.sin_port   = htons(maInfo->portUDP);
-    inet_aton((char*)&maInfo->address,(struct in_addr*)&servAddr.sin_addr.s_addr);
-
-    printf("MArCd at %s : %d \n",inet_ntoa(servAddr.sin_addr), ntohs(servAddr.sin_port));
-    
-
-    /* We should now be able to send a message to the ma */
-    /* But we cannot read the reply, since its reply will be to my local addres. */
-    /* bcastS listens to the broadcast address... */
-
-    printf("Sending %s:%d -> ",inet_ntoa(clientAddr.sin_addr),ntohs(clientAddr.sin_port));
-    printf("%s:%d\n",inet_ntoa(servAddr.sin_addr),ntohs(servAddr.sin_port));
-    
-    slen=sendto(bcastS,&MPinit,sizeof(MPinit),0,(struct sockaddr*)&servAddr,sizeof(servAddr));
-    if(slen==-1){
-      perror("Cannot send data.\n");
-      exit(1);
-    }
-    printf("Sent %d bytes.\n", slen);
-   
-/* Waiting for response. */
-
-    char message[1450];
-//    struct timeval timeout;// Timeout impl.
-    fd_set masterfds;// Timeout impl.
-    FD_ZERO(&masterfds);// Timeout impl.
-    FD_SET(bcastS,&masterfds);// Timeout impl.
-    cliLen = sizeof(clientAddr);
-
-/* Old impl. No timeout */
-    i = recvfrom(bcastS, message, sizeof(message), 0, (struct sockaddr *) &clientAddr,(socklen_t*) &cliLen);
-    if(i<0) {
-      perror("Cannot receive data.. \n");
-      exit(1);
-    }
-// End old impl.
-
-    printf("GOT  %d bytes from ", i );
-    printf("%s:%d (MArelayD)\n",inet_ntoa(clientAddr.sin_addr),ntohs(clientAddr.sin_port));
-
-    mpmamsgPtr=(struct Generic*)message;
-    printf("Type = %d \n",ntohl(mpmamsgPtr->type));
-    printf("%02x %02x %02x %02x .\n",message[0], message[1], message[2], message[3]);
-    if(ntohl(mpmamsgPtr->type)==1){
-	struct MPinitialization* MPinit=(struct MPinitialization*)&message;
-	if(strlen(MPinit->MAMPid)>0){
-	  MAMPid=malloc(strlen(MPinit->MAMPid));
-	  strcpy(MAMPid,MPinit->MAMPid);
-	  printf("This MP is known as %s.\n",MAMPid);
-	} else {
-	  printf("This is a unauthorized MP.\n");
-	}
-    } else {
-	printf("Server didnt respond with correct type.\n");
-    }
-    
-
-  }
-
-
-  tid1.tv_sec=60;
-  tid1.tv_usec=0;
-  tid2.tv_sec=60;
-  tid2.tv_usec=0;
-
-  difftime.it_interval=tid2;
-  difftime.it_value=tid1;
-  signal(SIGALRM, CIstatus);
-  setitimer(ITIMER_REAL,&difftime,NULL); //used for termination with SIGALRM
-
-  printf("Entering (3:am) Eternal loop.\n");
-  struct Generic *maMSG;
-  int messageType;
-  struct FPI* rule;
-//  struct sockaddr_in clientAddress;
-  char message2[1450];
-
-  struct timeval timeout;
-  fd_set fds;
-  timeout.tv_sec=5;
-  timeout.tv_usec=0;
-  FD_ZERO(&fds);
-  FD_SET(bcastS,&fds);
-  int selectReturn=0;
-  int flushBuffer_id=0;
-
-  while(terminateThreads==0){
-    bzero(&message2,sizeof(message2));
-    //i=read(bcastS, message2, 1450);//, (struct sockaddr *)&clientAddr, (socklen_t*)slen);
-
-    //    printf("Control: Entering select.\n");fflush(stdout);
-    while( (selectReturn=select(bcastS+1,&fds,NULL,NULL, &timeout))<=0 && terminateThreads==0){
-      if(terminateThreads!=0){
-	perror("Control:Got a break signal.\n");
-	break;
-      }
-      if(selectReturn==-1){
-	perror("CONTROL:Select error:");
-	//EXIT SOMEHOW
-	pthread_exit(NULL);
-      } else if(selectReturn==0){
-	FD_SET(bcastS, &fds);
-	timeout.tv_sec=5;
-	timeout.tv_usec=0;
-	//	printf("Control: Timeout happend, on control socket.\n");fflush(stdout);
-      }
-    }
-    if(terminateThreads!=0){
-      //printf("Control: LEAVE!\n");
+    case 0:
       break;
-    }
-    //printf("Control: Waiting for input.\n");fflush(stdout);
-    i = recvfrom(bcastS, message2, 1450, 0, (struct sockaddr *) &clientAddr,(socklen_t*) &cliLen);
 
-    if(i<0) {
-      perror("Cannot receive data.. \n");
-      exit(1);
+    default:
+      fprintf(stderr, "marc_poll_event() returned %d: %s\n", ret, strerror(ret));
+      return NULL;
     }
-    int messageLen=i;
-    printf("GOT  %d bytes from ", i );
-    printf("%s:%d \n",inet_ntoa(clientAddr.sin_addr),ntohs(clientAddr.sin_port));
-    maMSG=(struct Generic*)message2; 
-    /* Find out what message that arrived */
-    for(i=0;i<20;i++){
-      printf("%02x:",message2[i]);
-    }
-    printf("\n");
-    messageType=ntohl(maMSG->type);
-    printf("MessageType = %d \n", messageType);
-    switch(messageType){
-      case 1:
-	if(maMSG->payload[0]==0){
-	  //Not correct.
-	  break;
-	}
-	printf("We got the authorization message. .\n");
-	printf("Our MAMPid is [%02x] %s \n",maMSG->payload[0],maMSG->payload);
-	MAMPid=malloc(strlen(maMSG->payload));
-	strcpy(MAMPid,maMSG->payload);
-	printf("This means that we are authorized. And we are in the game!;) Now we wait for filters!.\n");
+
+    
+    switch (event.type) { /* ntohl not needed, called by marc_poll_event */
+    case MP_AUTH_EVENT:
+      mp_auth(&event.init);
+      break;
+
+    case MP_FILTER_EVENT:
+      mp_filter(&event.filter);
+      break;
+
+    default:
+	printf("%d is a unknown message.\n", event.type);
+	printf("PAYLOAD: %s\n", event.payload);
 	break;
+    }
+  }
 
-      case 2:
-	printf("We got a filter indication.\n");
-	printf("This type means that we should get a complete set of filters.\n");
-	printf("Fetch Lycos!\n");
-	break;
 
-      case 3:
-	printf("We got a new filter indication.\n");
-	printf("This type means that we should get one filter, and add it.\n");
-	bzero(&query,sizeof(query));
+/*   tid1.tv_sec=60; */
+/*   tid1.tv_usec=0; */
+/*   tid2.tv_sec=60; */
+/*   tid2.tv_usec=0; */
+
+/*   difftime.it_interval=tid2; */
+/*   difftime.it_value=tid1; */
+/*   signal(SIGALRM, CIstatus); */
+/*   setitimer(ITIMER_REAL,&difftime,NULL); //used for termination with SIGALRM */
+
+/*   printf("Entering (3:am) Eternal loop.\n"); */
+/*   struct Generic *maMSG; */
+/*   int messageType; */
+/*   struct FPI* rule; */
+/* //  struct sockaddr_in clientAddress; */
+/*   char message2[1450]; */
+
+/*   struct timeval timeout; */
+/*   fd_set fds; */
+/*   timeout.tv_sec=5; */
+/*   timeout.tv_usec=0; */
+/*   FD_ZERO(&fds); */
+/*   FD_SET(bcastS,&fds); */
+/*   int selectReturn=0; */
+/*   int flushBuffer_id=0; */
+
+/*   while(terminateThreads==0){ */
+/*     //printf("Control: Waiting for input.\n");fflush(stdout); */
+/*     i = recvfrom(bcastS, message2, 1450, 0, (struct sockaddr *) &clientAddr,(socklen_t*) &cliLen); */
+
+/*     if(i<0) { */
+/*       perror("Cannot receive data.. \n"); */
+/*       exit(1); */
+/*     } */
+/*     int messageLen=i; */
+/*     printf("GOT  %d bytes from ", i ); */
+/*     printf("%s:%d \n",inet_ntoa(clientAddr.sin_addr),ntohs(clientAddr.sin_port)); */
+/*     maMSG=(struct Generic*)message2;  */
+/*     /\* Find out what message that arrived *\/ */
+/*     for(i=0;i<20;i++){ */
+/*       printf("%02x:",message2[i]); */
+/*     } */
+/*     printf("\n"); */
+/*     messageType=ntohl(maMSG->type); */
+/*     printf("MessageType = %d \n", messageType); */
+/*     switch(messageType){ */
+
+/*       case 2: */
+/* 	printf("We got a filter indication.\n"); */
+/* 	printf("This type means that we should get a complete set of filters.\n"); */
+/* 	printf("Fetch Lycos!\n"); */
+/* 	break; */
+
+/*       case 3: */
+/* 	printf("We got a new filter indication.\n"); */
+/* 	printf("This type means that we should get one filter, and add it.\n"); */
+/* 	bzero(&query,sizeof(query)); */
 	
-	if(useVersion==1) {
-	  sprintf(query,"SELECT * FROM %s_filterlist WHERE filter_id=%d",MAMPid, atoi(maMSG->payload));
-	  printf("SQL: %s \n",query);
-	  state=mysql_query(connection, query);
-	  if(state != 0 ) {
-	    printf("%s\n", mysql_error(connection));
-	    break;
-	  }
-	  result = mysql_store_result(connection);
-	  rule=calloc(1, sizeof(struct FPI));
-	  /* WE ARE HERE */ 
-	  /* About to read the rule, and store it in a FPI, that we apply addfilter() to */
+/* 	if(useVersion==1) { */
+/* 	  sprintf(query,"SELECT * FROM %s_filterlist WHERE filter_id=%d",MAMPid, atoi(maMSG->payload)); */
+/* 	  printf("SQL: %s \n",query); */
+/* 	  state=mysql_query(connection, query); */
+/* 	  if(state != 0 ) { */
+/* 	    printf("%s\n", mysql_error(connection)); */
+/* 	    break; */
+/* 	  } */
+/* 	  result = mysql_store_result(connection); */
+/* 	  rule=calloc(1, sizeof(struct FPI)); */
+/* 	  /\* WE ARE HERE *\/  */
+/* 	  /\* About to read the rule, and store it in a FPI, that we apply addfilter() to *\/ */
 	  
-	  printf("Got it?\n");
-	  convMySQLtoFPI(rule,result);
-	  addFilter(rule);
-	  printFilter(stdout, rule);
-	  /* free the result set */
-	  mysql_free_result(result);
-	} else {
-	  printf("Filter request: %d bytes in request.\n",messageLen);
-	  if(messageLen<100) { // This message is from PHP. 
-	    struct MPFilter filter;
-	    filter.type=htonl(3);
-	    sprintf(filter.MAMPid,"%s",MAMPid);
-	    filter.theFilter.filter_id=atoi(maMSG->payload);
-	    slen=sendto(bcastS,&filter,sizeof(filter),0,(struct sockaddr*)&servAddr,sizeof(servAddr));
-	    if(slen==-1){
-	      perror("Cannot send data.\n");
-	      exit(1);
-	    }
-	    printf("Sent %d bytes.\n",slen);
-	    char message[1450];
+/* 	  printf("Got it?\n"); */
+/* 	  convMySQLtoFPI(rule,result); */
+/* 	  addFilter(rule); */
+/* 	  printFilter(stdout, rule); */
+/* 	  /\* free the result set *\/ */
+/* 	  mysql_free_result(result); */
+/* 	} else { */
+/* 	  printf("Filter request: %d bytes in request.\n",messageLen); */
+/* 	  if(messageLen<100) { // This message is from PHP.  */
+/* 	    struct MPFilter filter; */
+/* 	    filter.type=htonl(3); */
+/* 	    sprintf(filter.MAMPid,"%s",MAMPid); */
+/* 	    filter.theFilter.filter_id=atoi(maMSG->payload); */
+/* 	    slen=sendto(bcastS,&filter,sizeof(filter),0,(struct sockaddr*)&servAddr,sizeof(servAddr)); */
+/* 	    if(slen==-1){ */
+/* 	      perror("Cannot send data.\n"); */
+/* 	      exit(1); */
+/* 	    } */
+/* 	    printf("Sent %d bytes.\n",slen); */
+/* 	    char message[1450]; */
 	    
-	    cliLen = sizeof(clientAddr);
-	    i = recvfrom(bcastS, message, sizeof(message), 0, (struct sockaddr *) &clientAddr,(socklen_t*) &cliLen);
-	    if(i<0) {
-	      perror("Cannot receive data.. \n");
-	      exit(1);
-	    }
-	    printf("GOT  %d bytes from ", i );
-	    printf("%s:%d (MArelayD)\n",inet_ntoa(clientAddr.sin_addr),ntohs(clientAddr.sin_port));	  
-	    mpmamsgPtr=(struct Generic*)message;
-	  } else { // This is the response from a MArCD . I.e., filter is present.
-	    printf("Message contains FPI.\n");
-	    mpmamsgPtr=(struct Generic*)message2;
-	  }
+/* 	    cliLen = sizeof(clientAddr); */
+/* 	    i = recvfrom(bcastS, message, sizeof(message), 0, (struct sockaddr *) &clientAddr,(socklen_t*) &cliLen); */
+/* 	    if(i<0) { */
+/* 	      perror("Cannot receive data.. \n"); */
+/* 	      exit(1); */
+/* 	    } */
+/* 	    printf("GOT  %d bytes from ", i ); */
+/* 	    printf("%s:%d (MArelayD)\n",inet_ntoa(clientAddr.sin_addr),ntohs(clientAddr.sin_port));	   */
+/* 	    mpmamsgPtr=(struct Generic*)message; */
+/* 	  } else { // This is the response from a MArCD . I.e., filter is present. */
+/* 	    printf("Message contains FPI.\n"); */
+/* 	    mpmamsgPtr=(struct Generic*)message2; */
+/* 	  } */
 	  
-	  printf("Type = %d \n",ntohl(mpmamsgPtr->type));
-	  if(ntohl(mpmamsgPtr->type)==3){
-	    struct MPFilter* filterReply=(struct MPFilter*)mpmamsgPtr;
-	    if(strcmp(filterReply->MAMPid,MAMPid)!=0){
-	      printf("This reply was intened for a different MP (%s).\n",filterReply->MAMPid);
-	    } else { // Correct MP.
-	      rule=calloc(1,sizeof(struct FPI));
-	      convUDPtoFPI(rule,filterReply->theFilter);
-	      addFilter(rule);
-	      printFilter(stdout, rule);
-	      printf("Added the filter.\n");
-	    }
-	  } else { 
-	    printf("Server didnt respond with correct type.\n");
-	    for(i=0;i<20;i++){
-	      printf("%02x:",message2[i]);
-	    }
-	    printf("\n");
-	  }
+/* 	  printf("Type = %d \n",ntohl(mpmamsgPtr->type)); */
+/* 	  if(ntohl(mpmamsgPtr->type)==3){ */
+/* 	  } else {  */
+/* 	    printf("Server didnt respond with correct type.\n"); */
+/* 	    for(i=0;i<20;i++){ */
+/* 	      printf("%02x:",message2[i]); */
+/* 	    } */
+/* 	    printf("\n"); */
+/* 	  } */
 
-	}
-	break;
+/* 	} */
+/* 	break; */
 
-      case 4:
-	printf("We got a change filter indication.\n");
-	printf("This means that we should change particular filter.\n");
+/*       case 4: */
+/* 	printf("We got a change filter indication.\n"); */
+/* 	printf("This means that we should change particular filter.\n"); */
 
-	if(useVersion==1){
-	  sprintf(query,"SELECT * FROM %s_filterlist WHERE filter_id=%d",MAMPid, atoi(maMSG->payload));
-	  printf("SQL: %s \n",query);
-	  state=mysql_query(connection, query);
-	  if(state != 0 ) {
-	    printf("%s\n", mysql_error(connection));
-	    break;
-	  }
-	  result = mysql_store_result(connection);
-	  rule=calloc(1, sizeof(struct FPI));
-	  /* WE ARE HERE */ 
-	  /* About to read the rule, and store it in a FPI, that we apply addfilter() to */
+/* 	if(useVersion==1){ */
+/* 	  sprintf(query,"SELECT * FROM %s_filterlist WHERE filter_id=%d",MAMPid, atoi(maMSG->payload)); */
+/* 	  printf("SQL: %s \n",query); */
+/* 	  state=mysql_query(connection, query); */
+/* 	  if(state != 0 ) { */
+/* 	    printf("%s\n", mysql_error(connection)); */
+/* 	    break; */
+/* 	  } */
+/* 	  result = mysql_store_result(connection); */
+/* 	  rule=calloc(1, sizeof(struct FPI)); */
+/* 	  /\* WE ARE HERE *\/  */
+/* 	  /\* About to read the rule, and store it in a FPI, that we apply addfilter() to *\/ */
 	  
-	  printf("Got it?\n");
-	  convMySQLtoFPI(rule,result);
-	  printFilter(stdout, rule);
-	  if(changeFilter(rule)){
-	    printf("Rule replaced.\n");
-	  } else {
-	    printf("Error: cannot replace rule.\n");
-	  }
-	  /* free the result set */
-	  mysql_free_result(result);
-	} else {
-	  printf("Change filter request: %d bytes in request.\n",messageLen);
-	  if(messageLen<100) { // This message is from PHP. 
-	    struct MPFilter filter;
-	    filter.type=htonl(3);
-	    sprintf(filter.MAMPid,"%s",MAMPid);
-	    filter.theFilter.filter_id=atoi(maMSG->payload);
-	    slen=sendto(bcastS,&filter,sizeof(filter),0,(struct sockaddr*)&servAddr,sizeof(servAddr));
-	    if(slen==-1){
-	      perror("Cannot send data.\n");
-	      exit(1);
-	    }
-	    printf("Sent %d bytes.\n",slen);
-	    char message[1450];
+/* 	  printf("Got it?\n"); */
+/* 	  convMySQLtoFPI(rule,result); */
+/* 	  printFilter(stdout, rule); */
+/* 	  if(changeFilter(rule)){ */
+/* 	    printf("Rule replaced.\n"); */
+/* 	  } else { */
+/* 	    printf("Error: cannot replace rule.\n"); */
+/* 	  } */
+/* 	  /\* free the result set *\/ */
+/* 	  mysql_free_result(result); */
+/* 	} else { */
+/* 	  printf("Change filter request: %d bytes in request.\n",messageLen); */
+/* 	  if(messageLen<100) { // This message is from PHP.  */
+/* 	    struct MPFilter filter; */
+/* 	    filter.type=htonl(3); */
+/* 	    sprintf(filter.MAMPid,"%s",MAMPid); */
+/* 	    filter.theFilter.filter_id=atoi(maMSG->payload); */
+/* 	    slen=sendto(bcastS,&filter,sizeof(filter),0,(struct sockaddr*)&servAddr,sizeof(servAddr)); */
+/* 	    if(slen==-1){ */
+/* 	      perror("Cannot send data.\n"); */
+/* 	      exit(1); */
+/* 	    } */
+/* 	    printf("Sent %d bytes.\n",slen); */
+/* 	    char message[1450]; */
 	    
-	    cliLen = sizeof(clientAddr);
-	    i = recvfrom(bcastS, message, sizeof(message), 0, (struct sockaddr *) &clientAddr,(socklen_t*) &cliLen);
-	    if(i<0) {
-	      perror("Cannot receive data.. \n");
-	      exit(1);
-	    }
-	    printf("GOT  %d bytes from ", i );
-	    printf("%s:%d (MArelayD)\n",inet_ntoa(clientAddr.sin_addr),ntohs(clientAddr.sin_port));	  
-	    mpmamsgPtr=(struct Generic*)message;
-	  } else { // This is the response from a MArCD . I.e., filter is present.
-	    printf("Message contains FPI.\n");
-	    mpmamsgPtr=(struct Generic*)message2;
-	  }
+/* 	    cliLen = sizeof(clientAddr); */
+/* 	    i = recvfrom(bcastS, message, sizeof(message), 0, (struct sockaddr *) &clientAddr,(socklen_t*) &cliLen); */
+/* 	    if(i<0) { */
+/* 	      perror("Cannot receive data.. \n"); */
+/* 	      exit(1); */
+/* 	    } */
+/* 	    printf("GOT  %d bytes from ", i ); */
+/* 	    printf("%s:%d (MArelayD)\n",inet_ntoa(clientAddr.sin_addr),ntohs(clientAddr.sin_port));	   */
+/* 	    mpmamsgPtr=(struct Generic*)message; */
+/* 	  } else { // This is the response from a MArCD . I.e., filter is present. */
+/* 	    printf("Message contains FPI.\n"); */
+/* 	    mpmamsgPtr=(struct Generic*)message2; */
+/* 	  } */
 	  
-	  printf("Type = %d \n",ntohl(mpmamsgPtr->type));
-	  if(ntohl(mpmamsgPtr->type)==3){
-	    struct MPFilter* filterReply=(struct MPFilter*)mpmamsgPtr;
-	    if(strcmp(filterReply->MAMPid,MAMPid)!=0){
-	      printf("This reply was intened for a different MP (%s).\n",filterReply->MAMPid);
-	    } else { // Correct MP.
-	      rule=calloc(1,sizeof(struct FPI));
-	      convUDPtoFPI(rule,filterReply->theFilter);
-	      printFilter(stdout, rule);
-	      if(changeFilter(rule)){
-		printf("Rule replaced.\n");
-	      } else {
-		printf("Error: Cannot replace rule.\n");
-	      }
-	    }
-	  } else { 
-	    printf("Server didnt respond with correct type.\n");
-	    for(i=0;i<20;i++){
-	      printf("%02x:",message2[i]);
-	    }
-	    printf("\n");
-	  }
+/* 	  printf("Type = %d \n",ntohl(mpmamsgPtr->type)); */
+/* 	  if(ntohl(mpmamsgPtr->type)==3){ */
+/* 	    struct MPFilter* filterReply=(struct MPFilter*)mpmamsgPtr; */
+/* 	    if(strcmp(filterReply->MAMPid,MAMPid)!=0){ */
+/* 	      printf("This reply was intened for a different MP (%s).\n",filterReply->MAMPid); */
+/* 	    } else { // Correct MP. */
+/* 	      rule=calloc(1,sizeof(struct FPI)); */
+/* 	      convUDPtoFPI(rule,filterReply->theFilter); */
+/* 	      printFilter(stdout, rule); */
+/* 	      if(changeFilter(rule)){ */
+/* 		printf("Rule replaced.\n"); */
+/* 	      } else { */
+/* 		printf("Error: Cannot replace rule.\n"); */
+/* 	      } */
+/* 	    } */
+/* 	  } else {  */
+/* 	    printf("Server didnt respond with correct type.\n"); */
+/* 	    for(i=0;i<20;i++){ */
+/* 	      printf("%02x:",message2[i]); */
+/* 	    } */
+/* 	    printf("\n"); */
+/* 	  } */
 
 
-	}
-	break;
+/* 	} */
+/* 	break; */
 
-      case 5:
-	printf("We got a drop filter indication.\n");
-	delFilter(atoi(maMSG->payload));
-	break;
+/*       case 5: */
+/* 	printf("We got a drop filter indication.\n"); */
+/* 	delFilter(atoi(maMSG->payload)); */
+/* 	break; */
 
-      case 6:
-	printf("Verification of a filter.\n");
-	printf("This means that we should get a particular filter.\n");
+/*       case 6: */
+/* 	printf("Verification of a filter.\n"); */
+/* 	printf("This means that we should get a particular filter.\n"); */
 
-	if(useVersion==1){
-	  bzero(&query,sizeof(query));
-	  printMysqlFilter(query,MAMPid,atoi(maMSG->payload));
-	  printf("SQL: %s \n",query);
-	  state=mysql_query(connection, query);
-	  if(state != 0 ) {
-	    printf("%s\n", mysql_error(connection));
-	    break;
-	  }
-	  bzero(&query,sizeof(query));
-	} else { // i.e. UDP.
-	  int desiredFilter=atoi(maMSG->payload);
-	  struct MPVerifyFilter myVerify;
-	  myVerify.type=htonl(6);
-	  sprintf(myVerify.MAMPid,"%s",MAMPid);
-	  myVerify.filter_id=desiredFilter;
-	  struct FPI* F;
-	  F=myRules;
-	  while(F!=0 && F->filter_id!=desiredFilter){
-	    F=F->next;
-	  }
-	  if(F==0){ // Did not find a filter that matched.
-	    myVerify.flags=0;
-	  } else { // Did find a filter that matched. F holds the pointer.
-	    myVerify.flags=1;
-	    memcpy(&myVerify.theFilter,F,sizeof(struct FPI));
-	  }
-	  slen=sendto(bcastS,&myVerify,sizeof(myVerify),0,(struct sockaddr*)&servAddr,sizeof(servAddr));
-	  if(slen==-1){
-	    perror("Cannot send data.\n");
-	    exit(1);
-	  }
-	  printf("Sent %d bytes.\n",slen);
+/* 	if(useVersion==1){ */
+/* 	  bzero(&query,sizeof(query)); */
+/* 	  printMysqlFilter(query,MAMPid,atoi(maMSG->payload)); */
+/* 	  printf("SQL: %s \n",query); */
+/* 	  state=mysql_query(connection, query); */
+/* 	  if(state != 0 ) { */
+/* 	    printf("%s\n", mysql_error(connection)); */
+/* 	    break; */
+/* 	  } */
+/* 	  bzero(&query,sizeof(query)); */
+/* 	} else { // i.e. UDP. */
+/* 	  int desiredFilter=atoi(maMSG->payload); */
+/* 	  struct MPVerifyFilter myVerify; */
+/* 	  myVerify.type=htonl(6); */
+/* 	  sprintf(myVerify.MAMPid,"%s",MAMPid); */
+/* 	  myVerify.filter_id=desiredFilter; */
+/* 	  struct FPI* F; */
+/* 	  F=myRules; */
+/* 	  while(F!=0 && F->filter_id!=desiredFilter){ */
+/* 	    F=F->next; */
+/* 	  } */
+/* 	  if(F==0){ // Did not find a filter that matched. */
+/* 	    myVerify.flags=0; */
+/* 	  } else { // Did find a filter that matched. F holds the pointer. */
+/* 	    myVerify.flags=1; */
+/* 	    memcpy(&myVerify.theFilter,F,sizeof(struct FPI)); */
+/* 	  } */
+/* 	  slen=sendto(bcastS,&myVerify,sizeof(myVerify),0,(struct sockaddr*)&servAddr,sizeof(servAddr)); */
+/* 	  if(slen==-1){ */
+/* 	    perror("Cannot send data.\n"); */
+/* 	    exit(1); */
+/* 	  } */
+/* 	  printf("Sent %d bytes.\n",slen); */
 	  
-	}// else (i.e. UDP)
-	break;
+/* 	}// else (i.e. UDP) */
+/* 	break; */
 
 
-      case 7:
-	printf("Verification of all filters.\n");
-	struct FPI *F;
-	F=myRules;
+/*       case 7: */
+/* 	printf("Verification of all filters.\n"); */
+/* 	struct FPI *F; */
+/* 	F=myRules; */
 	
-	if(useVersion==1) {
-	  if(F==0) { // NO rules.
-	    sprintf(query, "INSERT INFO %s_filterlistverify SET comment='NO RULES PRESENT'",MAMPid);
-	  } else {
-	    while(F!=0){
-	      bzero(&query,sizeof(query));
-	      sprintf(query,"INSERT INTO %s_filterlistverify SET filter_id='%d', ind='%d', CI_ID='%s', VLAN_TCI='%d', VLAN_TCI_MASK='%d',ETH_TYPE='%d', ETH_TYPE_MASK='%d',ETH_SRC='%2.2X:%2.2X:%2.2X:%2.2X:%2.2X:%2.2X',ETH_SRC_MASK='%2.2X:%2.2X:%2.2X:%2.2X:%2.2X:%2.2X', ETH_DST='%2.2X:%2.2X:%2.2X:%2.2X:%2.2X:%2.2X', ETH_DST_MASK='%2.2X:%2.2X:%2.2X:%2.2X:%2.2X:%2.2X',IP_PROTO='%d', IP_SRC='%s', IP_SRC_MASK='%s', IP_DST='%s', IP_DST_MASK='%s', SRC_PORT='%d', SRC_PORT_MASK='%d', DST_PORT='%d', DST_PORT_MASK='%d', TYPE='%d', CAPLEN='%d', consumer='%d'",
-		      MAMPid,F->filter_id,F->index,F->CI_ID,F->VLAN_TCI,F->VLAN_TCI_MASK,
-		      F->ETH_TYPE,F->ETH_TYPE_MASK, 
-		      (unsigned char)(F->ETH_SRC[0]),(unsigned char)(F->ETH_SRC[1]),(unsigned char)(F->ETH_SRC[2]),(unsigned char)(F->ETH_SRC[3]),(unsigned char)(F->ETH_SRC[4]),(unsigned char)(F->ETH_SRC[5]),
-		      (unsigned char)(F->ETH_SRC_MASK[0]),(unsigned char)(F->ETH_SRC_MASK[1]),(unsigned char)(F->ETH_SRC_MASK[2]),(unsigned char)(F->ETH_SRC_MASK[3]),(unsigned char)(F->ETH_SRC_MASK[4]),(unsigned char)(F->ETH_SRC_MASK[5]),
+/* 	if(useVersion==1) { */
+/* 	  if(F==0) { // NO rules. */
+/* 	    sprintf(query, "INSERT INFO %s_filterlistverify SET comment='NO RULES PRESENT'",MAMPid); */
+/* 	  } else { */
+/* 	    while(F!=0){ */
+/* 	      bzero(&query,sizeof(query)); */
+/* 	      sprintf(query,"INSERT INTO %s_filterlistverify SET filter_id='%d', ind='%d', CI_ID='%s', VLAN_TCI='%d', VLAN_TCI_MASK='%d',ETH_TYPE='%d', ETH_TYPE_MASK='%d',ETH_SRC='%2.2X:%2.2X:%2.2X:%2.2X:%2.2X:%2.2X',ETH_SRC_MASK='%2.2X:%2.2X:%2.2X:%2.2X:%2.2X:%2.2X', ETH_DST='%2.2X:%2.2X:%2.2X:%2.2X:%2.2X:%2.2X', ETH_DST_MASK='%2.2X:%2.2X:%2.2X:%2.2X:%2.2X:%2.2X',IP_PROTO='%d', IP_SRC='%s', IP_SRC_MASK='%s', IP_DST='%s', IP_DST_MASK='%s', SRC_PORT='%d', SRC_PORT_MASK='%d', DST_PORT='%d', DST_PORT_MASK='%d', TYPE='%d', CAPLEN='%d', consumer='%d'", */
+/* 		      MAMPid,F->filter_id,F->index,F->CI_ID,F->VLAN_TCI,F->VLAN_TCI_MASK, */
+/* 		      F->ETH_TYPE,F->ETH_TYPE_MASK,  */
+/* 		      (unsigned char)(F->ETH_SRC[0]),(unsigned char)(F->ETH_SRC[1]),(unsigned char)(F->ETH_SRC[2]),(unsigned char)(F->ETH_SRC[3]),(unsigned char)(F->ETH_SRC[4]),(unsigned char)(F->ETH_SRC[5]), */
+/* 		      (unsigned char)(F->ETH_SRC_MASK[0]),(unsigned char)(F->ETH_SRC_MASK[1]),(unsigned char)(F->ETH_SRC_MASK[2]),(unsigned char)(F->ETH_SRC_MASK[3]),(unsigned char)(F->ETH_SRC_MASK[4]),(unsigned char)(F->ETH_SRC_MASK[5]), */
 		      
-		      (unsigned char)(F->ETH_DST[0]),(unsigned char)(F->ETH_DST[1]),(unsigned char)(F->ETH_DST[2]),(unsigned char)(F->ETH_DST[3]),(unsigned char)(F->ETH_DST[4]),(unsigned char)(F->ETH_DST[5]),
-		      (unsigned char)(F->ETH_DST_MASK[0]),(unsigned char)(F->ETH_DST_MASK[1]),(unsigned char)(F->ETH_DST_MASK[2]),(unsigned char)(F->ETH_DST_MASK[3]),(unsigned char)(F->ETH_DST_MASK[4]),(unsigned char)(F->ETH_DST_MASK[5]),
-		      F->IP_PROTO,
-		      F->IP_SRC,F->IP_SRC_MASK,F->IP_DST,F->IP_DST_MASK,
-		      F->SRC_PORT,F->SRC_PORT_MASK,F->DST_PORT,F->DST_PORT_MASK,
-		      F->TYPE, 
-		      F->CAPLEN,
-		      F->consumer);
+/* 		      (unsigned char)(F->ETH_DST[0]),(unsigned char)(F->ETH_DST[1]),(unsigned char)(F->ETH_DST[2]),(unsigned char)(F->ETH_DST[3]),(unsigned char)(F->ETH_DST[4]),(unsigned char)(F->ETH_DST[5]), */
+/* 		      (unsigned char)(F->ETH_DST_MASK[0]),(unsigned char)(F->ETH_DST_MASK[1]),(unsigned char)(F->ETH_DST_MASK[2]),(unsigned char)(F->ETH_DST_MASK[3]),(unsigned char)(F->ETH_DST_MASK[4]),(unsigned char)(F->ETH_DST_MASK[5]), */
+/* 		      F->IP_PROTO, */
+/* 		      F->IP_SRC,F->IP_SRC_MASK,F->IP_DST,F->IP_DST_MASK, */
+/* 		      F->SRC_PORT,F->SRC_PORT_MASK,F->DST_PORT,F->DST_PORT_MASK, */
+/* 		      F->TYPE,  */
+/* 		      F->CAPLEN, */
+/* 		      F->consumer); */
 	    
-	      if(F->TYPE==1) {
-		sprintf(query,"%s, DESTADDR='%2.2X:%2.2X:%2.2X:%2.2X:%2.2X:%2.2X' ",query, (unsigned char)(F->DESTADDR[0]),(unsigned char)(F->DESTADDR[1]),(unsigned char)(F->DESTADDR[2]),(unsigned char)(F->DESTADDR[3]),(unsigned char)(F->DESTADDR[4]),(unsigned char)(F->DESTADDR[5]));
-	      } else {
-		sprintf(query,"%s, DESTADDR='%s' ",query, F->DESTADDR);
-	      }
+/* 	      if(F->TYPE==1) { */
+/* 		sprintf(query,"%s, DESTADDR='%2.2X:%2.2X:%2.2X:%2.2X:%2.2X:%2.2X' ",query, (unsigned char)(F->DESTADDR[0]),(unsigned char)(F->DESTADDR[1]),(unsigned char)(F->DESTADDR[2]),(unsigned char)(F->DESTADDR[3]),(unsigned char)(F->DESTADDR[4]),(unsigned char)(F->DESTADDR[5])); */
+/* 	      } else { */
+/* 		sprintf(query,"%s, DESTADDR='%s' ",query, F->DESTADDR); */
+/* 	      } */
 	      
 	      
-	      printf("SQL: %s \n",query);
-	      state=mysql_query(connection, query);
-	      if(state != 0 ) {
-		printf("%s\n", mysql_error(connection));
-		break;
-	      }
-	      F=F->next; 
-	    }
-	  }
-	  bzero(&query,sizeof(query));
-	} else { // useVersion>1 i.e., UDP.
-	  struct MPVerifyFilter myVerify;
-	  sprintf(myVerify.MAMPid,"%s",MAMPid);
-	  myVerify.type=htonl(6);
+/* 	      printf("SQL: %s \n",query); */
+/* 	      state=mysql_query(connection, query); */
+/* 	      if(state != 0 ) { */
+/* 		printf("%s\n", mysql_error(connection)); */
+/* 		break; */
+/* 	      } */
+/* 	      F=F->next;  */
+/* 	    } */
+/* 	  } */
+/* 	  bzero(&query,sizeof(query)); */
+/* 	} else { // useVersion>1 i.e., UDP. */
+/* 	  struct MPVerifyFilter myVerify; */
+/* 	  sprintf(myVerify.MAMPid,"%s",MAMPid); */
+/* 	  myVerify.type=htonl(6); */
   
-	  if(F==0) { // NO rules.
-	    myVerify.filter_id=0;
-	    myVerify.flags=0;
-	    slen=sendto(bcastS,&myVerify,sizeof(myVerify),0,(struct sockaddr*)&servAddr,sizeof(servAddr));
-	    if(slen==-1){
-	      perror("Cannot send data.\n");
-	      exit(1);
-	    }
+/* 	  if(F==0) { // NO rules. */
+/* 	    myVerify.filter_id=0; */
+/* 	    myVerify.flags=0; */
+/* 	    slen=sendto(bcastS,&myVerify,sizeof(myVerify),0,(struct sockaddr*)&servAddr,sizeof(servAddr)); */
+/* 	    if(slen==-1){ */
+/* 	      perror("Cannot send data.\n"); */
+/* 	      exit(1); */
+/* 	    } */
 	    
-	  } else {
-	    while(F!=0){
+/* 	  } else { */
+/* 	    while(F!=0){ */
 
-	      myVerify.flags=1;
-	      myVerify.filter_id=F->filter_id;
-	      memcpy(&myVerify.theFilter,F,sizeof(struct FPI));
+/* 	      myVerify.flags=1; */
+/* 	      myVerify.filter_id=F->filter_id; */
+/* 	      memcpy(&myVerify.theFilter,F,sizeof(struct FPI)); */
 	      
-	      printf("Sending Verification of filter_id = %d.\n",F->filter_id);
-	      slen=sendto(bcastS,&myVerify,sizeof(myVerify),0,(struct sockaddr*)&servAddr,sizeof(servAddr));
-	      if(slen==-1){
-		perror("Cannot send data.\n");
-		exit(1);
-	      }
-	      F=F->next; 
-	    }//while(F!=0)
-	}
-	  bzero(&query,sizeof(query));
+/* 	      printf("Sending Verification of filter_id = %d.\n",F->filter_id); */
+/* 	      slen=sendto(bcastS,&myVerify,sizeof(myVerify),0,(struct sockaddr*)&servAddr,sizeof(servAddr)); */
+/* 	      if(slen==-1){ */
+/* 		perror("Cannot send data.\n"); */
+/* 		exit(1); */
+/* 	      } */
+/* 	      F=F->next;  */
+/* 	    }//while(F!=0) */
+/* 	} */
+/* 	  bzero(&query,sizeof(query)); */
 
-	}
-	break;
+/* 	} */
+/* 	break; */
 
-      case 8:
-	printf("Termination received. \n");
-	printf("Shutting down the shop.\n");
-	printf("TerminateThreads = %d \n",terminateThreads);
-	if(strcmp(maMSG->payload,"konkelbar")==0){
-	  terminateThreads++;
-	} else {
-	  printf("Magic word incorrect: %s \n", maMSG->payload);
-	}
-	break;
+/*       case 8: */
+/* 	printf("Termination received. \n"); */
+/* 	printf("Shutting down the shop.\n"); */
+/* 	printf("TerminateThreads = %d \n",terminateThreads); */
+/* 	if(strcmp(maMSG->payload,"konkelbar")==0){ */
+/* 	  terminateThreads++; */
+/* 	} else { */
+/* 	  printf("Magic word incorrect: %s \n", maMSG->payload); */
+/* 	} */
+/* 	break; */
 	
-      case 9:
-	printf("Flush buffers request recived.\n");
-	for(i=0;i<CONSUMERS;i++){
-	  flushBuffer(i);
-	}
-	break;
+/*       case 9: */
+/* 	printf("Flush buffers request recived.\n"); */
+/* 	for(i=0;i<CONSUMERS;i++){ */
+/* 	  flushBuffer(i); */
+/* 	} */
+/* 	break; */
 	
-    case 10:
-      flushBuffer_id=atoi(maMSG->payload);
-      printf("Flush buffer request obtained.\n");
-      flushBuffer(flushBuffer_id);
-      break;
+/*     case 10: */
+/*       flushBuffer_id=atoi(maMSG->payload); */
+/*       printf("Flush buffer request obtained.\n"); */
+/*       flushBuffer(flushBuffer_id); */
+/*       break; */
       
 
 
-      default:
-	printf("%d is a unknown message.\n",(int)messageType);
-	printf("PAYLOAD: %s\n",maMSG->payload);
-	break;
-    }
+/*       default: */
+/*     } */
     
     
-  }
+/*   } */
 
-  fprintf(verbose, "Child %ld My work here is done %s.\n", pthread_self(), _CI[i].nic);
-  fprintf(verbose, "Leaving Control Thread.\n");
+/*   fprintf(verbose, "Child %ld My work here is done %s.\n", pthread_self(), _CI[i].nic); */
+/*   fprintf(verbose, "Leaving Control Thread.\n"); */
   return(NULL);
 
 }

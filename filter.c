@@ -17,7 +17,7 @@
   This function .......
  ***************************************************************************/
 #include "capture.h"
-
+#include <libmarc/filter.h>
 #include <stdlib.h>
 #include <netinet/ip.h>
 #include <netinet/udp.h>
