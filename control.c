@@ -29,8 +29,10 @@
 #include <errno.h>
 #include <sys/time.h>
 
-int convMySQLtoFPI(struct FPI *rule,  MYSQL_RES *result);// 
-int convUDPtoFPI(struct FPI *rule,  struct FPI result);// 
+static int convMySQLtoFPI(struct FPI *rule,  MYSQL_RES *result);// 
+static int convUDPtoFPI(struct FPI *rule,  struct FPI result);// 
+static int inet_atoP(char *dest,char *org); // Convert ASCII rep. of ethernet to normal rep.
+static void CIstatus(int sig); // Runs when ever a ALRM signal is received.
 static char hex_string[IFHWADDRLEN * 3] = "00:00:00:00:00:00";
 
 char query[2000];
@@ -71,7 +73,7 @@ static int useVersion;                     // What Communication version to use,
 static struct sockaddr_in servAddr;        // Address structure for MArCD
 //static struct sockaddr_in clientAddr;      // Address structure for MP
 
-void mp_auth(struct MPinitialization* event){
+static void mp_auth(struct MPinitialization* event){
   if( strlen(event->MAMPid) > 0 ){
     MAMPid = strdup(event->MAMPid);
     printf("This MP is known as %s.\n", MAMPid);
@@ -80,7 +82,7 @@ void mp_auth(struct MPinitialization* event){
   }
 }
 
-void mp_filter(struct MPFilter* event){
+static void mp_filter(struct MPFilter* event){
   if( strcmp(event->MAMPid, MAMPid) != 0){
     fprintf(stderr, "This reply was intened for a different MP (%s).\n", event->MAMPid);
     return;
@@ -203,24 +205,6 @@ void* control(void* prt){
 /* 	bzero(&query,sizeof(query)); */
 	
 /* 	if(useVersion==1) { */
-/* 	  sprintf(query,"SELECT * FROM %s_filterlist WHERE filter_id=%d",MAMPid, atoi(maMSG->payload)); */
-/* 	  printf("SQL: %s \n",query); */
-/* 	  state=mysql_query(connection, query); */
-/* 	  if(state != 0 ) { */
-/* 	    printf("%s\n", mysql_error(connection)); */
-/* 	    break; */
-/* 	  } */
-/* 	  result = mysql_store_result(connection); */
-/* 	  rule=calloc(1, sizeof(struct FPI)); */
-/* 	  /\* WE ARE HERE *\/  */
-/* 	  /\* About to read the rule, and store it in a FPI, that we apply addfilter() to *\/ */
-	  
-/* 	  printf("Got it?\n"); */
-/* 	  convMySQLtoFPI(rule,result); */
-/* 	  addFilter(rule); */
-/* 	  printFilter(stdout, rule); */
-/* 	  /\* free the result set *\/ */
-/* 	  mysql_free_result(result); */
 /* 	} else { */
 /* 	  printf("Filter request: %d bytes in request.\n",messageLen); */
 /* 	  if(messageLen<100) { // This message is from PHP.  */
@@ -268,28 +252,6 @@ void* control(void* prt){
 /* 	printf("This means that we should change particular filter.\n"); */
 
 /* 	if(useVersion==1){ */
-/* 	  sprintf(query,"SELECT * FROM %s_filterlist WHERE filter_id=%d",MAMPid, atoi(maMSG->payload)); */
-/* 	  printf("SQL: %s \n",query); */
-/* 	  state=mysql_query(connection, query); */
-/* 	  if(state != 0 ) { */
-/* 	    printf("%s\n", mysql_error(connection)); */
-/* 	    break; */
-/* 	  } */
-/* 	  result = mysql_store_result(connection); */
-/* 	  rule=calloc(1, sizeof(struct FPI)); */
-/* 	  /\* WE ARE HERE *\/  */
-/* 	  /\* About to read the rule, and store it in a FPI, that we apply addfilter() to *\/ */
-	  
-/* 	  printf("Got it?\n"); */
-/* 	  convMySQLtoFPI(rule,result); */
-/* 	  printFilter(stdout, rule); */
-/* 	  if(changeFilter(rule)){ */
-/* 	    printf("Rule replaced.\n"); */
-/* 	  } else { */
-/* 	    printf("Error: cannot replace rule.\n"); */
-/* 	  } */
-/* 	  /\* free the result set *\/ */
-/* 	  mysql_free_result(result); */
 /* 	} else { */
 /* 	  printf("Change filter request: %d bytes in request.\n",messageLen); */
 /* 	  if(messageLen<100) { // This message is from PHP.  */
@@ -510,7 +472,7 @@ void* control(void* prt){
 }
 
 
-int inet_atoP(char *dest,char *org){
+static int inet_atoP(char *dest,char *org){
   printf("org = %p\n",org);
   if(useVersion==2) {
     strncpy(dest,org, ETH_ALEN);
@@ -546,7 +508,7 @@ char *hexdump_address (const unsigned char address[IFHWADDRLEN]){
   return (hex_string);
 }
 
-int convMySQLtoFPI(struct FPI *rule,  MYSQL_RES *result){
+static int convMySQLtoFPI(struct FPI *rule,  MYSQL_RES *result){
   char *pos=0;
   MYSQL_ROW row;  
   row=mysql_fetch_row(result);
@@ -606,7 +568,7 @@ int convMySQLtoFPI(struct FPI *rule,  MYSQL_RES *result){
 }
 
 
-int convUDPtoFPI(struct FPI *rule,  struct FPI result){
+static int convUDPtoFPI(struct FPI *rule,  struct FPI result){
   char *pos=0;
   rule->filter_id=result.filter_id;
   rule->index=result.index;
@@ -665,7 +627,7 @@ int convUDPtoFPI(struct FPI *rule,  struct FPI result){
 }
 
 
-void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
+static void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
   int slen;
   struct timeval tid1;
   char chartest[20];
@@ -767,7 +729,6 @@ void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
     
   return;
 }
-
 
 void flushBuffer(int i){
   int written;

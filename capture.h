@@ -247,9 +247,7 @@ void* sender(void*); // send thread
 void* saver(void*); // send thread
 void* control(void*); // Control thread
 
-void CIstatus(int sig); // Runs when ever a ALRM signal is received.
 int filter(char* nic,void *pkt, struct cap_header*); //filtering routine
-int inet_atoP(char *dest,char *org); // Convert ASCII rep. of ethernet to normal rep.
 char *hexdump_address (const unsigned char address[IFHWADDRLEN]); // Print a ethernet address. 
 
 int matchEth(char d[],char m[], char n[]);
@@ -257,10 +255,9 @@ int addFilter(struct FPI *newRule);
 int delFilter(int filter_id);
 int changeFilter(struct FPI *newRule);
 void flushSendBuffer(int i);
+void flushBuffer(int i); // Flush sender buffer i. 
 void printFilters(void); // Print all filters
 void printFilter(FILE* fp, const struct FPI *F); // Print One filter
 int printMysqlFilter(char *array,char *id, int seeked);
-
-void flushBuffer(int i); // Flush sender buffer i. 
 
 #endif
