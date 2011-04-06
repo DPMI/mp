@@ -86,39 +86,51 @@ static void mp_filter(struct MPFilter* event){
 }
 
 void* control(void* prt){
-  struct marc_client_info info;
   marc_context_t ctx;
   int ret;
 
-  info.client_ip = NULL;
-  info.client_port = 0;
-  info.max_filters = CONSUMERS;
-  info.noCI = noCI;
-  if ( (ret=marc_init_client(&ctx, MAnic, &info)) != 0 ){
-    fprintf(stderr, "marc_init_client() returned %d: %s\n", ret, strerror(ret));
-    exit(1);
+  /* setup libmarc */
+  {
+    struct marc_client_info info;
+    info.client_ip = NULL;
+    info.client_port = 0;
+    info.max_filters = CONSUMERS;
+    info.noCI = noCI;
+    if ( (ret=marc_init_client(&ctx, MAnic, &info)) != 0 ){
+      fprintf(stderr, "marc_init_client() returned %d: %s\n", ret, strerror(ret));
+      exit(1);
+    }
   }
 
-  printf("\n\n\nmarc_init_client ok\n\n\n");
+  /* setup status ALRM handler */
+  {
+    struct itimerval difftime;
+    difftime.it_interval.tv_sec = 60;
+    difftime.it_interval.tv_usec = 0;
+    difftime.it_value.tv_sec = 60;
+    difftime.it_value.tv_usec = 0;
+    signal(SIGALRM, CIstatus);
+    setitimer(ITIMER_REAL, &difftime, NULL);
+  }
 
+  /* process messages from MArCd */
   MPMessage event;
   while( terminateThreads==0 ){
-    assert(ctx);
-
+    /* get next message */
     switch ( (ret=marc_poll_event(ctx, &event, NULL)) ){
-    case EAGAIN:
-    case EINTR:
+    case EAGAIN: /* delivered if using a timeout */
+    case EINTR:  /* interuped */
       continue;
 
-    case 0:
+    case 0: /* success, continue processing */
       break;
 
-    default:
+    default: /* error has been raised */
       fprintf(stderr, "marc_poll_event() returned %d: %s\n", ret, strerror(ret));
       return NULL;
     }
 
-    
+    /* act */
     switch (event.type) { /* ntohl not needed, called by marc_poll_event */
     case MP_AUTH_EVENT:
       mp_auth(&event.init);
@@ -134,17 +146,6 @@ void* control(void* prt){
 	break;
     }
   }
-
-
-/*   tid1.tv_sec=60; */
-/*   tid1.tv_usec=0; */
-/*   tid2.tv_sec=60; */
-/*   tid2.tv_usec=0; */
-
-/*   difftime.it_interval=tid2; */
-/*   difftime.it_value=tid1; */
-/*   signal(SIGALRM, CIstatus); */
-/*   setitimer(ITIMER_REAL,&difftime,NULL); //used for termination with SIGALRM */
 
 /*   printf("Entering (3:am) Eternal loop.\n"); */
 /*   struct Generic *maMSG; */
