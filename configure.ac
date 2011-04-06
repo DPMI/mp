@@ -30,20 +30,11 @@ AC_SUBST(PCAP_LIBS)
 
 AC_ARG_WITH([endace-dag], [AS_HELP_STRING([--with-endace-dag], [support for endace DAG-cards @<:@default=disabled@:>@])])
 
-AC_ARG_WITH([mysql], [AS_HELP_STRING([--with-mysql], [support for storing captured packets in mysql databases. @<:@default=disabled@:>@])])
-
 AS_IF([test "x$with_endace_dag" == "xyes"], [
 	AC_CHECK_HEADER([dagnew.h],
 		[AC_DEFINE([HAVE_DAG], 1, [Define to 1 if you have Endace DAG])],
 		[AC_MSG_ERROR([Make sure the Endace DAG drivers are installed.])]
 	)]
-)
-
-AS_IF([test "x$with_mysql" == "xyes"],
-	[
-		MYSQL_CLIENT
-		AC_DEFINE([HAVE_MYSQL], 1, [Define to 1 if you have mysql client])
-	]
 )
 
 AC_OUTPUT

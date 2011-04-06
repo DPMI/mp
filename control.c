@@ -21,7 +21,6 @@
 
 #include "capture.h"
 #include <libmarc/libmarc.h>
-#include <mysql.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
@@ -29,7 +28,6 @@
 #include <errno.h>
 #include <sys/time.h>
 
-static int convMySQLtoFPI(struct FPI *rule,  MYSQL_RES *result);// 
 static int convUDPtoFPI(struct FPI *rule,  struct FPI result);// 
 static int inet_atoP(char *dest,char *org); // Convert ASCII rep. of ethernet to normal rep.
 static void CIstatus(int sig); // Runs when ever a ALRM signal is received.
@@ -38,7 +36,6 @@ static char hex_string[IFHWADDRLEN * 3] = "00:00:00:00:00:00";
 char query[2000];
 char statusQ[2000];
 char statusQ2[100];
-
 
 /* Structures used in MA-MP communications */
 
@@ -64,10 +61,7 @@ struct MPstatus {
   char CIstats[1100]; // String specifying SI status. 
 };
 
-MYSQL_RES *result;
-MYSQL_ROW row;
-MYSQL *connection, mysql;
-int state;
+static int state;
 static int useVersion;                     // What Communication version to use, 1= v0.5 MySQL, 2=v0.6 and UDP.
 //static char hostname[200] = {0,};
 static struct sockaddr_in servAddr;        // Address structure for MArCD
@@ -508,66 +502,6 @@ char *hexdump_address (const unsigned char address[IFHWADDRLEN]){
   return (hex_string);
 }
 
-static int convMySQLtoFPI(struct FPI *rule,  MYSQL_RES *result){
-  char *pos=0;
-  MYSQL_ROW row;  
-  row=mysql_fetch_row(result);
-  rule->filter_id=atoi(row[0]);
-  rule->index=atoi(row[1]);
-  strncpy(rule->CI_ID,row[2],8);
-  rule->VLAN_TCI=atol(row[3]);
-  rule->VLAN_TCI_MASK=atol(row[4]);
-  rule->ETH_TYPE=atol(row[5]);
-  rule->ETH_TYPE_MASK=atol(row[6]);
-  
-  
-  rule->IP_PROTO=atoi(row[11]);
-  strncpy((char*)(rule->IP_SRC),row[12],16);
-  strncpy((char*)(rule->IP_SRC_MASK),row[13],17);
-  strncpy((char*)(rule->IP_DST),row[14],18);
-  strncpy((char*)(rule->IP_DST_MASK),row[15],19);
-  
-  rule->SRC_PORT=atoi(row[16]);
-  rule->SRC_PORT_MASK=atoi(row[17]);
-  rule->DST_PORT=atoi(row[18]);
-  rule->DST_PORT_MASK=atoi(row[19]);
-  rule->consumer=atoi(row[20]);
-  
-  inet_atoP((char*)(rule->ETH_SRC),row[7]);
-  inet_atoP((char*)(rule->ETH_SRC_MASK),row[8]);
-  inet_atoP((char*)(rule->ETH_DST),row[9]);
-  inet_atoP((char*)(rule->ETH_DST_MASK),row[10]);
-
-  rule->TYPE=atoi(row[22]);
-  rule->CAPLEN=atoi(row[23]);
-  if(rule->CAPLEN>PKT_CAPSIZE){ // Make sure that the User doesnt request more information than we can give. 
-    rule->CAPLEN=PKT_CAPSIZE;
-  }
-  switch(rule->TYPE){
-    case 3: // TCP
-    case 2: // UDP
-      // DESTADDR is ipaddress:port
-      strncpy((char*)(rule->DESTADDR),row[21],22);
-      pos=index((char*)(rule->DESTADDR),':');
-      if(pos!=NULL) {
-	*pos=0;
-	rule->DESTPORT=atoi(pos+1);
-      } else {
-	rule->DESTPORT=MYPROTO;
-      }
-      break;
-    case 1: // Ethernet
-      inet_atoP((char*)(rule->DESTADDR),row[21]);
-      break;
-    case 0: // File
-      strncpy((char*)(rule->DESTADDR),row[21],22);
-      break;
-  }
-
-  return 1;
-}
-
-
 static int convUDPtoFPI(struct FPI *rule,  struct FPI result){
   char *pos=0;
   rule->filter_id=result.filter_id;
@@ -655,38 +589,6 @@ static void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
     return;
   }
   if(useVersion==1) { // Use MYSQL 
-    bzero(&statusQ,sizeof(statusQ));
-    bzero(&statusQ2,sizeof(statusQ2));
-    int i=0;
-    char *query,*ifStats;
-    query=statusQ;
-    ifStats=statusQ2;
-    
-    sprintf(statusQ,"INSERT INTO %s_CIload SET noFilters='%d', matchedPkts='%d' ", MAMPid, noRules, matchPkts);
-    for(i=0;i<noCI;i++){
-      sprintf(statusQ2,", CI%d='%s', PKT%d='%ld', BU%d='%d' ",
-	      i, _CI[i].nic,
-	      i, _CI[i].pktCnt,
-	      i, _CI[i].bufferUsage);
-      query=strcat(query,ifStats);
-    }
-    
-    if(connection==0){
-      printf("MySQL connection == 0?!=\n");
-    }
-    state=mysql_query(connection, query);
-    if(state != 0 ) {
-      printf("%s\n", mysql_error(connection));
-      return;
-    }
-    
-    printf("Status report for %s\n\t%d Filters Present.\n\t%d Packets Matched Filters.\n", MAMPid, noRules,matchPkts);
-    for(i=0;i<noCI;i++){
-      printf("\tCI%d=%s  PKT%d=%ld BU%d=%d\n",
-	     i, _CI[i].nic,
-	     i, _CI[i].pktCnt,
-	     i, _CI[i].bufferUsage);
-    }
   } else { // Use UDP.
 
     bzero(&statusQ,sizeof(statusQ));
