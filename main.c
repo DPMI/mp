@@ -65,7 +65,7 @@ sem_t semaphore;
 int dagfd[CI_NIC];
 void* dagbuf[CI_NIC];
 
-static int verbose_flag = 0;     /* verbose output */
+int verbose_flag = 0;     /* verbose output */
 static int local = 0;       /* run in local-mode, don't try to contact MArCd */
 static int destination = 0; /* If set to 0, it will store data locally. If 1 it will send to a TCPserver (MA) 0 requires mpid and comment, 1 requires IP optional port. */
 static int bufsize = 1000;

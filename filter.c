@@ -301,7 +301,6 @@ static int next_free_consumer(){
 int addFilter(struct FPI *newRule){
   long ret = 0;
   newRule->next=0; // Make sure that the rule does not point to some strange place.
-  printf("addFilter\n");
 
   int index = next_free_consumer();
   if( index == -1 ){ // Problems, NO free consumers. Bail out! 
@@ -309,7 +308,6 @@ int addFilter(struct FPI *newRule){
     return 0;
   }
   
-  printf("CTRL: ADD FILTER TO CONSUMER %d \n", index);
   newRule->consumer = index;
 
   struct consumer* con = &MAsd[index];
@@ -334,18 +332,14 @@ int addFilter(struct FPI *newRule){
   struct ethhdr *ethhead; // pointer to ethernet header
   ethhead = (struct ethhdr*)sendmem[index];
 
-  printf("\tDestination ");
   switch(newRule->TYPE==1){
   case 3:
   case 2:
-    printf(" IP ADDR: %s PORT: %d\n", newRule->DESTADDR, newRule->DESTPORT);
     break;
   case 1:
     memcpy(ethhead->h_dest, newRule->DESTADDR, ETH_ALEN);
-    printf(" ETH ADDR: %s\n", ether_ntoa((struct ether_addr*)ethhead->h_dest));
     break;
   case 0:
-    printf(" file : %s\n", newRule->DESTADDR);
     break;
   }
 

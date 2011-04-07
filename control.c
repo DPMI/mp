@@ -23,6 +23,7 @@
 #include <libmarc/libmarc.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 #include <strings.h>
 #include <ctype.h>
 #include <assert.h>
@@ -54,12 +55,33 @@ struct MPVerifyFilter {
 //static struct sockaddr_in servAddr;        // Address structure for MArCD
 static marc_context_t client = NULL;
 
+static void vlogmsg(FILE* fp, const char* fmt, va_list ap){
+  struct timeval tid1;
+  gettimeofday(&tid1,NULL);
+
+  struct tm *dagtid;  
+  dagtid=localtime(&tid1.tv_sec);
+
+  char time[20] = {0,};  
+  strftime(time, sizeof(time), "%Y-%m-%d %H.%M.%S", dagtid);
+  
+  fprintf(fp, "[%s] ", time);
+  vfprintf(fp, fmt, ap);
+}
+
+static void logmsg(FILE* fp, const char* fmt, ...){
+  va_list ap;
+  va_start(ap, fmt);
+  vlogmsg(fp, fmt, ap);
+  va_end(ap);
+}
+
 static void mp_auth(struct MPinitialization* event){
   if( strlen(event->MAMPid) > 0 ){
     MAMPid = strdup(event->MAMPid);
-    printf("This MP is known as %s.\n", MAMPid);
+    logmsg(stdout, "MP has been authorized as \"%s\".\n", MAMPid);
   } else {
-    printf("This is a unauthorized MP.\n");
+    logmsg(stdout, "This is a unauthorized MP.\n");
   }
 }
 
@@ -71,9 +93,11 @@ static void mp_filter(struct MPFilter* event){
 
   struct FPI* rule = malloc(sizeof(struct FPI));
   convUDPtoFPI(rule, event->filter);
+  logmsg(stdout, "Updating filter with id %d\n", rule->filter_id);
   addFilter(rule);
-  printFilter(stdout, rule);
-  printf("Added the filter.\n");
+  if ( verbose_flag ){
+    printFilter(stdout, rule);
+  }
 }
 
 /**
@@ -130,6 +154,10 @@ static void hexdump(FILE* fp, const char* data, size_t size){
   printf("\n");
 }
 
+static int is_authorized(){
+  return MAMPid != NULL;
+}
+
 void* control(void* prt){
   int ret;
 
@@ -168,6 +196,17 @@ void* control(void* prt){
       continue;
 
     case 0: /* success, continue processing */
+      /* always handle authorization event */
+      if ( event.type == MP_CONTROL_AUTHORIZE_EVENT ){
+	break;
+      }
+
+      /* only handle other events if authorized */
+      if ( !is_authorized() ){
+	fprintf(stderr, "MP not authorized, ignoring message of type %d\n", event.type);
+	continue;
+      }
+	
       break;
 
     default: /* error has been raised */
@@ -191,6 +230,10 @@ void* control(void* prt){
       mp_filter_reload(-1);
       break;
 
+    case MP_FILTER_REQUEST_EVENT:
+      mp_filter_reload(event.refresh.filter_id);
+      break;
+
     default:
       printf("Control thread got unhandled event of type %d containing %zd bytes.\n", event.type, size);
       printf("PAYLOAD:\n");
@@ -201,9 +244,6 @@ void* control(void* prt){
 
 /*   while(terminateThreads==0){ */
 /*     switch(messageType){ */
-/*       case 2: */
-/* 	break; */
-
 /*       case 3: */
 /* 	printf("We got a new filter indication.\n"); */
 /* 	printf("This type means that we should get one filter, and add it.\n"); */
@@ -533,7 +573,6 @@ static int convUDPtoFPI(struct FPI *rule,  struct FPI result){
       }
       break;
     case 1: // Ethernet
-      printf("Ethernet DST = %s \n",hexdump_address(result.DESTADDR));
       memcpy(rule->DESTADDR,result.DESTADDR,ETH_ALEN);
       break;
     case 0: // File
@@ -543,7 +582,6 @@ static int convUDPtoFPI(struct FPI *rule,  struct FPI result){
 
   return 1;
 }
-
 
 static void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
   if( MAMPid==0 ){
@@ -561,7 +599,7 @@ static void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
   strftime(time, sizeof(time), "%Y-%m-%d %H.%M.%S", dagtid);
 
   struct MPstatus stat;
-  stat.type = htonl(MP_STATUS_EVENT);
+  stat.type = MP_STATUS_EVENT;
   strncpy(stat.MAMPid, MAMPid, 16);
   stat.noFilters = ntohl(noRules);
   stat.matched   = ntohl(matchPkts);
