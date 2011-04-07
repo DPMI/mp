@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <ctype.h>
 #include <assert.h>
 #include <errno.h>
 #include <sys/time.h>
@@ -75,6 +76,40 @@ static void mp_filter(struct MPFilter* event){
   printf("Added the filter.\n");
 }
 
+static void hexdump(FILE* fp, const char* data, size_t size){
+  size_t align = size + (size % 16);
+  fputs("[0000]  ", fp);
+  for( int i=0; i < align; i++){
+    if ( i < size ){
+      fprintf(fp, "%02X ", data[i]);
+    } else {
+      fputs("   ", fp);
+    }
+    if ( i % 4 == 3 ){
+      fputs("   ", fp);
+    }
+    if ( i % 16 == 15 ){
+      fputs("    |", fp);
+      for ( int j = i-15; j < i; j++ ){
+	char ch = data[j];
+
+	if ( j >= size ){
+	  ch = ' ';
+	} else if ( !isprint(data[j]) ){
+	  ch = '.';
+	}
+
+	fputc(ch, fp);
+      }
+      fputs("|", fp);
+      if ( (i+1) < align){
+	fprintf(fp, "\n[%04X]  ", i+1);
+      }
+    }
+  }
+  printf("\n");
+}
+
 void* control(void* prt){
   int ret;
 
@@ -104,9 +139,10 @@ void* control(void* prt){
 
   /* process messages from MArCd */
   MPMessage event;
+  size_t size;
   while( terminateThreads==0 ){
     /* get next message */
-    switch ( (ret=marc_poll_event(client, &event, NULL)) ){
+    switch ( (ret=marc_poll_event(client, &event, &size, NULL)) ){
     case EAGAIN: /* delivered if using a timeout */
     case EINTR:  /* interuped */
       continue;
@@ -121,7 +157,7 @@ void* control(void* prt){
 
     /* act */
     switch (event.type) { /* ntohl not needed, called by marc_poll_event */
-    case MP_AUTH_EVENT:
+    case MP_CONTROL_AUTHORIZE_EVENT:
       mp_auth(&event.init);
       break;
 
@@ -130,9 +166,10 @@ void* control(void* prt){
       break;
 
     default:
-	printf("%d is a unknown message.\n", event.type);
-	printf("PAYLOAD: %s\n", event.payload);
-	break;
+      printf("Control thread got unhandled event of type %d containing %zd bytes.\n", event.type, size);
+      printf("PAYLOAD:\n");
+      hexdump(stdout, event.payload, size);    
+      break;
     }
   }
 
