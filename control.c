@@ -77,6 +77,23 @@ static void mp_filter(struct MPFilter* event){
 }
 
 /**
+ * Reload filter.
+ * @param id Filter id or -1 for all.
+ */
+static void mp_filter_reload(int id){
+  if ( id == -1 ){
+    struct FPI* cur = myRules;
+    while ( cur ){
+      marc_filter_request(client, MAMPid, cur->filter_id);
+      cur = cur->next;
+    }
+    return;
+  } else {
+    marc_filter_request(client, MAMPid, id);
+  }
+}
+
+/**
  * Dump the content of data as hexadecimal (and its ascii repr.)
  */
 static void hexdump(FILE* fp, const char* data, size_t size){
@@ -170,6 +187,10 @@ void* control(void* prt){
       mp_filter(&event.filter);
       break;
 
+    case MP_FILTER_RELOAD_EVENT:
+      mp_filter_reload(-1);
+      break;
+
     default:
       printf("Control thread got unhandled event of type %d containing %zd bytes.\n", event.type, size);
       printf("PAYLOAD:\n");
@@ -181,9 +202,6 @@ void* control(void* prt){
 /*   while(terminateThreads==0){ */
 /*     switch(messageType){ */
 /*       case 2: */
-/* 	printf("We got a filter indication.\n"); */
-/* 	printf("This type means that we should get a complete set of filters.\n"); */
-/* 	printf("Fetch Lycos!\n"); */
 /* 	break; */
 
 /*       case 3: */
