@@ -158,6 +158,8 @@ void* control(void* prt){
       return NULL;
     }
 
+    fprintf(verbose, "Got message %d (%zd bytes) from MArCd.\n", event.type, size);
+
     /* act */
     switch (event.type) { /* ntohl not needed, called by marc_poll_event */
     case MP_CONTROL_AUTHORIZE_EVENT:
@@ -176,43 +178,8 @@ void* control(void* prt){
     }
   }
 
-/*   printf("Entering (3:am) Eternal loop.\n"); */
-/*   struct Generic *maMSG; */
-/*   int messageType; */
-/*   struct FPI* rule; */
-/* //  struct sockaddr_in clientAddress; */
-/*   char message2[1450]; */
-
-/*   struct timeval timeout; */
-/*   fd_set fds; */
-/*   timeout.tv_sec=5; */
-/*   timeout.tv_usec=0; */
-/*   FD_ZERO(&fds); */
-/*   FD_SET(bcastS,&fds); */
-/*   int selectReturn=0; */
-/*   int flushBuffer_id=0; */
-
 /*   while(terminateThreads==0){ */
-/*     //printf("Control: Waiting for input.\n");fflush(stdout); */
-/*     i = recvfrom(bcastS, message2, 1450, 0, (struct sockaddr *) &clientAddr,(socklen_t*) &cliLen); */
-
-/*     if(i<0) { */
-/*       perror("Cannot receive data.. \n"); */
-/*       exit(1); */
-/*     } */
-/*     int messageLen=i; */
-/*     printf("GOT  %d bytes from ", i ); */
-/*     printf("%s:%d \n",inet_ntoa(clientAddr.sin_addr),ntohs(clientAddr.sin_port)); */
-/*     maMSG=(struct Generic*)message2;  */
-/*     /\* Find out what message that arrived *\/ */
-/*     for(i=0;i<20;i++){ */
-/*       printf("%02x:",message2[i]); */
-/*     } */
-/*     printf("\n"); */
-/*     messageType=ntohl(maMSG->type); */
-/*     printf("MessageType = %d \n", messageType); */
 /*     switch(messageType){ */
-
 /*       case 2: */
 /* 	printf("We got a filter indication.\n"); */
 /* 	printf("This type means that we should get a complete set of filters.\n"); */
