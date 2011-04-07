@@ -76,12 +76,15 @@ static void mp_filter(struct MPFilter* event){
   printf("Added the filter.\n");
 }
 
+/**
+ * Dump the content of data as hexadecimal (and its ascii repr.)
+ */
 static void hexdump(FILE* fp, const char* data, size_t size){
-  size_t align = size + (size % 16);
+  const size_t align = size + (size % 16);
   fputs("[0000]  ", fp);
   for( int i=0; i < align; i++){
     if ( i < size ){
-      fprintf(fp, "%02X ", data[i]);
+      fprintf(fp, "%02X ", data[i] & 0xff);
     } else {
       fputs("   ", fp);
     }
@@ -90,7 +93,7 @@ static void hexdump(FILE* fp, const char* data, size_t size){
     }
     if ( i % 16 == 15 ){
       fputs("    |", fp);
-      for ( int j = i-15; j < i; j++ ){
+      for ( int j = i-15; j<=i; j++ ){
 	char ch = data[j];
 
 	if ( j >= size ){
