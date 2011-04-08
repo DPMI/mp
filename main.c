@@ -41,6 +41,7 @@
 #include <getopt.h>
 #include <assert.h>
 #include <caputils/caputils.h>
+#include <libmarc/filter.h>
 
 struct sched_param prio;         // Priority schedule variable
 
@@ -628,11 +629,16 @@ int main (int argc, char **argv)
     printf("Waiting for them to die.\n");
   //End parent when all children are dead
   if(destination==1) {
+    fprintf(verbose, "Waiting for sender thread\n");
     pthread_join( senderPID, NULL);
   }
   for(i=0;i < iflag; i++)  {
+    fprintf(verbose, "Waiting for CI[%d] thread\n", i);
     pthread_join( child[i], NULL);
   }
+  
+  fprintf(verbose, "Waiting for control thread\n");
+  pthread_join(controlPID, NULL);
   
   _DEBUG_MSG (fprintf(stderr,"\n----------TERMINATING---------------\n\n"))
   _DEBUG_MSG (fprintf(stderr,"Captured %d pkts\nSent %d pkts\n",recvPkts, sentPkts))
@@ -667,6 +673,16 @@ int main (int argc, char **argv)
   if ( sem_destroy(&semaphore) != 0 ){
     fprintf(stderr, "%s: sem_destroy() returned %d: %s\n", argv[0], errno, strerror(errno));
   }
+
+  struct FPI* cur = myRules;
+  while ( cur ){
+    struct FPI* tmp = cur;
+    cur = cur->next;
+    free(tmp); /** @todo create a filter cleanup function */
+  }
+
+  free(MAnic);
+  free(MAMPid);
 
   return 0;
 } // Main end

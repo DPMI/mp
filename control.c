@@ -187,10 +187,11 @@ void* control(void* prt){
 
   /* process messages from MArCd */
   MPMessage event;
+  struct timeval timeout = {1, 0}; /* 1 sec timeout */
   size_t size;
   while( terminateThreads==0 ){
     /* get next message */
-    switch ( (ret=marc_poll_event(client, &event, &size, NULL)) ){
+    switch ( (ret=marc_poll_event(client, &event, &size, &timeout)) ){
     case EAGAIN: /* delivered if using a timeout */
     case EINTR:  /* interuped */
       continue;
@@ -241,6 +242,9 @@ void* control(void* prt){
       break;
     }
   }
+
+  marc_cleanup(client);
+  client = NULL;
 
 /*   while(terminateThreads==0){ */
 /*     switch(messageType){ */
