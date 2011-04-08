@@ -129,6 +129,10 @@ static void ma_nic(const char* arg) {
   }
 
   int s = socket(AF_PACKET, SOCK_RAW, htons(MYPROTO));
+  if ( s == -1 ){
+    perror("socket");
+    exit(1);
+  }
 
   if(ioctl(s,SIOCGIFINDEX, &ifr) == -1 ) {
     perror("SIOCGIFINDEX");
