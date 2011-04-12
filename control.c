@@ -36,23 +36,6 @@ static int convUDPtoFPI(struct Filter* dst,  struct FilterPacked* src);
 static void CIstatus(int sig); // Runs when ever a ALRM signal is received.
 static char hex_string[IFHWADDRLEN * 3] = "00:00:00:00:00:00";
 
-/* Structures used in MA-MP communications */
-
-struct Generic{
-  int type;
-  char payload[1400];
-};
-
-struct MPVerifyFilter {
-  int type;  // Type of message (6).
-  char MAMPid[16]; // Name of MP
-  int filter_id; // Filter id.
-  int flags; // 0 No filter present. 1 filter present. 
-  struct FPI theFilter; // Filter
-};
-
-//static int useVersion;                     // What Communication version to use, 1= v0.5 MySQL, 2=v0.6 and UDP.
-//static struct sockaddr_in servAddr;        // Address structure for MArCD
 static marc_context_t client = NULL;
 
 static int vlogmsg(FILE* fp, const char* fmt, va_list ap){
@@ -68,7 +51,6 @@ static int vlogmsg(FILE* fp, const char* fmt, va_list ap){
   fprintf(fp, "[%s] ", time);
   return vfprintf(fp, fmt, ap);
 }
-
 
 static int logmsg(FILE* fp, const char* fmt, ...){
   va_list ap;
