@@ -78,7 +78,7 @@ static int logmsg(FILE* fp, const char* fmt, ...){
   return ret;
 }
 
-static void mp_auth(struct MPinitialization* event){
+static void mp_auth(struct MPauth* event){
   if( strlen(event->MAMPid) > 0 ){
     MAMPid = strdup(event->MAMPid);
     logmsg(stdout, "MP has been authorized as \"%s\".\n", MAMPid);
@@ -220,12 +220,12 @@ void* control(void* prt){
       return NULL;
     }
 
-    fprintf(verbose, "Got message %d (%zd bytes) from MArCd.\n", event.type, size);
+    logmsg(verbose, "Got message %d (%zd bytes) from MArCd.\n", event.type, size);
 
     /* act */
     switch (event.type) { /* ntohl not needed, called by marc_poll_event */
     case MP_CONTROL_AUTHORIZE_EVENT:
-      mp_auth(&event.init);
+      mp_auth(&event.auth);
       break;
 
     case MP_FILTER_EVENT:
@@ -595,18 +595,9 @@ static int convUDPtoFPI(struct Filter* dst,  struct FilterPacked* src){
 
 static void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
   if( MAMPid==0 ){
-    printf("Not authorized. No need to inform MArC about the status.\n");
+    logmsg(stderr, "Not authorized. No need to inform MArC about the status.\n");
     return;
   }
-
-  struct timeval tid1;
-  gettimeofday(&tid1,NULL);
-
-  struct tm *dagtid;  
-  dagtid=localtime(&tid1.tv_sec);
-
-  char time[20] = {0,};  
-  strftime(time, sizeof(time), "%Y-%m-%d %H.%M.%S", dagtid);
 
   struct MPstatus stat;
   stat.type = MP_STATUS_EVENT;
@@ -626,16 +617,16 @@ static void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
   
   int ret;
   if ( (ret=marc_push_event(client, (MPMessage*)&stat, NULL)) != 0 ){
-    fprintf(stderr, "marc_push_event() returned %d: %s\n", ret, strerror(ret));
+    logmsg(stderr, "marc_push_event() returned %d: %s\n", ret, strerror(ret));
   }
   
-  printf("%s Status report for %s\n"
+  logmsg(verbose, "Status report for %s\n"
 	 "\t%d Filters Present\n"
 	 "\t%d Capture Interfaces.\n"
 	 "\t%d Packets Matched Filters.\n",
-	 time, MAMPid, noRules,noCI,matchPkts);
+	 MAMPid, noRules,noCI,matchPkts);
   for( int i=0; i < noCI; i++){
-    printf("\tCI[%d]=%s  PKT[%d]=%ld BU[%d]=%d\n",
+    fprintf(verbose, "\tCI[%d]=%s  PKT[%d]=%ld BU[%d]=%d\n",
 	   i, _CI[i].nic,
 	   i, _CI[i].pktCnt,
 	   i, _CI[i].bufferUsage);
