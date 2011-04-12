@@ -631,6 +631,10 @@ static void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
 	   i, _CI[i].pktCnt,
 	   i, _CI[i].bufferUsage);
   }
+
+  if ( noRules == 0 ){
+    logmsg(stderr, "Warning: no filters present.\n");
+  }
 }
 
 void flushBuffer(int i){
