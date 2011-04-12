@@ -32,7 +32,7 @@
 
 #define STATUS_INTERVAL 60
 
-static int convUDPtoFPI(struct FPI *rule,  struct FPI result);// 
+static int convUDPtoFPI(struct Filter* dst,  struct FilterPacked* src);
 static void CIstatus(int sig); // Runs when ever a ALRM signal is received.
 static char hex_string[IFHWADDRLEN * 3] = "00:00:00:00:00:00";
 
@@ -55,7 +55,7 @@ struct MPVerifyFilter {
 //static struct sockaddr_in servAddr;        // Address structure for MArCD
 static marc_context_t client = NULL;
 
-static void vlogmsg(FILE* fp, const char* fmt, va_list ap){
+static int vlogmsg(FILE* fp, const char* fmt, va_list ap){
   struct timeval tid1;
   gettimeofday(&tid1,NULL);
 
@@ -66,14 +66,16 @@ static void vlogmsg(FILE* fp, const char* fmt, va_list ap){
   strftime(time, sizeof(time), "%Y-%m-%d %H.%M.%S", dagtid);
   
   fprintf(fp, "[%s] ", time);
-  vfprintf(fp, fmt, ap);
+  return vfprintf(fp, fmt, ap);
 }
 
-static void logmsg(FILE* fp, const char* fmt, ...){
+
+static int logmsg(FILE* fp, const char* fmt, ...){
   va_list ap;
   va_start(ap, fmt);
-  vlogmsg(fp, fmt, ap);
+  int ret = vlogmsg(fp, fmt, ap);
   va_end(ap);
+  return ret;
 }
 
 static void mp_auth(struct MPinitialization* event){
@@ -92,8 +94,8 @@ static void mp_filter(struct MPFilter* event){
   }
 
   struct FPI* rule = malloc(sizeof(struct FPI));
-  convUDPtoFPI(rule, event->filter);
-  logmsg(stdout, "Updating filter with id %d\n", rule->filter_id);
+  convUDPtoFPI(&rule->filter, &event->filter);
+  logmsg(stdout, "Updating filter with id %d\n", rule->filter.filter_id);
   addFilter(rule);
   if ( verbose_flag ){
     printFilter(stdout, rule);
@@ -108,7 +110,7 @@ static void mp_filter_reload(int id){
   if ( id == -1 ){
     struct FPI* cur = myRules;
     while ( cur ){
-      marc_filter_request(client, MAMPid, cur->filter_id);
+      marc_filter_request(client, MAMPid, cur->filter.filter_id);
       cur = cur->next;
     }
     return;
@@ -163,6 +165,9 @@ void* control(void* prt){
 
   /* setup libmarc */
   {
+    /* redirect output */
+    marc_set_output_handler(logmsg, vlogmsg, stderr, verbose);
+
     struct marc_client_info info;
     info.client_ip = NULL;
     info.client_port = 0;
@@ -530,57 +535,58 @@ char *hexdump_address (const unsigned char address[IFHWADDRLEN]){
   return (hex_string);
 }
 
-static int convUDPtoFPI(struct FPI *rule,  struct FPI result){
+static int convUDPtoFPI(struct Filter* dst,  struct FilterPacked* src){
   char *pos=0;
-  rule->filter_id=result.filter_id;
-  rule->index=result.index;
-  strncpy(rule->CI_ID,result.CI_ID,8);
-  rule->VLAN_TCI=result.VLAN_TCI;
-  rule->VLAN_TCI_MASK=result.VLAN_TCI_MASK;
-  rule->ETH_TYPE=result.ETH_TYPE;
-  rule->ETH_TYPE_MASK=result.ETH_TYPE_MASK;
-  
-  
-  rule->IP_PROTO=result.IP_PROTO;
-  strncpy((char*)(rule->IP_SRC),(char*)(result.IP_SRC),16);
-  strncpy((char*)(rule->IP_SRC_MASK),(char*)(result.IP_SRC_MASK),16);
-  strncpy((char*)(rule->IP_DST),(char*)(result.IP_DST),16);
-  strncpy((char*)(rule->IP_DST_MASK),(char*)(result.IP_DST_MASK),16);
-  
-  rule->SRC_PORT=result.SRC_PORT;
-  rule->SRC_PORT_MASK=result.SRC_PORT_MASK;
-  rule->DST_PORT=result.DST_PORT;
-  rule->DST_PORT_MASK=result.DST_PORT_MASK;
-  rule->consumer=result.consumer;
-  
-  memcpy(rule->ETH_SRC,result.ETH_SRC,ETH_ALEN);
-  memcpy(rule->ETH_SRC_MASK,result.ETH_SRC_MASK,ETH_ALEN);
-  memcpy(rule->ETH_DST,result.ETH_DST,ETH_ALEN);
-  memcpy(rule->ETH_DST_MASK,result.ETH_DST_MASK,ETH_ALEN);
+  dst->filter_id = src->filter_id;
+  dst->index     = src->index;
 
-  rule->TYPE=result.TYPE;
-  rule->CAPLEN=result.CAPLEN;
-  if(rule->CAPLEN>PKT_CAPSIZE){ // Make sure that the User doesnt request more information than we can give. 
-    rule->CAPLEN=PKT_CAPSIZE;
+  dst->VLAN_TCI      = src->VLAN_TCI;
+  dst->VLAN_TCI_MASK = src->VLAN_TCI_MASK;
+  dst->ETH_TYPE      = src->ETH_TYPE;
+  dst->ETH_TYPE_MASK = src->ETH_TYPE_MASK;
+  
+  dst->IP_PROTO      = src->IP_PROTO;
+
+  strncpy(dst->CI_ID, src->CI_ID, 8);
+  memcpy(dst->IP_SRC, src->IP_SRC, 16);
+  memcpy(dst->IP_SRC_MASK, src->IP_SRC_MASK, 16);
+  memcpy(dst->IP_DST, src->IP_DST, 16);
+  memcpy(dst->IP_DST_MASK, src->IP_DST_MASK, 16);
+  
+  dst->SRC_PORT      = src->SRC_PORT;
+  dst->SRC_PORT_MASK = src->SRC_PORT_MASK;
+  dst->DST_PORT      = src->DST_PORT;
+  dst->DST_PORT_MASK = src->DST_PORT_MASK;
+  dst->consumer      = src->consumer;
+  
+  memcpy(&dst->ETH_SRC, &src->ETH_SRC, ETH_ALEN);
+  memcpy(&dst->ETH_SRC_MASK, &src->ETH_SRC_MASK, ETH_ALEN);
+  memcpy(&dst->ETH_DST, &src->ETH_DST, ETH_ALEN);
+  memcpy(&dst->ETH_DST_MASK, &src->ETH_DST_MASK, ETH_ALEN);
+
+  dst->TYPE = src->TYPE;
+  dst->CAPLEN = src->CAPLEN;
+  if ( dst->CAPLEN > PKT_CAPSIZE ){ // Make sure that the User doesnt request more information than we can give. 
+    dst->CAPLEN = PKT_CAPSIZE;
   }
-  switch(rule->TYPE){
+  switch(dst->TYPE){
     case 3: // TCP
     case 2: // UDP
       // DESTADDR is ipaddress:port
-      strncpy((char*)(rule->DESTADDR),(char*)(result.DESTADDR),22);
-      pos=index((char*)(rule->DESTADDR),':');
+      memcpy(dst->DESTADDR, src->DESTADDR, 22);
+      pos=index((char*)(dst->DESTADDR),':');
       if(pos!=NULL) {
-	*pos=0;
-	rule->DESTPORT=atoi(pos+1);
+	*pos=0; /* put null terminator after ip */
+	dst->DESTPORT=atoi(pos+1); /* extract port */
       } else {
-	rule->DESTPORT=MYPROTO;
+	dst->DESTPORT=MYPROTO;
       }
       break;
     case 1: // Ethernet
-      memcpy(rule->DESTADDR,result.DESTADDR,ETH_ALEN);
+      memcpy(dst->DESTADDR, src->DESTADDR, ETH_ALEN);
       break;
     case 0: // File
-      strncpy((char*)(rule->DESTADDR),(char*)(result.DESTADDR),22);
+      memcpy(dst->DESTADDR,src->DESTADDR, 22);
       break;
   }
 

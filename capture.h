@@ -251,7 +251,7 @@ void* control(void*); // Control thread
 int filter(char* nic,void *pkt, struct cap_header*); //filtering routine
 char *hexdump_address (const unsigned char address[IFHWADDRLEN]); // Print a ethernet address. 
 
-int matchEth(char d[],char m[], char n[]);
+int matchEth(const unsigned char d[], const unsigned char m[], const unsigned char n[]);
 int addFilter(struct FPI *newRule);
 int delFilter(int filter_id);
 int changeFilter(struct FPI *newRule);
@@ -259,6 +259,5 @@ void flushSendBuffer(int i);
 void flushBuffer(int i); // Flush sender buffer i. 
 void printFilters(void); // Print all filters
 void printFilter(FILE* fp, const struct FPI *F); // Print One filter
-int printMysqlFilter(char *array,char *id, int seeked);
 
 #endif

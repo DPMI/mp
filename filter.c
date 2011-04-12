@@ -34,237 +34,212 @@
 #define IP 2
 #define OTHER 1
 
+struct Haystack {
+  const char* CI;
+  const char* pkt;
+  const struct ethhdr* ether;
+  const struct ether_vlan_header* vlan;
+  struct ip* ip_hdr;
+};
+
+/**
+ * Try to match filter against haystack.
+ * @return 1 if match, 0 if not.
+ */
+int filter_match(const struct Filter* filter, const struct Haystack* haystack) {
+  const struct ethhdr* ether = haystack->ether;
+  const struct ether_vlan_header* vlan = haystack->vlan;
+  struct ip* ip_hdr = haystack->ip_hdr;
+  struct tcphdr* tcp = NULL;
+  struct udphdr* udp = NULL;
+  const size_t vlan_offset = haystack->vlan ? 4 : 0;
+
+  /* Capture Interface */
+  if ( filter->index & FILTER_CI ){
+    if( strstr(haystack->CI, filter->CI_ID) == NULL ){ 
+      return 0;
+    }
+  }
+
+  /*  VLAN TCI (Tag Control Information) */
+  if ( filter->index & FILTER_VLAN ){
+    if( !haystack->vlan ){
+      return 0;
+    }
+
+    const uint16_t tci = ntohs(haystack->vlan->vlan_tci) & filter->VLAN_TCI_MASK;
+    if ( filter->VLAN_TCI != tci ){
+      return 0;
+    }
+  }
+
+  /* Ethernet type */
+  if ( filter->index & FILTER_ETH_TYPE ){
+    uint8_t h_proto;
+
+    /* If No vlan is present the h_proto is at its normal place. */
+    if ( haystack->vlan == NULL ) {
+      h_proto = ntohs(ether->h_proto) & filter->ETH_TYPE_MASK;
+    } else {
+      h_proto = ntohs(vlan->h_proto) & filter->ETH_TYPE_MASK;
+    }
+
+    if( filter->ETH_TYPE != h_proto ){
+      return 0;
+    }
+  }
+
+  /* Ethernet Source */
+  if ( filter->index & FILTER_ETH_SRC ) {
+    /** @todo shouldn't VLAN_PRESENT be considered */
+    if ( matchEth(filter->ETH_SRC.ether_addr_octet, filter->ETH_SRC_MASK, ether->h_source) == 0 ){
+      return 0;
+    }
+  }
+
+  /* Ethernet Destination */
+  if( filter->index & FILTER_ETH_DST ) {
+    /** @todo shouldn't VLAN_PRESENT be considered */
+    if ( matchEth(filter->ETH_DST.ether_addr_octet, filter->ETH_DST_MASK, ether->h_dest) == 0 ){
+      return 0;
+    }
+  }
+
+  /* IP Protocol */
+  if ( filter->index & FILTER_IP_PROTO ) {
+    /* not an IP-packet */
+    if ( ip_hdr==0 ){
+      return 0;
+    }
+
+    if ( filter->IP_PROTO != ip_hdr->ip_p ){ 
+      return 0;
+    }
+
+    if( filter->IP_PROTO == IPPROTO_UDP ){
+      udp = (struct udphdr*)(haystack->pkt+sizeof(struct ethhdr) + vlan_offset + 4*(ip_hdr->ip_hl));
+    }
+
+    if( filter->IP_PROTO == IPPROTO_TCP ){
+      tcp = (struct tcphdr*)(haystack->pkt+sizeof(struct ethhdr) + vlan_offset + 4*(ip_hdr->ip_hl));
+    }
+  }
+
+  /* IP source address */
+  if ( filter->index & FILTER_IP_SRC ){
+    if ( ip_hdr==0 ){
+      return 0;
+    }
+
+    const in_addr_t src = ip_hdr->ip_src.s_addr & inet_addr(filter->IP_SRC_MASK);
+
+    if ( inet_addr(filter->IP_SRC) != src ){
+      return 0;
+    }
+  }
+
+  /* IP destination address */
+  if ( filter->index & FILTER_IP_DST ){
+    if ( ip_hdr==0 ){
+      return 0;
+    }
+
+    const in_addr_t dst = ip_hdr->ip_dst.s_addr & inet_addr(filter->IP_DST_MASK);
+
+    if ( inet_addr(filter->IP_DST) != dst ){
+      return 0;
+    }
+  }
+
+  /* Transport source port */
+  if ( filter->index & FILTER_SRC_PORT ){
+    if ( ip_hdr==0 ){
+      return 0;
+    }
+
+    uint16_t port;
+    if ( udp != 0 ){ /* UDP */
+      port = ntohs(udp->source) & filter->SRC_PORT_MASK;
+    } else if ( tcp != 0 ){ /* TCP */
+      port = ntohs(tcp->source) & filter->SRC_PORT_MASK;
+    } else {
+      return 0; /* unhandled transport protocol */
+    }
+
+    if ( filter->SRC_PORT != port ){
+      return 0;
+    }
+  }
+
+  /* Transport destionation port */
+  if ( filter->index & FILTER_DST_PORT ){
+    if ( ip_hdr==0 ){
+      return 0;
+    }
+
+    uint16_t port;
+    if ( udp != 0 ){ /* UDP */
+      port = ntohs(udp->dest) & filter->DST_PORT_MASK;
+    } else if ( tcp != 0 ){ /* TCP */
+      port = ntohs(tcp->dest) & filter->DST_PORT_MASK;
+    } else {
+      return 0; /* unhandled transport protocol */
+    }
+
+    if ( filter->DST_PORT != port ){
+      return 0;
+    }
+  }
+
+  return 1;
+}
 
 int filter(char* CI, void *pkt, struct cap_header *head){
-  int destination;
-  int i;
-  struct ethhdr *ether=0;
-  struct ether_vlan_header *vlan=0;
-  struct ip *ip_hdr=0;
-  struct tcphdr *tcp=0;
-  struct udphdr *udp=0;
-  struct FPI *theRule;
-
-
-//  struct FPI *aRule;
-
-  
-  int VLAN_PRESENT=0;
-
-
-  if(noRules==0) {
-    //    printf("CT[%ld]:%d Checking filter rules. NO RULES PRESENT ==> DROP.\n",pthread_self(),recvPkts);
-    return(-1);
-  } 
-  //printf("CT[%ld]:%d Check filters ( %d):",pthread_self(), recvPkts,noRules);
-
-  
-  ether=(struct ethhdr*)pkt;
-  destination=0;
-  if(ntohs(ether->h_proto)==0x8100){
-    vlan=(struct ether_vlan_header*)(pkt);
-    VLAN_PRESENT=4;
+  if ( noRules==0 ) {
+    return -1;
   }
 
-  
-  if(VLAN_PRESENT==0) {
-    if(ntohs(ether->h_proto)==ETHERTYPE_IP){
-      ip_hdr=(struct ip*)(pkt+sizeof(struct ethhdr)+VLAN_PRESENT);
-      //    printf("FL[%ld]Pkt(:IP:%04X)\n",pthread_self(),ip_hdr->ip_p);
+  struct Haystack haystack;
+  haystack.CI = CI;
+  haystack.ether = (struct ethhdr*)pkt;
+  haystack.vlan = NULL;
+  haystack.ip_hdr = NULL;
+
+  /* setup vlan header */
+  if(ntohs(haystack.ether->h_proto)==0x8100){
+    haystack.vlan = (struct ether_vlan_header*)(pkt);
+  }
+
+  /* setup IP header */
+  if ( haystack.vlan == NULL ) {
+    if(ntohs(haystack.ether->h_proto) == ETHERTYPE_IP){
+      haystack.ip_hdr=(struct ip*)(pkt+sizeof(struct ethhdr));
     }
   } else {
-    if(ntohs(vlan->h_proto)==ETHERTYPE_IP){
-      ip_hdr=(struct ip*)(pkt+sizeof(struct ether_vlan_header));
-      //    printf("FL[%ld]Pkt(:IP:%04X)\n",pthread_self(),ip_hdr->ip_p);
+    if(ntohs(haystack.vlan->h_proto) == ETHERTYPE_IP){
+      haystack.ip_hdr=(struct ip*)(pkt+sizeof(struct ether_vlan_header));
     }
   }
 
-  destination=-1;
+  int destination = -1;
 
-  theRule=myRules;
-  for(i=0;i<noRules&&destination==-1;i++){
-    if(i>0){// This is the second time around, we need to update the pointer.
-      theRule=theRule->next;
+  struct FPI* rule = myRules;
+  while ( rule ){
+    const struct Filter* filter = &rule->filter;
+
+    if ( filter_match(filter, &haystack) == 1 ){
+      /* packet matches */
+      destination = filter->consumer;
+      head->caplen = filter->CAPLEN;
+      break;
     }
-    //    printf("CT[%ld]:Checking rule [%d] index = %d.\n",pthread_self(),theRule->filter_id,theRule->index);
-    if(theRule->index&512){ // We check the CI
-      //printf("\t\tCI: (rule) %s  vs. %s (CI)\n", theRule->CI_ID, CI);
-      if(strstr(CI,theRule->CI_ID)==NULL){ 
-	//printf("FAIL.\n");
-	continue; //  The rule was valid for another CI. 
-      }
-      //printf("MATCH.\n");
-    }//CI
-    if(theRule->index&256){ // We check the VLAN_TCI.
-      //      printf("VLANTCI.");
-      if(VLAN_PRESENT==0){
-	//	printf("fail!\n");
-	continue; // No VLAN present. Skip to next rule.
-      }
-      if((theRule->VLAN_TCI)!=(ntohs(vlan->vlan_tci)&theRule->VLAN_TCI_MASK)){
-	//	printf("fail.\n");
-	continue; // The VLAN_TCI fields does not match. Skip to next rule.
-      }
-    }//VLAN_TCI
-    if(theRule->index&128){//Ethernet Type
-      //printf("ETHTYPE %04x == %04x.",theRule->ETH_TYPE, (ntohs(ether->h_proto)&theRule->ETH_TYPE_MASK));
-      if(VLAN_PRESENT==0) { // If No vlan is present the h_proto is at its normal place.
- 	if((theRule->ETH_TYPE)!=(ntohs(ether->h_proto)&theRule->ETH_TYPE_MASK)){
-	  //printf("fail\n");
-	  continue; // The desired protocol&mask was not found in this frame. Next rule.
-	}
-      }
-      if(VLAN_PRESENT==4) { // IF VLAN is present, we use the VLAN header to locate the h_proto field
-	if((theRule->ETH_TYPE)!=(vlan->h_proto&theRule->ETH_TYPE_MASK)){
-	  //	  printf("fail\n");
-	  continue;// The desired protocol was not found, test next rule.
-	}
-      }
-    }//Ethernet Type
-    if(theRule->index&64) {//Ethernet Source
-      //      printf("ETHSRC.");
-      if(matchEth(theRule->ETH_SRC,theRule->ETH_SRC_MASK,ether->h_source)==0){
-	//    printf("fail\n");
-	continue;// The desired source&mask was not found. Next rule
-      }
-    }//Ethernet Source
-    if(theRule->index&32) {//Ethernet Dest
-      //      printf("ETHDST.");
-      if(matchEth(theRule->ETH_DST,theRule->ETH_DST_MASK, ether->h_dest)==0){
-	//	printf("fail\n");
-	continue;// The desired destination&mask was not found. Next rule
-      }
-    }//Ethernet Destination
-    if(theRule->index&16) { // IP Protocol
-      if(ip_hdr==0){
-	//printf("fail\n");
-	continue;
-      }
-      //printf("\t\tIP_PROTOL = %d.", ip_hdr->ip_p);
-      if(theRule->IP_PROTO!=ip_hdr->ip_p){ 
-	//printf("FAIL\n");
-	continue; // The desired transport protocol was not found. Next Rule
-      }
-      //printf("MATCH\n");
-      if(theRule->IP_PROTO==IPPROTO_UDP){
-	//printf("UDP payload..\n");
-	udp=(struct udphdr*)(pkt+sizeof(struct ethhdr)+VLAN_PRESENT+4*(ip_hdr->ip_hl));
-      }
-      if(theRule->IP_PROTO==IPPROTO_TCP){
-	//printf("TCP payload.. \n");
-	tcp=(struct tcphdr*)(pkt+sizeof(struct ethhdr)+VLAN_PRESENT+4*(ip_hdr->ip_hl));
-      }
-    }
-    if(theRule->index&8){// IP Source
-      //printf("IPSRC.");
-      if(ip_hdr==0){
-	//printf("fail(NO IPHDR)\n");
-	continue;
-      } 
-      //printf("IP.src = %s ", inet_ntoa(ip_hdr->ip_src));
-      if(inet_addr(theRule->IP_SRC)!=(ip_hdr->ip_src.s_addr&inet_addr(theRule->IP_SRC_MASK))){
-	//printf("fail\n");
-	continue; // The desired source address was not found.
-      }
-/*
-  unsigned char *ptr=(unsigned char *)(ip_hdr);
-  printf("privacy.%s --> ", inet_ntoa(ip_hdr->ip_src));
-      printf("\npkt            = %p \n",pkt);
-      printf("ip_hdr         = %p \n",ip_hdr);
-      printf("ip_hdr->src    = %p \n",ptr);
-      printf("Addr = %d \n",(ptr[12]));
-      printf("     = %d \n",(ptr[13]));
-      printf("     = %d \n",(ptr[14]));
-      printf("     = %d \n",(ptr[15]));
-      printf("     = %d \n",p);
-      printf("     = %d \n",p);
-      //unsigned char p=ptr[15];
-      //p= p << ENCRYPT | ( p >> (8-ENCRYPT));
-      printf("%s rotated\n",inet_ntoa(ip_hdr->ip_src));
-*/
 
-      //printf(" match\n");
-    }//IP Source
-    if(theRule->index&4){// IP Dest
-      //printf("IPDST.");
-      if(ip_hdr==0){
-	//printf("fail(NO IPHDR)\n");
-	continue;
-      }
-      //printf("IP.dst = %s ", inet_ntoa(ip_hdr->ip_dst));
-      if(inet_addr(theRule->IP_DST)!=(ip_hdr->ip_dst.s_addr&inet_addr(theRule->IP_DST_MASK))){
-	//printf("fail\n");
-	continue; // The desired destination address was not found.
-      }
-      //printf(" match\n");
-    }//IP Dest
-    if(theRule->index&2){// Transport Source Port
-      //printf("SRCPRT.");
-      if(ip_hdr==0){
-	//printf("fail(NO IPHDR)\n");
-	continue;
-      }
+    /* try next rule */
+    rule = rule->next;
+  }
 
-      if(udp!=0){//Payload is not UDP
-	//printf("UDP.port = %d ", ntohs(udp->source));
-	if(theRule->SRC_PORT!=(ntohs(udp->source)&theRule->SRC_PORT_MASK)){
-	  //printf("fail\n");
-	  continue;//Source port does not match, next rule
-	}
-	//printf(" match\n");
-      }
-      if(tcp!=0){//Payload is TCP
-	//printf("TCP.port = %d", ntohs(tcp->source));
-	if(theRule->SRC_PORT!=(ntohs(tcp->source)&theRule->SRC_PORT_MASK)){
-	  //printf("fail\n");
-	  continue;//Source port does not match, next rule
-	}
-	//printf(" match\n");
-      }
-      if(tcp==0 && udp==0) {
-	// Unknown transport protocol.
-	//	printf("fail(UNKNOWN TP)\n");
-	continue;
-      }
-      
-    }// Transport Source Port
-    if(theRule->index&1){// Transport Dest Port
-      //printf("DSTPRT.");
-      if(ip_hdr==0){
-	//	printf("fail(NO IPHDR).\n");
-	continue;
-      }
-      if(udp!=0){//Payload is UDP
-	//printf("UDP.port = %d ", ntohs(udp->dest));
-	if(theRule->DST_PORT!=(ntohs(udp->dest)&theRule->DST_PORT_MASK)){
-	  //printf("fail\n");
-	  continue;//Source port does not match, next rule
-	}
-	//printf(" match\n");
-      }
-      if(tcp!=0){//Payload is TCP
-	//printf("TCP.port = %d ", ntohs(tcp->dest));
-	if(theRule->DST_PORT!=(ntohs(tcp->dest)&theRule->DST_PORT_MASK)){
-	  //printf("fail\n");
-	  continue;//Source port does not match, next rule
-	}
-	//printf(" match\n");
-      }
-      if(tcp==0 && udp==0) {
-	// Unknown transport protocol.
-	//printf("fail(UNKNOWN TP)\n");
-	continue;
-      }
-    }// Transport Dest Port
-    //IF we end up here, THEN the PACKET MATCHES THIS RULE!!!
-    destination=theRule->consumer;
-//    printf("FL[%ld] MATCH RULE %d, %d bytes -> Consumer %d\n",pthread_self(),theRule->filter_id, theRule->CAPLEN,destination);
-    head->caplen=theRule->CAPLEN;
-  }//FOR(i=0;i<noRules&&destination==0;i++)
-  // printf("filter = %d\n", destination);
-
-  if(ip_hdr!=0 && ENCRYPT>0){ // It is atleast a IP header.
-    unsigned char *ptr=(unsigned char *)(ip_hdr);
+  if( haystack.ip_hdr !=0 && ENCRYPT>0){ // It is atleast a IP header.
+    unsigned char *ptr=(unsigned char *)(haystack.ip_hdr);
     ptr[15]=ptr[15] << ENCRYPT | ( ptr[15] >> (8-ENCRYPT)); // Encrypt Sender
     ptr[19]=ptr[19] << ENCRYPT | ( ptr[19] >> (8-ENCRYPT)); // Encrypt Destination
   }
@@ -272,7 +247,7 @@ int filter(char* CI, void *pkt, struct cap_header *head){
   return destination;  
 }
 
-int matchEth(char desired[6],char mask[6], char net[6]){
+int matchEth(const unsigned char desired[6], const unsigned char mask[6], const unsigned char net[6]){
   int i;
   for(i=0;i<6;i++){
     if((net[i]&mask[i])!=desired[i]){
@@ -308,23 +283,23 @@ int addFilter(struct FPI *newRule){
     return 0;
   }
   
-  newRule->consumer = index;
+  newRule->filter.consumer = index;
 
   struct consumer* con = &MAsd[index];
   con->dropCount = globalDropcount + memDropcount;
-  con->want_sendhead = newRule->TYPE != 0; /* capfiles shouldn't contain sendheader */
+  con->want_sendhead = newRule->filter.TYPE != 0; /* capfiles shouldn't contain sendheader */
 
   /* mark consumer as used */
   con->status = 1;
 
-  const char* address = newRule->DESTADDR;
-  if ( newRule->TYPE == 1 ){
+  const unsigned char* address = newRule->filter.DESTADDR;
+  if ( newRule->filter.TYPE == 1 ){
     /* address is not passed as "01:00:00:00:00:00", but as actual memory with
      * bytes 01 00 00 ... createstream expects a string. */
     address = hexdump_address(address);
   }
 
-  if ( (ret=createstream(&con->stream, address, newRule->TYPE, MAnic, MAMPid, "caputils 0.7 test MP")) != 0 ){
+  if ( (ret=createstream(&con->stream, address, newRule->filter.TYPE, MAnic, MAMPid, "caputils 0.7 test MP")) != 0 ){
     fprintf(stderr, "createstream() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
     exit(1);
   }
@@ -332,12 +307,12 @@ int addFilter(struct FPI *newRule){
   struct ethhdr *ethhead; // pointer to ethernet header
   ethhead = (struct ethhdr*)sendmem[index];
 
-  switch(newRule->TYPE==1){
+  switch(newRule->filter.TYPE==1){
   case 3:
   case 2:
     break;
   case 1:
-    memcpy(ethhead->h_dest, newRule->DESTADDR, ETH_ALEN);
+    memcpy(ethhead->h_dest, newRule->filter.DESTADDR, ETH_ALEN);
     break;
   case 0:
     break;
@@ -351,23 +326,24 @@ int addFilter(struct FPI *newRule){
   }
 
   struct FPI* cur = myRules;
-  while ( cur->filter_id < newRule->filter_id && cur->next ){
+  while ( cur->filter.filter_id < newRule->filter.filter_id && cur->next ){
     cur = cur->next;
   };
 
-  if ( cur->filter_id == newRule->filter_id ){
-    fprintf(stderr, "warning: filter rules have duplicate filter_id (%d)\n", cur->filter_id);
+  if ( cur->filter.filter_id == newRule->filter.filter_id ){
+    fprintf(stderr, "warning: filter rules have duplicate filter_id (%d)\n", cur->filter.filter_id);
   }
 
-  if ( cur->filter_id < newRule->filter_id ) {
+  if ( cur->filter.filter_id < newRule->filter.filter_id ) {
+    /* add first */
     newRule->next = cur;
     myRules = newRule;
   } else {
     newRule->next = cur->next;
     cur->next = newRule;
-    noRules++;
   }
 
+  noRules++;
   return 1;
 }
 
@@ -383,21 +359,21 @@ int delFilter(int filter_id){
     return(0);
   }
   pointer1=myRules;
-  if(pointer1->filter_id==seeked){ // Found the desired filter..It was first.
+  if(pointer1->filter.filter_id==seeked){ // Found the desired filter..It was first.
     myRules=pointer1->next;// Update the basepointer-> the next rule
-    flushSendBuffer(pointer1->consumer);
+    flushSendBuffer(pointer1->filter.consumer);
     free(pointer1);  // Release the old pointer. 
     noRules--; // Update the amount of rules.
     return(1);
   }
-  while(pointer1->filter_id!=seeked && pointer1->next != 0) {
+  while(pointer1->filter.filter_id!=seeked && pointer1->next != 0) {
     pointer2=pointer1;
     pointer1=pointer1->next;
   }
   // Two reasons to leave while loop. 1) pointer1->filter_id == seeked, 2) pointer1->next == 0
-  if(pointer1->filter_id==seeked){ // We found it.
+  if(pointer1->filter.filter_id==seeked){ // We found it.
     pointer2->next = pointer1->next;// Make sure that the old element is not in the list anymore.
-    flushSendBuffer(pointer1->consumer);
+    flushSendBuffer(pointer1->filter.consumer);
     free(pointer1);              // relase the memory allocated by the old rule.
     noRules--;
     return(1);
@@ -475,7 +451,7 @@ void flushSendBuffer(int index){
 A change will NOT allow a change of consumer, new mutlicast address is OK ,but not recommended..
 */
 int changeFilter(struct FPI *newRule){
-  int seeked=newRule->filter_id;
+  int seeked=newRule->filter.filter_id;
   struct FPI *pointer1,*pointer2;
   pointer1=pointer2=0;
   struct ethhdr *ethhead;
@@ -488,37 +464,37 @@ int changeFilter(struct FPI *newRule){
     
   }
   pointer1=myRules;
-  if(pointer1->filter_id==seeked){ // Found the desired filter..It was first.fil
-    newRule->consumer=pointer1->consumer;
+  if(pointer1->filter.filter_id==seeked){ // Found the desired filter..It was first.fil
+    newRule->filter.consumer=pointer1->filter.consumer;
     newRule->next=pointer1->next; // Make sure that the new rule points to the next.
     myRules=newRule; // Update the basepointer-> the new rule.
     free(pointer1);  // Release the old pointer. 
 
-    ethhead= (struct ethhdr*)sendmem[newRule->consumer];
+    ethhead= (struct ethhdr*)sendmem[newRule->filter.consumer];
     printf("\tDestination address => ");
     for(i=0;i<ETH_ALEN;i++){
-      ethhead->h_dest[i]=newRule->DESTADDR[i];   // Set the destination address, defaults to 0x01:00:00:00:[i]
+      ethhead->h_dest[i]=newRule->filter.DESTADDR[i];   // Set the destination address, defaults to 0x01:00:00:00:[i]
       printf("%02X:",ethhead->h_dest[i]);
     }
     printf("\n");
     return(1);
   }
 
-  while(pointer1->filter_id!=seeked && pointer1->next != 0) {
+  while(pointer1->filter.filter_id!=seeked && pointer1->next != 0) {
     pointer2=pointer1;
     pointer1=pointer1->next;
   }
   // Two reasons to leave while loop. 1) pointer1->filter_id == seeked, 2) pointer1->next == 0
-  if(pointer1->filter_id==seeked){ // We found it.
-    newRule->consumer=pointer1->consumer;
+  if(pointer1->filter.filter_id==seeked){ // We found it.
+    newRule->filter.consumer=pointer1->filter.consumer;
     newRule->next=pointer1->next;//Make sure that the new rule points to the next.
     pointer2->next=newRule;      // Update the previous rule so it points to the new.
     free(pointer1);              // relase the memory allocated by the old rule.
 
-    ethhead= (struct ethhdr*)sendmem[newRule->consumer];
+    ethhead= (struct ethhdr*)sendmem[newRule->filter.consumer];
     printf("\tDestination address => ");
     for(i=0;i<ETH_ALEN;i++){
-      ethhead->h_dest[i]=newRule->DESTADDR[i];   // Set the destination address, defaults to 0x01:00:00:00:[i]
+      ethhead->h_dest[i]=newRule->filter.DESTADDR[i];   // Set the destination address, defaults to 0x01:00:00:00:[i]
       printf("%02X:",ethhead->h_dest[i]);
     }
     printf("\n");
@@ -544,45 +520,9 @@ void printFilters(void){
   }
 }
 
-int printMysqlFilter(char *array,char *id, int seeked){
-  struct FPI *F;
-  if(myRules==0){
-    // No Rules present, ERROR..
-    sprintf(array, "INSERT INFO %s_filterlistverify SET filter_id=%d, comment='NO RULES PRESENT'",id,seeked);
-    return(0);
-  }
-  F=myRules;
-  if(F->filter_id!=seeked){ // The first isn't the seeked one
-    while(F->filter_id!=seeked && F->next != 0) {
-      F=F->next;
-    }
-    if(F->filter_id!=seeked){
-      // We didnt find it. 
-      sprintf(array, "INSERT INFO %s_filterlistverify SET filter_id=%d, comment='RULES NOT FOUND PRESENT'",id,seeked);
-      return(0);
-    }
-  }
-  //  printf("Found it, now we create the query.. %d\n",F->filter_id);
-  sprintf(array,"INSERT INTO %s_filterlistverify SET filter_id='%d', ind='%d', CI_ID='%s', VLAN_TCI='%d', VLAN_TCI_MASK='%d',ETH_TYPE='%d', ETH_TYPE_MASK='%d',ETH_SRC='%2.2X:%2.2X:%2.2X:%2.2X:%2.2X:%2.2X',ETH_SRC_MASK='%2.2X:%2.2X:%2.2X:%2.2X:%2.2X:%2.2X', ETH_DST='%2.2X:%2.2X:%2.2X:%2.2X:%2.2X:%2.2X', ETH_DST_MASK='%2.2X:%2.2X:%2.2X:%2.2X:%2.2X:%2.2X',IP_PROTO='%d', IP_SRC='%s', IP_SRC_MASK='%s', IP_DST='%s', IP_DST_MASK='%s', SRC_PORT='%d', SRC_PORT_MASK='%d', DST_PORT='%d', DST_PORT_MASK='%d', DESTADDR='%2.2X:%2.2X:%2.2X:%2.2X:%2.2X:%2.2X', type ='%d', caplen='%d' consumer='%d'",
-	  id,F->filter_id,F->index,F->CI_ID,F->VLAN_TCI,F->VLAN_TCI_MASK,
-	  F->ETH_TYPE,F->ETH_TYPE_MASK, 
-	  (unsigned char)(F->ETH_SRC[0]),(unsigned char)(F->ETH_SRC[1]),(unsigned char)(F->ETH_SRC[2]),(unsigned char)(F->ETH_SRC[3]),(unsigned char)(F->ETH_SRC[4]),(unsigned char)(F->ETH_SRC[5]),
-	  (unsigned char)(F->ETH_SRC_MASK[0]),(unsigned char)(F->ETH_SRC_MASK[1]),(unsigned char)(F->ETH_SRC_MASK[2]),(unsigned char)(F->ETH_SRC_MASK[3]),(unsigned char)(F->ETH_SRC_MASK[4]),(unsigned char)(F->ETH_SRC_MASK[5]),
-	  
-	  (unsigned char)(F->ETH_DST[0]),(unsigned char)(F->ETH_DST[1]),(unsigned char)(F->ETH_DST[2]),(unsigned char)(F->ETH_DST[3]),(unsigned char)(F->ETH_DST[4]),(unsigned char)(F->ETH_DST[5]),
-	  (unsigned char)(F->ETH_DST_MASK[0]),(unsigned char)(F->ETH_DST_MASK[1]),(unsigned char)(F->ETH_DST_MASK[2]),(unsigned char)(F->ETH_DST_MASK[3]),(unsigned char)(F->ETH_DST_MASK[4]),(unsigned char)(F->ETH_DST_MASK[5]),
-	  F->IP_PROTO,
-	  F->IP_SRC,F->IP_SRC_MASK,
-	  F->IP_DST,F->IP_DST_MASK,
-	  F->SRC_PORT,F->SRC_PORT_MASK,
-	  F->DST_PORT,F->DST_PORT_MASK,
-	  (unsigned char)(F->DESTADDR[0]),(unsigned char)(F->DESTADDR[1]),(unsigned char)(F->DESTADDR[2]),(unsigned char)(F->DESTADDR[3]),(unsigned char)(F->DESTADDR[4]),(unsigned char)(F->DESTADDR[5]),F->TYPE,F->CAPLEN,
-	  F->consumer);
+void printFilter(FILE* fp, const struct FPI* rule){
+  const struct Filter* F = &rule->filter;
 
-  return(1);
-}
-
-void printFilter(FILE* fp, const struct FPI *F){
   fprintf(fp, "FILTER (id: %02d consumer: %d)\n", F->filter_id, F->consumer);
   switch(F->TYPE){
     case 3:
@@ -612,11 +552,11 @@ void printFilter(FILE* fp, const struct FPI *F){
   }
   
   if(F->index&64){
-    fprintf(fp, "ETH_SRC       : %s (MASK: %s)\n", hexdump_address(F->ETH_SRC), hexdump_address(F->ETH_SRC_MASK));
+    fprintf(fp, "ETH_SRC       : %s (MASK: %s)\n", hexdump_address(F->ETH_SRC.ether_addr_octet), hexdump_address(F->ETH_SRC_MASK));
   }
 
   if(F->index&32){
-    fprintf(fp, "ETH_DST       : %s (MASK: %s)\n", hexdump_address(F->ETH_DST), hexdump_address(F->ETH_DST_MASK));
+    fprintf(fp, "ETH_DST       : %s (MASK: %s)\n", hexdump_address(F->ETH_DST.ether_addr_octet), hexdump_address(F->ETH_DST_MASK));
   }
   
   if(F->index&16){
