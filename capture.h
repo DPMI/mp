@@ -258,6 +258,15 @@ void* control(void*); // Control thread
  */
 int filter(const char* nic, const void* pkt, struct cap_header* head); //filtering routine
 
+
+typedef int (*read_packet_callback)(void* context, unsigned char* dst, struct timeval* timestamp);
+
+struct capture_context {
+  read_packet_callback read_packet;
+};
+
+int capture_loop(struct CI* CI, struct capture_context* cap);
+
 char *hexdump_address (const unsigned char address[IFHWADDRLEN]); // Print a ethernet address. 
 
 int matchEth(const unsigned char d[], const unsigned char m[], const unsigned char n[]);

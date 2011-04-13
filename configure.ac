@@ -8,6 +8,7 @@ AC_CONFIG_FILES([Makefile])
 
 AC_PROG_CC_C_O
 AC_PROG_CC_C99
+AC_PROG_RANLIB
 AX_PTHREAD
 
 AC_SEARCH_LIBS([clock_gettime], [rt])
