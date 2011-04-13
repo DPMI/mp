@@ -219,5 +219,5 @@ void* pcap_capture(void* ptr){
   }
 
   logmsg(verbose, "CI[%d] stopping capture on %s.\n", CI->id, CI->nic);
-  return(NULL) ;
+  return NULL;
 }
