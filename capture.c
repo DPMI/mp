@@ -105,6 +105,51 @@ static void wait_for_auth(){
   }
 }
 
+
+typedef int (*read_packet_callback)(void* context, unsigned char* dst, struct timeval* timestamp);
+
+struct capture_context {
+  read_packet_callback read_packet;
+};
+
+static int capture_loop(struct CI* CI, struct capture_context* cap){
+  /* wait until the MP is authorized until it starts capture */
+  wait_for_auth();
+
+  while(terminateThreads==0){
+    /* calculate pointers into writebuffer */
+    unsigned char* raw_buffer = datamem[CI->id][CI->writepos];
+    write_head* whead   = (write_head*)raw_buffer;
+    cap_head* head      = (cap_head*)(raw_buffer + sizeof(write_head));
+    unsigned char* packet_buffer = raw_buffer + sizeof(write_head) + sizeof(cap_head);
+
+    /* read a packet */
+    struct timeval timestamp;
+    size_t bytes = cap->read_packet(cap, packet_buffer, &timestamp);
+
+    /* failed to read */
+    if ( bytes < 0 ){
+      break;
+    }
+
+    /* fill details into capture header */
+    fill_caphead(head, &timestamp, bytes, CI->nic, MAMPid);
+
+    /* stats */
+    recvPkts++;
+    CI->pktCnt++;
+
+    /* return -1 when no filter matches */
+    if ( push_packet(CI, whead, head, packet_buffer) == -1 ){
+      continue;
+    }
+
+    matchPkts++;
+  }
+
+  return 0;
+}
+
 /* This is the RAW_SOCKET capturer..   */ 
 /* Lots of problems, use with caution. */
 void* capture(void* ptr){
@@ -174,6 +219,7 @@ void* capture(void* ptr){
 }
 
 struct pcap_context {
+  struct capture_context base;
   pcap_t* handle;
   char errbuf[PCAP_ERRBUF_SIZE];
 };
@@ -203,43 +249,25 @@ void* pcap_capture(void* ptr){
   CI->writepos = 0; /* Reset write-position in memory */
   //  myTD=cProc->accuracy;     
   
+  struct pcap_context cap;
+
+  /* initialize pcap capture */
   logmsg(verbose, "CI[%d] initializing capture on %s using pcap (memory at %p).\n", CI->id, CI->nic, &datamem[CI->id]);
-
-  struct pcap_context ctx;
-
-  ctx.handle = pcap_open_live (CI->nic, BUFSIZ, 1, 0, ctx.errbuf);   /* open device for reading */
-  if ( !ctx.handle ) {
-    logmsg(stderr, "pcap_open_live(): %s\n", ctx.errbuf);
+  cap.handle = pcap_open_live (CI->nic, BUFSIZ, 1, 0, cap.errbuf);   /* open device for reading */
+  if ( !cap.handle ) {
+    logmsg(stderr, "pcap_open_live(): %s\n", cap.errbuf);
     exit (1);
   }
 
-  wait_for_auth();
-  while(terminateThreads==0)  {
-    unsigned char* raw_buffer = datamem[CI->id][CI->writepos];
-    write_head* whead   = (write_head*)raw_buffer;
-    cap_head* head      = (cap_head*)(raw_buffer + sizeof(write_head));
-    unsigned char* packet_buffer = raw_buffer + sizeof(write_head) + sizeof(cap_head);
+  /* setup callbacks */
+  cap.base.read_packet = (read_packet_callback)read_packet_pcap;
 
-    struct timeval timestamp;
-    size_t bytes = read_packet_pcap(&ctx, packet_buffer, &timestamp);
+  /* start capture */
+  capture_loop(CI, (struct capture_context*)&cap);
 
-    if ( bytes < 0 ){
-      break;
-    }
-
-    fill_caphead(head, &timestamp, bytes, CI->nic, MAMPid);
-
-    recvPkts++;
-    CI->pktCnt++;
-
-    /* return -1 when no filter matches */
-    if ( push_packet(CI, whead, head, packet_buffer) == -1 ){
-      continue;
-    }
-
-    matchPkts++;
-  }
-
+  /* stop capture */
   logmsg(verbose, "CI[%d] stopping capture on %s.\n", CI->id, CI->nic);
+  pcap_close(cap.handle);
+
   return NULL;
 }
