@@ -100,14 +100,9 @@ int MAmtu;                          // MTU of the MA interface.
 int noCI;                           // Number of Capture Interfaces
 int ENCRYPT;                        // If set to >0 then it will encrypt IP addresses...?
 char *MAIPaddr;                     // If set, this is the IP that should be used when talking on the MAnet.
-int bcastS;                         // Socket used to communicate with MArNetwork.
+//int bcastS;                         // Socket used to communicate with MArNetwork.
 
 char *MAMPid;                      // String identifying the MySQL identity.
-
-/* struct CI_stat{ */
-/*   int recvpkts;                    // Packets that were sent to the interface */
-/*   int droppkts;                    // Packets that were dropped by the interface */
-/* }; */
 
 int globalDropcount;               // Total amount of PDUs that were dropped by Interface.
 int memDropcount;                  // Total amount of PDUs that were dropped between CI and Sender.
@@ -122,16 +117,6 @@ struct write_header //Used for marking a packet as read or written in the shared
   int consumer;
 };
 typedef struct write_header  write_head;
-
-/* struct captureProcess { */
-/*   int sd;                           /\* Socket to listen to *\/ */
-/*   char* nic;                        /\* String with nic identifier *\/ */
-/*   u_char* datamem;                  /\* Pointer to my memory *\/ */
-/*   sem_t* semaphore;                    /\* Semaphore Id. *\/ */
-/*   int id;                           /\* Capture ID *\/ */
-/*   long pktCnt;                      /\* How many packets have been read *\/ */
-/*   uint8_t accuracy;                   */
-/* }; */
 
 /* typedef struct captureProcess capProcess; */
 
@@ -176,26 +161,6 @@ u_char datamem[CI_NIC][PKT_BUFFER][(PKT_CAPSIZE+sizeof(write_head)+sizeof(cap_he
 
 // allocate sendbuffer
 u_char sendmem[CONSUMERS][sizeof(struct ethhdr)+sizeof(struct sendhead)+maxSENDSIZE*(sizeof(cap_head)+PKT_CAPSIZE)];
-
-// Structure used to communicate to the MA relayer
-struct MAINFO{ 
-  int version;
-  char address[16];
-  int port;
-  char database[64];
-  char user[64];
-  char password[64];
-  int portUDP;
-};
-
-// Structure of the message that we receive from the MAC
-/*
-struct MAMSG{
-  int type;
-  char payload[1400];
-};
-*/
-
 struct FPI *myRules;
 int noRules;
 
