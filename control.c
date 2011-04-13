@@ -144,15 +144,16 @@ static int is_authorized(){
 
 void* control(void* prt){
   int ret;
+  sigset_t saved;
 
-  /* restore signal handler for this thread */
-  sigset_t empty;
-  sigfillset(&empty);
-  sigdelset(&empty, SIGUSR1);
-  //sigaddset(&empty, SIGINT);
-  pthread_sigmask(SIG_SETMASK, &empty, NULL);
+  /* unblock SIGUSR1 */
+  {
+    sigset_t sigmask;
+    sigfillset(&sigmask);
+    sigdelset(&sigmask, SIGUSR1);
+    pthread_sigmask(SIG_SETMASK, &sigmask, &saved);
+  }
   
-
   /* setup libmarc */
   {
     /* redirect output */
@@ -167,6 +168,11 @@ void* control(void* prt){
       fprintf(stderr, "marc_init_client() returned %d: %s\n", ret, strerror(ret));
       exit(1);
     }
+  }
+
+  /* restore sigmask */
+  {
+    pthread_sigmask(SIG_SETMASK, &saved, NULL);
   }
 
   /* setup status ALRM handler */

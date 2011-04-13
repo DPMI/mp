@@ -504,9 +504,14 @@ int main (int argc, char **argv)
 
   // Joint signaling to threads to terminate nicely.
   terminateThreads=0;
- /* activating signal*/
+  /* activating signal*/
   signal(SIGINT, cleanup);
   signal(SIGTERM, cleanup);
+
+  sigset_t empty;
+  sigset_t sigmask;
+  sigfillset(&empty);
+  sigprocmask(SIG_SETMASK, &empty, &sigmask);
 
   /* prioschedule*/
   //prio.sched_priority=sched_get_priority_max(SCHED_RR)-10;
@@ -625,6 +630,7 @@ int main (int argc, char **argv)
   fprintf(verbose, "Child %d working on sender.\n", (int)senderPID);
   fprintf(verbose, "Child %d working as controller.\n",(int)controlPID);
 
+  pthread_sigmask(SIG_SETMASK, &sigmask, NULL);
   //Main will wait here for all children
     printf("Waiting for them to die.\n");
   //End parent when all children are dead
@@ -687,23 +693,22 @@ int main (int argc, char **argv)
   return 0;
 } // Main end
 
+/**
+ * Signal handler for SIGTERM, SIGINT, SIGALRM
+ */
 static void cleanup(int sig) {
-  /*  starts when program closes*/
-  // activated by SIGTERM, SIGINT, SIGALRM
   pthread_t self=pthread_self();
-  printf("Thread %ld caught \n", self);
+  printf("Thread %ld caught %s signal\n", self, strsignal(sig));
   
-  terminateThreads++;
-  printf("Termination signal received %d times.\n",terminateThreads);
-
-  if(self!=senderPID && self!=mainPID && self!=controlPID) { // Incase there are problems 
-    // This thread is not the CONTROL/SEND/MAIN thread. So we can kill it!
-    // Helps to prevent the capturethreads to stay in the recv for ever. 
-    printf("\nHARAKIRI BY %ld !!!!!\n\n",pthread_self());
-    pthread_exit(NULL);
+  if ( terminateThreads++ == 0 ){
+    fprintf(stderr, "Received termination signal, stopping capture.\n");
+  } else {
+    fprintf(stderr, "Recevied termination signal again, aborting.\n");
+    abort();
   }
 
-  return;
+  /* tell control thread to stop */
+  pthread_kill(controlPID, SIGUSR1);
 }
 
 //Function presenting dropped packets
