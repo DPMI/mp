@@ -781,8 +781,7 @@ static int iface_bind(int fd, int ifindex){
 }
 
 //create statistics for Nic (pkgdrop)
-int packet_stats(int sd, struct packet_stat *stats)
-{
+static int packet_stats(int sd, struct packet_stat *stats){
 #define HAVE_TPACKET_STATS
 #ifdef HAVE_TPACKET_STATS
   struct tpacket_stats kstats;
