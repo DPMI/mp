@@ -646,8 +646,8 @@ int main (int argc, char **argv)
   fprintf(verbose, "Waiting for control thread\n");
   pthread_join(controlPID, NULL);
   
-  _DEBUG_MSG (fprintf(stderr,"\n----------TERMINATING---------------\n\n"))
-  _DEBUG_MSG (fprintf(stderr,"Captured %d pkts\nSent %d pkts\n",recvPkts, sentPkts))
+  fprintf(stderr,"\n----------TERMINATING---------------\n\n");
+  fprintf(stderr,"Captured %d pkts\nSent %d pkts\n",recvPkts, sentPkts);
   
 //Print out statistics on screen  
   printf("Socket stats.\n");
