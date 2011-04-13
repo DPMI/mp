@@ -165,9 +165,8 @@ void* capture(void* ptr){
     matchPkts++;
   }
 
-  // comes here when terminateThreads = 1
-  fprintf(verbose, "Child %ld My work here is done %s.\n", pthread_self(), CI->nic);
-  return(NULL) ;
+  logmsg(verbose, "CI[%d] stopping capture on %s.\n", CI->id, CI->nic);
+  return NULL;
 }
 
 /* This is the PCAP_SOCKET capturer..   */ 
@@ -219,6 +218,6 @@ void* pcap_capture(void* ptr){
     matchPkts++;
   }
 
-  logmsg(verbose, "Child %ld My work here is done %s.\n", pthread_self(), CI->nic);
+  logmsg(verbose, "CI[%d] stopping capture on %s.\n", CI->id, CI->nic);
   return(NULL) ;
 }
