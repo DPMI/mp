@@ -20,6 +20,7 @@
  ***************************************************************************/ 
 
 #include "capture.h"
+#include "log.h"
 #include <libmarc/libmarc.h>
 #include <stdlib.h>
 #include <string.h>
@@ -28,7 +29,6 @@
 #include <ctype.h>
 #include <assert.h>
 #include <errno.h>
-#include <sys/time.h>
 
 #define STATUS_INTERVAL 60
 
@@ -37,28 +37,6 @@ static void CIstatus(int sig); // Runs when ever a ALRM signal is received.
 static char hex_string[IFHWADDRLEN * 3] = "00:00:00:00:00:00";
 
 static marc_context_t client = NULL;
-
-static int vlogmsg(FILE* fp, const char* fmt, va_list ap){
-  struct timeval tid1;
-  gettimeofday(&tid1,NULL);
-
-  struct tm *dagtid;  
-  dagtid=localtime(&tid1.tv_sec);
-
-  char time[20] = {0,};  
-  strftime(time, sizeof(time), "%Y-%m-%d %H.%M.%S", dagtid);
-  
-  fprintf(fp, "[%s] ", time);
-  return vfprintf(fp, fmt, ap);
-}
-
-static int logmsg(FILE* fp, const char* fmt, ...){
-  va_list ap;
-  va_start(ap, fmt);
-  int ret = vlogmsg(fp, fmt, ap);
-  va_end(ap);
-  return ret;
-}
 
 static void mp_auth(struct MPauth* event){
   if( strlen(event->MAMPid) > 0 ){

@@ -28,6 +28,7 @@
  ***************************************************************************/
 
 #include "capture.h"
+#include "log.h"
 #include <pcap.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -179,21 +180,8 @@ void* capture(void* ptr){
 /* Lots of problems, use with caution. */
 void* pcap_capture(void* ptr){
   struct CI* CI = (struct CI*)ptr;
-
-//  char nicString[4];            // The CI identifier
-//  char* nic;                    // name of the network interface
-//  int id;                       // number of this thread, used for memory access
-//  capProcess* cProc;            // struct with parameters deliverd from main
-
   int writePos=0;               // Position in memory where to write
-//  struct timeval time;          // arrivaltime
   int consumer;                 // consumer identification.
-  //  int myTD;                     // Accuracy of this Capture Thread.;
-
-  //  cProc=(capProcess*)ptr;
-  //  nic=cProc->nic;
-  //  sem_t* semaphore=cProc->semaphore;
-  //  id=cProc->id;
   //  myTD=cProc->accuracy;     
   
   fprintf(verbose, "Capture for %s initializing, Memory at %p.\n", CI->nic, &datamem[CI->id]);
@@ -202,7 +190,6 @@ void* pcap_capture(void* ptr){
   pcap_t *descr;
   const u_char *payload;
   struct pcap_pkthdr pcaphead;	/* pcap.h */
-
 
   fprintf(verbose, " Open pcap_open_live(%s, %d,1,-1,%p)\n", CI->nic, BUFSIZ, errbuf);
   descr = pcap_open_live (CI->nic, BUFSIZ, 1, 0, errbuf);   /* open device for reading */

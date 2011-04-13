@@ -206,7 +206,7 @@ void* sender(void *ptr){
       if( terminateThreads > 0 ){ // program is ending and all packets are sent
 	exitnr=1;
       }
-    }// End of while(exitnr==0) 
+    }// End of while(exitnr==0)
 
     // Flush all buffers..
     printf("Flushing sendbuffers.\n");

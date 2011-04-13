@@ -9,5 +9,6 @@ mp_SOURCES = \
 	control.c \
 	filter.c \
 	headers.h \
+	log.c \
 	main.c \
 	sender.c
