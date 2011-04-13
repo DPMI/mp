@@ -177,40 +177,6 @@ u_char datamem[CI_NIC][PKT_BUFFER][(PKT_CAPSIZE+sizeof(write_head)+sizeof(cap_he
 // allocate sendbuffer
 u_char sendmem[CONSUMERS][sizeof(struct ethhdr)+sizeof(struct sendhead)+maxSENDSIZE*(sizeof(cap_head)+PKT_CAPSIZE)];
 
-/* Filter Structure */
-/* struct FPI{ */
-/*   int filter_id;                      // Integer identifying the rule. This should be uniqe for the MP. */
-/*                                       // Could be assigned locally or from the MAc... */
-/*   u_int32_t index;                    // Which fields should we check? (2bytes == 32 bits) */
-/*   char CI_ID[8];                      // Which CI                         512 */
-/*   u_int16_t VLAN_TCI;                 // VLAN id                          256 */
-/*   u_int16_t ETH_TYPE;                 // Ethernet type                    128 */
-/*   unsigned char ETH_SRC[6];           // Ethernet Source                  64 */
-/*   unsigned char ETH_DST[6];           // Ethernet Destination             32 */
-/*   u_int8_t IP_PROTO;                  // IP Payload Protocol              16 */
-/*   unsigned char IP_SRC[16];           // IP Source                        8 */
-/*   unsigned char IP_DST[16];           // IP Destination                   4 */
-/*   u_int16_t SRC_PORT;                 // Transport Source Port            2 */
-/*   u_int16_t DST_PORT;                 // Transport Destination Port       1  */
-
-/*   u_int16_t VLAN_TCI_MASK;            // VLAN id mask                      */
-/*   u_int16_t ETH_TYPE_MASK;            // Ethernet type mask                */
-/*   unsigned char ETH_SRC_MASK[6];      // Ethernet Source Mask                   */
-/*   unsigned char ETH_DST_MASK[6];      // Ethernet Destination Mask              */
-/*   unsigned char IP_SRC_MASK[16];      // IP Source Mask                         */
-/*   unsigned char IP_DST_MASK[16];      // IP Destination Mask                    */
-/*   u_int16_t SRC_PORT_MASK;            // Transport Source Port Mask        */
-/*   u_int16_t DST_PORT_MASK;            // Transport Destination Port Mask   */
-/*   int consumer;                       // Destination Consumer */
-/*   int CAPLEN;                         // Amount of data to capture.  */
-  
-/*   unsigned char DESTADDR[22];          // Destination Address. */
-/*   int DESTPORT;                        // Destination Port, used for udp and tcp sockets. */
-/*   int TYPE;                           // Consumer Stream Type; 0-file, 1-ethernet multicast, 2-udp, 3-tcp */
-  
-/*   struct FPI *next;                   // Next filter rule. */
-/* }; */
-
 // Structure used to communicate to the MA relayer
 struct MAINFO{ 
   int version;
@@ -230,9 +196,6 @@ struct MAMSG{
 };
 */
 
-
-
-//struct FPI myRules[CONSUMERS];
 struct FPI *myRules;
 int noRules;
 
