@@ -23,58 +23,25 @@
  
 #ifndef CAPT
 #define CAPT
-#define _DEBUG
 
-#include <pthread.h>
-#include <sys/socket.h>
-//#include <netinet/ether.h>
-#include <unistd.h>
-#include <sys/wait.h>
-#include <sys/ipc.h>
-#include <sys/sem.h>
-#include <time.h>
-#include <sched.h>
-#include <signal.h>
-#include <net/if.h>
-#include <sys/ioctl.h>
-#include <fcntl.h>
-#include <sys/utsname.h>
-#include <semaphore.h>
-
-//#include <linux/if_ether.h>
-#include <net/if_arp.h>
-#define PKT_CAPSIZE 1514
 #include <caputils/caputils.h>
-
-#ifdef PF_PACKET
-# include <linux/if_packet.h>
-# ifdef PACKET_HOST
-#  define HAVE_PF_PACKET_SOCKETS
-# endif /* PACKET_HOST */
-#endif /* PF_PACKET */
-
-#ifdef SO_ATTACH_FILTER
-#include <linux/types.h>
-#include <linux/filter.h>
-#endif
-
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-
+#include <stdint.h>
+#include <stdio.h>
+#include <semaphore.h>
+ 
 #define PKT_BUFFER  10000          //size of capture buffer in packets
-
+#define PKT_CAPSIZE 1514
 #define CI_NIC 2                    // number of capture interfaces
-
+ 
 #define MIN(A,B) ((A) < (B) ? (A):(B))
-
+ 
 #define minSENDSIZE 1                 // Number of packets for each send to tcpserver */
 #define maxSENDSIZE 70
 #define CONSUMERS 20                // Number of consumers, this also places a maximum on the number of filters.
 #define MYPROTO 0x0810              // Link Protocol.. Identifies a MP data frame.
-
-#define MYPORT 2000                 // Default listen port for controller thread
-#define MAPORT 1500                 // Default listen port for MArelayDaemon
+// 
+//#define MYPORT 2000                 // Default listen port for controller thread
+//#define MAPORT 1500                 // Default listen port for MArelayDaemon
 
 struct consumer {
   struct stream* stream;
@@ -92,16 +59,15 @@ struct consumer {
 /* // Global variables. */
 int maSendsize;                     // number of packets to include in capture payload.
 struct consumer MAsd[CONSUMERS];
-int terminateThreads;               //used for signaling thread to terminate
-int recvPkts,sentPkts, writtenPkts, matchPkts; // counters for captured ans sent packets
-unsigned char my_mac[6];            // The interface mac for MA communications.
+int volatile terminateThreads;               //used for signaling thread to terminate
+int recvPkts;
+int matchPkts;
+int sentPkts;
+int writtenPkts; // counters for captured ans sent packets
 char* MAnic;                        // string containing interface that connects to MAc
 int MAmtu;                          // MTU of the MA interface.
 int noCI;                           // Number of Capture Interfaces
 int ENCRYPT;                        // If set to >0 then it will encrypt IP addresses...?
-char *MAIPaddr;                     // If set, this is the IP that should be used when talking on the MAnet.
-//int bcastS;                         // Socket used to communicate with MArNetwork.
-
 char *MAMPid;                      // String identifying the MySQL identity.
 
 int globalDropcount;               // Total amount of PDUs that were dropped by Interface.
@@ -109,14 +75,12 @@ int memDropcount;                  // Total amount of PDUs that were dropped bet
 extern FILE* verbose;
 extern int verbose_flag;
 
-/* struct CI_stat CIstat[CI_NIC];                    // Statistics for capture interfaces. */
-
 struct write_header //Used for marking a packet as read or written in the shared memory
 {
   int free;
   int consumer;
 };
-typedef struct write_header  write_head;
+typedef struct write_header write_head;
 
 /* typedef struct captureProcess capProcess; */
 
@@ -142,33 +106,16 @@ struct CI {
 
 extern struct CI* _CI; /* DO _*NOT*_ USE! For backwards compability ONLY! */
 
-struct saverProcess{
-  int nics;                         /* How many nics/capture processes will be present*/
-  char *nic;                        /* The names of these */
-  sem_t* semaphore;                    /* Semaphore */
-};
-typedef struct saverProcess  saveProcess;
-
-struct controllerProcess{
-  int MAifIndex;                    /* Index on the MA interface */
-  char* MAnic;                      /* String rep. the MA interface */
-};
-typedef struct controllerProcess controlProcess;
-
-
 // allocate capture buffer.
 u_char datamem[CI_NIC][PKT_BUFFER][(PKT_CAPSIZE+sizeof(write_head)+sizeof(cap_head))];
 
 // allocate sendbuffer
 u_char sendmem[CONSUMERS][sizeof(struct ethhdr)+sizeof(struct sendhead)+maxSENDSIZE*(sizeof(cap_head)+PKT_CAPSIZE)];
-struct FPI *myRules;
-int noRules;
 
 // Threads
 void* capture(void*); //capture thread
 void* pcap_capture(void*); //PCAP capture thread
 void* sender(void*); // send thread
-void* saver(void*); // send thread
 void* control(void*); // Control thread
 
 /**
@@ -180,7 +127,6 @@ void* control(void*); // Control thread
  */
 int filter(const char* nic, const void* pkt, struct cap_header* head); //filtering routine
 
-
 typedef int (*read_packet_callback)(void* context, unsigned char* dst, struct timeval* timestamp);
 
 struct capture_context {
@@ -188,16 +134,5 @@ struct capture_context {
 };
 
 int capture_loop(struct CI* CI, struct capture_context* cap);
-
-char *hexdump_address (const unsigned char address[IFHWADDRLEN]); // Print a ethernet address. 
-
-int matchEth(const unsigned char d[], const unsigned char m[], const unsigned char n[]);
-int addFilter(struct FPI *newRule);
-int delFilter(int filter_id);
-int changeFilter(struct FPI *newRule);
-void flushSendBuffer(int i);
-void flushBuffer(int i); // Flush sender buffer i. 
-void printFilters(void); // Print all filters
-void printFilter(FILE* fp, const struct FPI *F); // Print One filter
 
 #endif

@@ -31,17 +31,27 @@
 #endif /* HAVE_CONFIG_H */
 
 #include "capture.h"
+#include "filter.h"
 #include "sender.h"
-
-#include <string.h>
-#include <errno.h>
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <errno.h>
+#include <unistd.h>
+
 #include <getopt.h>
 #include <assert.h>
 #include <caputils/caputils.h>
 #include <libmarc/filter.h>
+#include <sys/ioctl.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <net/if.h>
+#include <linux/if_packet.h>
+#include <pthread.h>
+#include <signal.h>
 
 struct sched_param prio;         // Priority schedule variable
 
@@ -144,16 +154,16 @@ static void ma_nic(const char* arg) {
   }
 
   /*Get my MAC */
-  if(ioctl(s,SIOCGIFHWADDR,&ifr) == -1) {
-    perror("SIOCGIFHWADDR");
-    exit(1);
-  }
-  memcpy(my_mac, ifr.ifr_hwaddr.sa_data, ETH_ALEN);
-
   if ( verbose_flag ){
+    if(ioctl(s,SIOCGIFHWADDR,&ifr) == -1) {
+      perror("SIOCGIFHWADDR");
+      exit(1);
+    }
+
+    const char* hwaddr = ifr.ifr_hwaddr.sa_data;
     printf("MAC ADDRESS: ");
     printf("ifAdd = %02X:%02X:%02X:%02X:%02X:%02X\n",
-	   my_mac[0],my_mac[1],my_mac[2],my_mac[3],my_mac[4],my_mac[5]);
+	   hwaddr[0],hwaddr[1],hwaddr[2],hwaddr[3],hwaddr[4],hwaddr[5]);
   }
   
   /*Get my MTU */
@@ -174,10 +184,6 @@ static void ma_nic(const char* arg) {
   }
 
   close(s);
-}
-
-static void ma_ip(const char* arg) {
-  MAIPaddr = strdup(arg);
 }
 
 static void set_ci(const char* arg) {
@@ -213,7 +219,6 @@ static struct config_option myOptions[]={
   {"CAPSIZE=",1, OPTION_STORE, {.ptr=&capsize}},
   {"CI=",     1, OPTION_FUNC, {.callback=set_ci}},
   {"TD=",     1, OPTION_FUNC, {.callback=set_td}},
-  {"MAip=",   1, OPTION_FUNC, {.callback=ma_ip}},
   {"LOCAL",   0, OPTION_STORE_TRUE, {.ptr=&local}},
 };
 
@@ -357,7 +362,7 @@ static int parse_argv(int argc, char** argv){
 }
 
 static int init_consumers(){
-  static const unsigned char dest_mac[6] = {0x01, 0x00, 0x00, 0x00, 0x00, 0x00};
+  //static const unsigned char dest_mac[6] = {0x01, 0x00, 0x00, 0x00, 0x00, 0x00};
 
   for( int i=0; i<CONSUMERS; i++) {
     MAsd[i].stream = NULL;
@@ -366,8 +371,8 @@ static int init_consumers(){
     MAsd[i].dropCount=0;
     MAsd[i].ethhead=(struct ethhdr*)sendmem[i]; // pointer to ethernet header.
     
-    memcpy(MAsd[i].ethhead->h_dest, dest_mac, ETH_ALEN);
-    memcpy(MAsd[i].ethhead->h_source, my_mac, ETH_ALEN);
+    //memcpy(MAsd[i].ethhead->h_dest, dest_mac, ETH_ALEN);
+    //memcpy(MAsd[i].ethhead->h_source, my_mac, ETH_ALEN);
     
     MAsd[i].ethhead->h_proto=htons(MYPROTO);    // Set the protocol field of the ethernet header.
     MAsd[i].ethhead->h_dest[5]=i;               // Adjust the mutlicast address last byte to become [i].. Dirty but works... 
@@ -500,7 +505,6 @@ int main (int argc, char **argv)
   noRules=0;
   myRules=0;
   ENCRYPT=0;
-  MAIPaddr=0;
 
   // Joint signaling to threads to terminate nicely.
   terminateThreads=0;
@@ -772,7 +776,7 @@ static int iface_get_id(int sd, const char *device) {
 
 //Bind socket to Interface
 static int iface_bind(int fd, int ifindex){
-  struct sockaddr_ll	sll;
+  struct sockaddr_ll sll;
   memset(&sll, 0, sizeof(sll));
   sll.sll_family		= PF_PACKET;
   sll.sll_ifindex		= ifindex;

@@ -34,18 +34,11 @@
 #include "capture.h"
 #include "log.h"
 
-#include <pcap.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-#include <semaphore.h>
+#include <unistd.h>
 
-extern int counter;
-extern char* ebuf;
-extern void* dagbuf[];
-extern int dagfd[];
-extern int skipflag;
+#include <pthread.h>
 
 pthread_mutex_t mutex2 = PTHREAD_MUTEX_INITIALIZER;
 

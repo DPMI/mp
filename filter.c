@@ -16,23 +16,32 @@
  /***************************************************************************
   This function .......
  ***************************************************************************/
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif /* HAVE_CONFIG_H */
+
 #include "capture.h"
+#include "filter.h"
+
 #include <libmarc/filter.h>
 #include <stdlib.h>
+#include <arpa/inet.h>
 #include <netinet/ip.h>
 #include <netinet/udp.h>
 #include <netinet/tcp.h>
 #include <netinet/ip_icmp.h>
 #include <netinet/ether.h>
 #include <string.h>
-
-#define STPBRIDGES 0x0026
-#define CDPVTP 0x016E
-
-#define TCP 4
-#define UDP 3
-#define IP 2
-#define OTHER 1
+#include <linux/if.h>
+// 
+//#define STPBRIDGES 0x0026
+//#define CDPVTP 0x016E
+// 
+//#define TCP 4
+//#define UDP 3
+//#define IP 2
+//#define OTHER 1
 
 struct Haystack {
   const char* CI;
@@ -41,6 +50,20 @@ struct Haystack {
   const struct ether_vlan_header* vlan;
   struct ip* ip_hdr;
 };
+
+static int matchEth(const unsigned char d[], const unsigned char m[], const unsigned char n[]);
+static void flushSendBuffer(int i);
+
+static char hex_string[IFHWADDRLEN * 3] = "00:00:00:00:00:00";
+static char* hexdump_address (const unsigned char address[IFHWADDRLEN]){
+  int i;
+
+  for (i = 0; i < IFHWADDRLEN - 1; i++) {
+    sprintf (hex_string + 3*i, "%2.2X:", (unsigned char) address[i]);
+  }  
+  sprintf (hex_string + 15, "%2.2X", (unsigned char) address[i]);
+  return (hex_string);
+}
 
 /**
  * Try to match filter against haystack.
@@ -247,7 +270,7 @@ int filter(const char* CI, const void *pkt, struct cap_header *head){
   return destination;  
 }
 
-int matchEth(const unsigned char desired[6], const unsigned char mask[6], const unsigned char net[6]){
+static int matchEth(const unsigned char desired[6], const unsigned char mask[6], const unsigned char net[6]){
   int i;
   for(i=0;i<6;i++){
     if((net[i]&mask[i])!=desired[i]){
@@ -385,7 +408,7 @@ int delFilter(int filter_id){
 /*
  Flush the sendbuffer.
 */
-void flushSendBuffer(int index){
+static void flushSendBuffer(int index){
   printf("CTRL: DEL FILTER TO CONSUMER %d \n",index);
   int i,written;
   unsigned char DESTADDR[6] = {0x01, 0x00, 0x00, 0x00, 0x00, 0x00};

@@ -23,8 +23,12 @@
 #include "sender.h"
 #include <errno.h>
 #include <string.h>
+#include <arpa/inet.h>
+#include <pthread.h>
 
 #define SEMAPHORE_TIMEOUT_SEC 1
+
+static void flushBuffer(int i); // Flush sender buffer i.
 
 pthread_mutex_t mutex1 = PTHREAD_MUTEX_INITIALIZER;
 
@@ -217,4 +221,48 @@ void* sender(void *ptr){
     //comes here when exitnr =1    
     printf("Sender Child %ld My work here is done .\n", pthread_self());
     return(NULL) ;
+}
+
+static void flushBuffer(int i){
+  int written;
+  written=-1;
+
+  struct consumer* con = &MAsd[i];
+  
+  /* no consumer */
+  if ( !con ){
+    return;
+  }
+
+  /* no packages to send */
+  if ( con->sendcount == 0 ){
+    return;
+  }
+
+  con->shead=(struct sendhead*)(sendmem[i]+sizeof(struct ethhdr)); // Set pointer to the sendhead, i.e. mp transmission protocol 
+  con->shead->flush=htons(1);
+
+  printf("Consumer %d needs to be flushed, contains %d pkts\n", i, con->sendcount);
+
+  /** @TODO len is wrong, see sender.c */
+  size_t len = con->sendpointer - con->sendptrref;
+  con->stream->write(con->stream, con->sendptrref, len);
+
+  printf("Sent %d bytes.\n",written);
+  if(written==-1) {
+    printf("sendto():");
+  }
+
+  con->shead->sequencenr=htonl(ntohl(con->shead->sequencenr)+1);
+  if(ntohl(con->shead->sequencenr)>0xFFFF){
+    con->shead->sequencenr=htonl(0);
+  }
+
+  writtenPkts += con->sendcount;// Update the total number of sent pkts. 
+  con->sendcount=0;// Clear the number of packets in this sendbuffer[i]
+
+  //printf("ST: Send %d bytes. Total %d packets.\n",written, writtenPkts);
+  bzero(con->sendptrref,(maSendsize*(sizeof(cap_head)+PKT_CAPSIZE))); //Clear the memory location, for the packet data. 
+  con->sendpointer = con->sendptrref; // Restore the pointer to the first spot where the next packet will be placed.
+  con->shead->flush=htons(0); //Restore flush indicator
 }

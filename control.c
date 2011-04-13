@@ -19,22 +19,28 @@
 
  ***************************************************************************/ 
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif /* HAVE_CONFIG_H */
+
 #include "capture.h"
+#include "filter.h"
 #include "log.h"
+
 #include <libmarc/libmarc.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdarg.h>
-#include <strings.h>
+//#//include <stdarg.h>
+//#//include <strings.h>
+#include <signal.h>
 #include <ctype.h>
-#include <assert.h>
+//#//include <assert.h>
 #include <errno.h>
 
 #define STATUS_INTERVAL 60
 
 static int convUDPtoFPI(struct Filter* dst,  struct FilterPacked* src);
 static void CIstatus(int sig); // Runs when ever a ALRM signal is received.
-static char hex_string[IFHWADDRLEN * 3] = "00:00:00:00:00:00";
 
 static marc_context_t client = NULL;
 
@@ -228,16 +234,6 @@ void* control(void* prt){
   return NULL;
 }
 
-char *hexdump_address (const unsigned char address[IFHWADDRLEN]){
-  int i;
-
-  for (i = 0; i < IFHWADDRLEN - 1; i++) {
-    sprintf (hex_string + 3*i, "%2.2X:", (unsigned char) address[i]);
-  }  
-  sprintf (hex_string + 15, "%2.2X", (unsigned char) address[i]);
-  return (hex_string);
-}
-
 static int convUDPtoFPI(struct Filter* dst,  struct FilterPacked* src){
   char *pos=0;
   dst->filter_id = src->filter_id;
@@ -338,48 +334,4 @@ static void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
   if ( noRules == 0 ){
     logmsg(stderr, "Warning: no filters present.\n");
   }
-}
-
-void flushBuffer(int i){
-  int written;
-  written=-1;
-
-  struct consumer* con = &MAsd[i];
-  
-  /* no consumer */
-  if ( !con ){
-    return;
-  }
-
-  /* no packages to send */
-  if ( con->sendcount == 0 ){
-    return;
-  }
-
-  con->shead=(struct sendhead*)(sendmem[i]+sizeof(struct ethhdr)); // Set pointer to the sendhead, i.e. mp transmission protocol 
-  con->shead->flush=htons(1);
-
-  printf("Consumer %d needs to be flushed, contains %d pkts\n", i, con->sendcount);
-
-  /** @TODO len is wrong, see sender.c */
-  size_t len = con->sendpointer - con->sendptrref;
-  con->stream->write(con->stream, con->sendptrref, len);
-
-  printf("Sent %d bytes.\n",written);
-  if(written==-1) {
-    printf("sendto():");
-  }
-
-  con->shead->sequencenr=htonl(ntohl(con->shead->sequencenr)+1);
-  if(ntohl(con->shead->sequencenr)>0xFFFF){
-    con->shead->sequencenr=htonl(0);
-  }
-
-  writtenPkts += con->sendcount;// Update the total number of sent pkts. 
-  con->sendcount=0;// Clear the number of packets in this sendbuffer[i]
-
-  //printf("ST: Send %d bytes. Total %d packets.\n",written, writtenPkts);
-  bzero(con->sendptrref,(maSendsize*(sizeof(cap_head)+PKT_CAPSIZE))); //Clear the memory location, for the packet data. 
-  con->sendpointer = con->sendptrref; // Restore the pointer to the first spot where the next packet will be placed.
-  con->shead->flush=htons(0); //Restore flush indicator
 }

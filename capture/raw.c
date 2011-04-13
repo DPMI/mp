@@ -7,6 +7,9 @@
 
 #include <string.h>
 #include <errno.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/ioctl.h>
 
 struct raw_context {
   struct capture_context base;
