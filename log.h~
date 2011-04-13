@@ -1,6 +1,0 @@
-#ifndef LOG_H
-#define LOG_H
-
-int vlogmsg(FILE* fp, const char* fmt, va_list ap);
-
-#endif /* LOG_H */
