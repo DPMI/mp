@@ -4,13 +4,17 @@
     begin                : Tue Nov 26 2002
     copyright            : (C) 2002 by Anders Ekberg
                            (C) 2002-2005 by Patrik Arlos (PAL)
+                           (C) 2011 by David Sveningsson
     email                : anders.ekberg@bth.se
                            patrik.arlos@bth.se
                            rasmus.melgaard@bth.se
+                           david.sveningsson@bth.se
 
     changelog
     2005-03-05           Merged in pcap version(RMA) of capture. (PAL)
     2008-04-02           Misc. changes, moving up to version 0.6
+    2011-04-13           Major refactoring, bumping to 0.7
+
  ***************************************************************************/
 
 /***************************************************************************
@@ -169,6 +173,30 @@ void* capture(void* ptr){
   return NULL;
 }
 
+struct pcap_context {
+  pcap_t* handle;
+  char errbuf[PCAP_ERRBUF_SIZE];
+};
+
+static int read_packet_pcap(struct pcap_context* ctx, unsigned char* dst, struct timeval* timestamp){
+  struct pcap_pkthdr pcaphead;	/* pcap.h */
+  const u_char* payload = pcap_next(ctx->handle, &pcaphead);
+  if(payload==NULL) {
+    logmsg(stderr, "CAPTURE_PCAP: Couldnt get payload, %s\n", pcap_geterr(ctx->handle));
+    return -1;
+  }
+
+  const size_t data_len = MIN(pcaphead.caplen, PKT_CAPSIZE);
+  const size_t padding = PKT_CAPSIZE - data_len;
+
+  memcpy(dst, payload, data_len);
+  memset(dst + data_len, 0, padding);
+  timestamp->tv_sec = pcaphead.ts.tv_sec;
+  timestamp->tv_usec = pcaphead.ts.tv_usec;
+
+  return pcaphead.caplen;
+}
+
 /* This is the PCAP_SOCKET capturer..   */ 
 void* pcap_capture(void* ptr){
   struct CI* CI = (struct CI*)ptr;
@@ -177,36 +205,30 @@ void* pcap_capture(void* ptr){
   
   logmsg(verbose, "CI[%d] initializing capture on %s using pcap (memory at %p).\n", CI->id, CI->nic, &datamem[CI->id]);
 
-  char errbuf[PCAP_ERRBUF_SIZE];
-  struct pcap_pkthdr pcaphead;	/* pcap.h */
+  struct pcap_context ctx;
 
-  pcap_t* descr = pcap_open_live (CI->nic, BUFSIZ, 1, 0, errbuf);   /* open device for reading */
-  if (NULL == descr) {
-    logmsg(stderr, "pcap_open_live(): %s\n", errbuf);
+  ctx.handle = pcap_open_live (CI->nic, BUFSIZ, 1, 0, ctx.errbuf);   /* open device for reading */
+  if ( !ctx.handle ) {
+    logmsg(stderr, "pcap_open_live(): %s\n", ctx.errbuf);
     exit (1);
   }
 
   wait_for_auth();
   while(terminateThreads==0)  {
-    const u_char* payload = pcap_next(descr, &pcaphead);
-    if(payload==NULL) {
-      logmsg(stderr, "CAPTURE_PCAP: Couldnt get payload, %s\n", pcap_geterr(descr));
-      exit(1);
-    }
-
     unsigned char* raw_buffer = datamem[CI->id][CI->writepos];
     write_head* whead   = (write_head*)raw_buffer;
     cap_head* head      = (cap_head*)(raw_buffer + sizeof(write_head));
     unsigned char* packet_buffer = raw_buffer + sizeof(write_head) + sizeof(cap_head);
 
-    const size_t data_len = MIN(pcaphead.caplen, PKT_CAPSIZE);
-    const size_t padding = PKT_CAPSIZE - data_len;
+    struct timeval timestamp;
+    size_t bytes = read_packet_pcap(&ctx, packet_buffer, &timestamp);
 
-    fill_caphead(head, &pcaphead.ts, pcaphead.len, CI->nic, MAMPid);
+    if ( bytes < 0 ){
+      break;
+    }
 
-    memcpy(packet_buffer, payload, data_len);
-    memset(packet_buffer + data_len, 0, padding);
-    
+    fill_caphead(head, &timestamp, bytes, CI->nic, MAMPid);
+
     recvPkts++;
     CI->pktCnt++;
 
