@@ -194,7 +194,7 @@ int filter_match(const struct Filter* filter, const struct Haystack* haystack) {
   return 1;
 }
 
-int filter(char* CI, void *pkt, struct cap_header *head){
+int filter(const char* CI, const void *pkt, struct cap_header *head){
   if ( noRules==0 ) {
     return -1;
   }

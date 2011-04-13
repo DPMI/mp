@@ -29,6 +29,7 @@
 
 #include "capture.h"
 #include "log.h"
+
 #include <pcap.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -58,7 +59,7 @@ void* capture(void* ptr){
   //int id;                       // number of this thread, used for memory access
   cap_head *head;               // pointer cap_head
   write_head *whead;            // pointer write_head
-  int fromlen;                  // length of from
+  socklen_t fromlen;                  // length of from
   size_t buffsize=PKT_CAPSIZE;  // This is how much we extract from the network.
   int writePos=0;               // Position in memory where to write
   int packet_len=0;             // acctual length of packet
@@ -75,7 +76,7 @@ void* capture(void* ptr){
   //sem_t* semaphore=cProc->semaphore;
   //id=cProc->id;
   
-  fprintf(verbose, "Capture for %s initializing, Memory at %p.\n", CI->nic, &datamem[CI->id]);
+  logmsg(verbose, "Capture for %s initializing, Memory at %p.\n", CI->nic, &datamem[CI->id]);
 
   struct timeval timeout;
   fd_set fds;
@@ -175,45 +176,83 @@ void* capture(void* ptr){
 }
 
 
+static int push_packet(struct CI* CI, write_head* whead, cap_head* head, const unsigned char* packet_buffer){
+  const int recipient = filter(CI->nic, packet_buffer, head);
+  if ( recipient == -1 ){ /* no match */
+    return -1;
+  }
+  
+  // prevent the reader from operating on the same chunk of memory.
+  pthread_mutex_lock( &mutex2 );
+  {
+    strncpy(head->nic, CI->nic, 8); head->nic[7] = 0;
+    strncpy(head->mampid, MAMPid, 8); head->mampid[7] = 0;
+    whead->free++; //marks the post that it has been written
+    whead->consumer = recipient;
+  }
+  pthread_mutex_unlock( &mutex2 );
+  
+  if ( whead->free>1 ){ //Control buffer overrun
+    logmsg(stderr, "CI[%d] OVERWRITING: %ld @ %d for the %d time \n", CI->id, pthread_self(), CI->writepos, whead->free);
+    logmsg(stderr, "CI[%d] bufferUsage=%d\n", CI->id, CI->bufferUsage);
+  }
+
+  CI->writepos++;
+  CI->bufferUsage++;
+
+  /* wrap buffer if needed */
+  if( CI->writepos >= PKT_BUFFER ){
+    CI->writepos = 0;
+  }
+
+  /* flag that another packet is ready */
+  if ( sem_post(CI->semaphore) != 0 ){
+    logmsg(stderr, "sem_post() returned %d: %s\n", errno, strerror(errno));
+  }
+
+  return recipient;
+}
 
 /* This is the PCAP_SOCKET capturer..   */ 
 /* Lots of problems, use with caution. */
 void* pcap_capture(void* ptr){
   struct CI* CI = (struct CI*)ptr;
-  int writePos=0;               // Position in memory where to write
-  int consumer;                 // consumer identification.
+  CI->writepos = 0; /* Reset write-position in memory */
   //  myTD=cProc->accuracy;     
   
-  fprintf(verbose, "Capture for %s initializing, Memory at %p.\n", CI->nic, &datamem[CI->id]);
+  logmsg(verbose, "CI[%d] initializing capture on %s using pcap (memory at %p).\n", CI->id, CI->nic, &datamem[CI->id]);
 
   char errbuf[PCAP_ERRBUF_SIZE];
-  pcap_t *descr;
-  const u_char *payload;
   struct pcap_pkthdr pcaphead;	/* pcap.h */
 
-  fprintf(verbose, " Open pcap_open_live(%s, %d,1,-1,%p)\n", CI->nic, BUFSIZ, errbuf);
-  descr = pcap_open_live (CI->nic, BUFSIZ, 1, 0, errbuf);   /* open device for reading */
-  if (NULL == descr)
-  {
-    printf ("pcap_open_live(): %s\n", errbuf);
+  pcap_t* descr = pcap_open_live (CI->nic, BUFSIZ, 1, 0, errbuf);   /* open device for reading */
+  if (NULL == descr) {
+    logmsg(stderr, "pcap_open_live(): %s\n", errbuf);
     exit (1);
   }
 
   while(terminateThreads==0)  {
-    payload = pcap_next(descr, &pcaphead);
+    const u_char* payload = pcap_next(descr, &pcaphead);
     if(payload==NULL) {
-      fprintf(stderr, "CAPTURE_PCAP: Couldnt get payload, %s\n", pcap_geterr(descr));
+      logmsg(stderr, "CAPTURE_PCAP: Couldnt get payload, %s\n", pcap_geterr(descr));
       exit(1);
     }
 
     const size_t data_len = MIN(pcaphead.caplen, PKT_CAPSIZE);
     const size_t padding = PKT_CAPSIZE - data_len;
 
-    unsigned char* raw_buffer = datamem[CI->id][writePos];
+    unsigned char* raw_buffer = datamem[CI->id][CI->writepos];
 
     write_head* whead   = (write_head*)raw_buffer;
     cap_head* head      = (cap_head*)(raw_buffer + sizeof(write_head));
     unsigned char* packet_buffer = raw_buffer + sizeof(write_head) + sizeof(cap_head);
+
+    head->ts.tv_sec   = pcaphead.ts.tv_sec;  // Store arrival time in seconds
+    head->ts.tv_psec  = pcaphead.ts.tv_usec;// Write timestamp in picosec
+    head->ts.tv_psec *= 1000000;
+    head->len = pcaphead.len; // Store packet lenght in header.
+                              // head->caplen will set by the filter, when copying data to sender buffer.
+    /*head->tsAccuracy=myTD; */
 
     memcpy(packet_buffer, payload, data_len);
     memset(packet_buffer + data_len, 0, padding);
@@ -221,49 +260,14 @@ void* pcap_capture(void* ptr){
     recvPkts++;
     CI->pktCnt++;
 
-// int filter(void* pkt); 0=> DROP PKT. n, send to recipient n.
-    if ( (consumer=filter(CI->nic, packet_buffer, head)) == -1 ){ /* no match */
+    /* return -1 when no filter matches */
+    if ( push_packet(CI, whead, head, packet_buffer) == -1 ){
       continue;
     }
 
     matchPkts++;
-//Mutex begin; prevent the reader from operating on the same chunk of memory.
-    pthread_mutex_lock( &mutex2 );
-    
-    head->ts.tv_sec   = pcaphead.ts.tv_sec;  // Store arrival time in seconds
-    head->ts.tv_psec  = pcaphead.ts.tv_usec;// Write timestamp in picosec
-    head->ts.tv_psec *= 1000000;
-    head->len = pcaphead.len; // Store packet lenght in header.
-                              // head->caplen will set by the filter, when copying data to sender buffer.
-    /*head->tsAccuracy=myTD; */
-    
-    strncpy(head->nic, CI->nic, 8); head->nic[7] = 0;
-    strncpy(head->mampid, MAMPid, 8); head->mampid[7] = 0;
-    whead->free++; //marks the post that it has been written
-    whead->consumer=consumer;  //sets the recipient id.
-    
-    if(whead->free>1){ //Control buffer overrun
-      fprintf(stderr,"OVERWRITING: %ld @ %d for the %d time \n",pthread_self(),writePos,whead->free);
-      fprintf(stderr,"CT: bufferUsage[%d]=%d\n", CI->id, CI->bufferUsage);
-    }
-    
-    pthread_mutex_unlock( &mutex2 );
-    //Mutex end
-
-    if ( sem_post(CI->semaphore) != 0 ){
-      fprintf(stderr, "sem_post() returned %d: %s\n", errno, strerror(errno));
-    }
-
-    writePos++;
-    CI->bufferUsage++;
-    if(writePos<PKT_BUFFER){
-    } else {
-      writePos=0; //when all posts in datamem is written begin from 0 again
-    }
   }
 
-  // comes here when terminateThreads = 1
-
-  fprintf(verbose, "Child %ld My work here is done %s.\n", pthread_self(), CI->nic);
+  logmsg(verbose, "Child %ld My work here is done %s.\n", pthread_self(), CI->nic);
   return(NULL) ;
 }

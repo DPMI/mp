@@ -152,6 +152,7 @@ struct CI {
   int id;
   enum CIDriver driver;
   int sd;
+  int writepos;
   u_char* datamem;
   sem_t* semaphore;
   long pktCnt;
@@ -248,7 +249,15 @@ void* sender(void*); // send thread
 void* saver(void*); // send thread
 void* control(void*); // Control thread
 
-int filter(char* nic,void *pkt, struct cap_header*); //filtering routine
+/**
+ * Match packet against available filter. Will fill in head->caplen.
+ * @param nic CI that captured this packet.
+ * @param pkt The packet itself
+ * @param head Capture header.
+ * @return Recipient id or -1 if no filter matches.
+ */
+int filter(const char* nic, const void* pkt, struct cap_header* head); //filtering routine
+
 char *hexdump_address (const unsigned char address[IFHWADDRLEN]); // Print a ethernet address. 
 
 int matchEth(const unsigned char d[], const unsigned char m[], const unsigned char n[]);
