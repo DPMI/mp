@@ -82,9 +82,6 @@ static int push_packet(struct CI* CI, write_head* whead, cap_head* head, const u
   return recipient;
 }
 
-struct sockaddr_ll  from;       //source address
-
-
 /* This is the RAW_SOCKET capturer..   */ 
 /* Lots of problems, use with caution. */
 void* capture(void* ptr){
@@ -96,7 +93,6 @@ void* capture(void* ptr){
   //int id;                       // number of this thread, used for memory access
   cap_head *head;               // pointer cap_head
   write_head *whead;            // pointer write_head
-  socklen_t fromlen;                  // length of from
   size_t buffsize=PKT_CAPSIZE;  // This is how much we extract from the network.
   int writePos=0;               // Position in memory where to write
   int packet_len=0;             // acctual length of packet
@@ -125,7 +121,6 @@ void* capture(void* ptr){
   
   while(terminateThreads==0)  {
     fprintf(verbose, "CaptureThread %ld Pkts : %d \n",pthread_self(), recvPkts);
-    fromlen = sizeof(from);
     do { // read packet from interface
 
       while( (selectReturn=select(CI->sd+1,&fds,NULL,NULL, &timeout))<=0 && terminateThreads==0){
@@ -145,7 +140,7 @@ void* capture(void* ptr){
       }
 	  
       packet_len = recvfrom(CI->sd, (&datamem[CI->id][writePos][(sizeof(write_head)+sizeof(cap_head))]),
-			    buffsize, MSG_TRUNC,(struct sockaddr *) &from, &fromlen);
+			    buffsize, MSG_TRUNC, NULL, NULL);
     }while (packet_len == -1 && errno == EINTR && terminateThreads==0);
     
     if (packet_len == -1)    {
