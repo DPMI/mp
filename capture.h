@@ -25,12 +25,6 @@
 #define CAPT
 #define _DEBUG
 
-//#ifdef _DEBUG
-//#define _DEBUG_MSG(x)	(x);fflush(stdout);
-//#else
-//#define _DEBUG_MSG(x)
-//#endif
-
 #include <pthread.h>
 #include <sys/socket.h>
 //#include <netinet/ether.h>
