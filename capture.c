@@ -116,6 +116,7 @@ static int capture_loop(struct CI* CI, struct capture_context* cap){
   /* wait until the MP is authorized until it starts capture */
   wait_for_auth();
 
+  CI->writepos = 0; /* Reset write-position in memory */
   while(terminateThreads==0){
     /* calculate pointers into writebuffer */
     unsigned char* raw_buffer = datamem[CI->id][CI->writepos];
@@ -127,9 +128,10 @@ static int capture_loop(struct CI* CI, struct capture_context* cap){
     struct timeval timestamp;
     size_t bytes = cap->read_packet(cap, packet_buffer, &timestamp);
 
-    /* failed to read */
-    if ( bytes < 0 ){
+    if ( bytes < 0 ){ /* failed to read */
       break;
+    } else if ( bytes == 0 ){ /* no data */
+      continue;
     }
 
     /* fill details into capture header */
@@ -150,71 +152,70 @@ static int capture_loop(struct CI* CI, struct capture_context* cap){
   return 0;
 }
 
-/* This is the RAW_SOCKET capturer..   */ 
-/* Lots of problems, use with caution. */
-void* capture(void* ptr){
-  struct CI* CI = (struct CI*)ptr;
-  CI->writepos = 0; /* Reset write-position in memory */
-  //  myTD=cProc->accuracy;
+struct raw_context {
+  struct capture_context base;
+  int socket;
+};
+
+static int read_packet_raw(struct raw_context* ctx, unsigned char* dst, struct timeval* timestamp){
+  int sd = ctx->socket;
+  struct timeval timeout = {1, 0};
   
-  logmsg(verbose, "CI[%d] initializing capture on %s using RAW_SOCKET (memory at %p).\n", CI->id, CI->nic, &datamem[CI->id]);
+  fd_set fds;
+  FD_ZERO(&fds);
+  FD_SET(sd, &fds);
 
-  wait_for_auth();
-  while( terminateThreads==0 )  {
-   
-    /* wait until data is available on socket */
-    {
-      struct timeval timeout = {1, 0};
-      fd_set fds;
-      FD_ZERO(&fds);
-      FD_SET(CI->sd, &fds);
+  /* wait until data is available on socket */  
+  if ( select(sd+1, &fds, NULL, NULL, &timeout) == -1 ){
+    switch ( errno ){
+    case EAGAIN:
+    case EINTR:
+      return 0;
       
-      if ( select(CI->sd+1,&fds,NULL,NULL, &timeout) == -1 ){
-	switch ( errno ){
-	case EAGAIN:
-	case EINTR:
-	  continue;
-	  
-	default:
-	  logmsg(stderr, "select() failed with code %d: %s\n", errno, strerror(errno));
-	  abort();
-	}
-      }
+    default:
+      logmsg(stderr, "select() failed with code %d: %s\n", errno, strerror(errno));
+      return -1;
     }
-
-    unsigned char* raw_buffer = datamem[CI->id][CI->writepos];
-    write_head* whead   = (write_head*)raw_buffer;
-    cap_head* head      = (cap_head*)(raw_buffer + sizeof(write_head));
-    unsigned char* packet_buffer = raw_buffer + sizeof(write_head) + sizeof(cap_head);
-
-    const ssize_t bytes = recvfrom(CI->sd, packet_buffer, PKT_CAPSIZE, MSG_TRUNC, NULL, NULL);
-
-    if ( bytes == -1 ){
-      if ( errno == EAGAIN ){
-	continue;
-      }
-      logmsg(stderr, "recvfrom() failed with code %d: %s\n", errno, strerror(errno));
-      abort();
-    }
-
-    //This could be a problem if a new packet arrivs before timestamp???
-    struct timeval time;
-    ioctl(CI->sd, SIOCGSTAMP, &time );//get time stamp associated with packet (C/O kernel)
-
-    fill_caphead(head, &time, bytes, CI->nic, MAMPid);
-
-    recvPkts++;
-    CI->pktCnt++;
-
-    /* return -1 when no filter matches */
-    if ( push_packet(CI, whead, head, packet_buffer) == -1 ){
-      continue;
-    }
-
-    matchPkts++;
   }
 
+  /* read from socket */
+  const ssize_t bytes = recvfrom(sd, dst, PKT_CAPSIZE, MSG_TRUNC, NULL, NULL);
+
+  /* check errors */
+  if ( bytes == -1 ){
+    if ( errno == EAGAIN ){
+      return 0;
+    }
+    int save = errno;
+    logmsg(stderr, "recvfrom() failed with code %d: %s\n", save, strerror(save));
+    errno = save;
+    return -1;
+  }
+
+  /* grab timestamp */
+  ioctl(sd, SIOCGSTAMP, &timestamp );
+
+  return bytes;
+}
+
+/* This is the RAW_SOCKET capturer..   */ 
+void* capture(void* ptr){
+  struct CI* CI = (struct CI*)ptr;
+  struct raw_context cap;
+  
+  /* initialize raw capture */
+  logmsg(verbose, "CI[%d] initializing capture on %s using RAW_SOCKET (memory at %p).\n", CI->id, CI->nic, &datamem[CI->id]);
+  cap.socket = CI->sd;
+
+  /* setup callbacks */
+  cap.base.read_packet = (read_packet_callback)read_packet_raw;
+
+  /* start capture */
+  capture_loop(CI, (struct capture_context*)&cap);
+
+  /* stop capture */
   logmsg(verbose, "CI[%d] stopping capture on %s.\n", CI->id, CI->nic);
+
   return NULL;
 }
 
@@ -246,9 +247,6 @@ static int read_packet_pcap(struct pcap_context* ctx, unsigned char* dst, struct
 /* This is the PCAP_SOCKET capturer..   */ 
 void* pcap_capture(void* ptr){
   struct CI* CI = (struct CI*)ptr;
-  CI->writepos = 0; /* Reset write-position in memory */
-  //  myTD=cProc->accuracy;     
-  
   struct pcap_context cap;
 
   /* initialize pcap capture */
