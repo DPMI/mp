@@ -145,6 +145,14 @@ static int is_authorized(){
 void* control(void* prt){
   int ret;
 
+  /* restore signal handler for this thread */
+  sigset_t empty;
+  sigfillset(&empty);
+  sigdelset(&empty, SIGUSR1);
+  //sigaddset(&empty, SIGINT);
+  pthread_sigmask(SIG_SETMASK, &empty, NULL);
+  
+
   /* setup libmarc */
   {
     /* redirect output */
