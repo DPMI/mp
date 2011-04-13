@@ -45,6 +45,43 @@ extern int skipflag;
 
 pthread_mutex_t mutex2 = PTHREAD_MUTEX_INITIALIZER;
 
+static int push_packet(struct CI* CI, write_head* whead, cap_head* head, const unsigned char* packet_buffer){
+  const int recipient = filter(CI->nic, packet_buffer, head);
+  if ( recipient == -1 ){ /* no match */
+    return -1;
+  }
+  
+  // prevent the reader from operating on the same chunk of memory.
+  pthread_mutex_lock( &mutex2 );
+  {
+    strncpy(head->nic, CI->nic, 8); head->nic[7] = 0;
+    strncpy(head->mampid, MAMPid, 8); head->mampid[7] = 0;
+    whead->free++; //marks the post that it has been written
+    whead->consumer = recipient;
+  }
+  pthread_mutex_unlock( &mutex2 );
+  
+  if ( whead->free>1 ){ //Control buffer overrun
+    logmsg(stderr, "CI[%d] OVERWRITING: %ld @ %d for the %d time \n", CI->id, pthread_self(), CI->writepos, whead->free);
+    logmsg(stderr, "CI[%d] bufferUsage=%d\n", CI->id, CI->bufferUsage);
+  }
+
+  CI->writepos++;
+  CI->bufferUsage++;
+
+  /* wrap buffer if needed */
+  if( CI->writepos >= PKT_BUFFER ){
+    CI->writepos = 0;
+  }
+
+  /* flag that another packet is ready */
+  if ( sem_post(CI->semaphore) != 0 ){
+    logmsg(stderr, "sem_post() returned %d: %s\n", errno, strerror(errno));
+  }
+
+  return recipient;
+}
+
 struct sockaddr_ll  from;       //source address
 
 
@@ -173,44 +210,6 @@ void* capture(void* ptr){
   // comes here when terminateThreads = 1
   fprintf(verbose, "Child %ld My work here is done %s.\n", pthread_self(), CI->nic);
   return(NULL) ;
-}
-
-
-static int push_packet(struct CI* CI, write_head* whead, cap_head* head, const unsigned char* packet_buffer){
-  const int recipient = filter(CI->nic, packet_buffer, head);
-  if ( recipient == -1 ){ /* no match */
-    return -1;
-  }
-  
-  // prevent the reader from operating on the same chunk of memory.
-  pthread_mutex_lock( &mutex2 );
-  {
-    strncpy(head->nic, CI->nic, 8); head->nic[7] = 0;
-    strncpy(head->mampid, MAMPid, 8); head->mampid[7] = 0;
-    whead->free++; //marks the post that it has been written
-    whead->consumer = recipient;
-  }
-  pthread_mutex_unlock( &mutex2 );
-  
-  if ( whead->free>1 ){ //Control buffer overrun
-    logmsg(stderr, "CI[%d] OVERWRITING: %ld @ %d for the %d time \n", CI->id, pthread_self(), CI->writepos, whead->free);
-    logmsg(stderr, "CI[%d] bufferUsage=%d\n", CI->id, CI->bufferUsage);
-  }
-
-  CI->writepos++;
-  CI->bufferUsage++;
-
-  /* wrap buffer if needed */
-  if( CI->writepos >= PKT_BUFFER ){
-    CI->writepos = 0;
-  }
-
-  /* flag that another packet is ready */
-  if ( sem_post(CI->semaphore) != 0 ){
-    logmsg(stderr, "sem_post() returned %d: %s\n", errno, strerror(errno));
-  }
-
-  return recipient;
 }
 
 /* This is the PCAP_SOCKET capturer..   */ 
