@@ -197,7 +197,6 @@ void* sender(void *ptr){
       /* still not enough payload, wait for more */
       const int sub_mtu = payload_size < mtu_size;
       const int need_flush = con->status == 0 && payload_size > 0;
-      printf("sub_mtu: %d needflush: %d\n", sub_mtu, need_flush);
       if( sub_mtu && !need_flush ){
 	continue;
       }
