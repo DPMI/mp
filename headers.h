@@ -81,7 +81,7 @@ struct sendhead {
                            // of this frame?
   struct file_version version; // What version of the file format is 
                            // used for stotring mp_pkts.
-};     
+};
 
 
 //Filter struct are base on binary indexing in filter.index                                
