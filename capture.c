@@ -43,7 +43,7 @@
 pthread_mutex_t mutex2 = PTHREAD_MUTEX_INITIALIZER;
 
 static int push_packet(struct CI* CI, write_head* whead, cap_head* head, const unsigned char* packet_buffer){
-  const int recipient = filter(CI->nic, packet_buffer, head);
+  const int recipient = filter(CI->iface, packet_buffer, head);
   if ( recipient == -1 ){ /* no match */
     return -1;
   }
@@ -51,8 +51,8 @@ static int push_packet(struct CI* CI, write_head* whead, cap_head* head, const u
   // prevent the reader from operating on the same chunk of memory.
   pthread_mutex_lock( &mutex2 );
   {
-    strncpy(head->nic, CI->nic, 8); head->nic[7] = 0;
-    strncpy(head->mampid, MAMPid, 8); head->mampid[7] = 0;
+    strncpy(head->nic, CI->iface, 4);
+    strncpy(head->mampid, MAMPid, 8);
     whead->free++; //marks the post that it has been written
     whead->consumer = recipient;
   }
@@ -121,7 +121,7 @@ int capture_loop(struct CI* CI, struct capture_context* cap){
     }
 
     /* fill details into capture header */
-    fill_caphead(head, &timestamp, bytes, CI->nic, MAMPid);
+    fill_caphead(head, &timestamp, bytes, CI->iface, MAMPid);
 
     /* stats */
     recvPkts++;

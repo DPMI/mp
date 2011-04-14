@@ -317,7 +317,7 @@ static void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
   for( int i=0; i < noCI; i++){
     /* OMFG! This string is executed as SQL in MArCd */
     dst += sprintf(dst,", CI%d='%s', PKT%d='%ld', BU%d='%d' ",
-		   i, _CI[i].nic,
+		   i, _CI[i].iface,
 		   i, _CI[i].pktCnt,
 		   i, _CI[i].bufferUsage);
   }
@@ -334,7 +334,7 @@ static void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
 	 MAMPid, noRules,noCI,matchPkts);
   for( int i=0; i < noCI; i++){
     fprintf(verbose, "\tCI[%d]=%s  PKT[%d]=%ld BU[%d]=%d\n",
-	   i, _CI[i].nic,
+	   i, _CI[i].iface,
 	   i, _CI[i].pktCnt,
 	   i, _CI[i].bufferUsage);
   }

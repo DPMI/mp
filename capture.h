@@ -91,6 +91,7 @@ enum CIDriver {
   DRIVER_DAG,
 };
 
+#define NICLEN 256
 struct CI {
   int id;
   enum CIDriver driver;
@@ -100,7 +101,7 @@ struct CI {
   sem_t* semaphore;
   long pktCnt;
   int bufferUsage;    /* How many bytes of the buffer is used? */
-  char nic[10];       /* interface */
+  char iface[NICLEN]; /* capture interface */
   uint8_t accuracy;   /* Accuracy of interface, read from config file. */
 };
 

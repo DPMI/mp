@@ -40,8 +40,8 @@ void* pcap_capture(void* ptr){
   struct pcap_context cap;
 
   /* initialize pcap capture */
-  logmsg(verbose, "CI[%d] initializing capture on %s using pcap (memory at %p).\n", CI->id, CI->nic, &datamem[CI->id]);
-  cap.handle = pcap_open_live (CI->nic, BUFSIZ, 1, 0, cap.errbuf);   /* open device for reading */
+  logmsg(verbose, "CI[%d] initializing capture on %s using pcap (memory at %p).\n", CI->id, CI->iface, &datamem[CI->id]);
+  cap.handle = pcap_open_live (CI->iface, BUFSIZ, 1, 0, cap.errbuf);   /* open device for reading */
   if ( !cap.handle ) {
     logmsg(stderr, "pcap_open_live(): %s\n", cap.errbuf);
     exit (1);
@@ -54,7 +54,7 @@ void* pcap_capture(void* ptr){
   capture_loop(CI, (struct capture_context*)&cap);
 
   /* stop capture */
-  logmsg(verbose, "CI[%d] stopping capture on %s.\n", CI->id, CI->nic);
+  logmsg(verbose, "CI[%d] stopping capture on %s.\n", CI->id, CI->iface);
   pcap_close(cap.handle);
 
   return NULL;

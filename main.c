@@ -186,17 +186,17 @@ static void ma_nic(const char* arg) {
   close(s);
 }
 
-static void set_ci(const char* arg) {
+static void set_ci(const char* iface) {
   if ( iflag == CI_NIC ){
     fprintf(stderr, "Cannot specify more than %d capture interface(s)\n", CI_NIC);
     exit(1);
   }
 
-  strncpy(CI[iflag].nic, arg, 10);
-  CI[iflag].nic[9] = 0; /* force null-terminator */
+  strncpy(CI[iflag].iface, iface, NICLEN);
+  CI[iflag].iface[NICLEN-1] = 0; /* force null-terminator */
   
   if ( verbose_flag ){
-    printf("Setting CI(%d) = %s (%zd)\n", iflag, CI[iflag].nic, strlen(CI[iflag].nic));
+    printf("Setting CI(%d) = %s (%zd)\n", iflag, CI[iflag].iface, strlen(CI[iflag].iface));
   }
 
   iflag++;
@@ -416,7 +416,7 @@ static int init_capture(){
     CI[i].semaphore = NULL;
     CI[i].pktCnt = 0;
     CI[i].bufferUsage = 0;
-    CI[i].nic[0] = 0;
+    CI[i].iface[0] = 0;
     CI[i].accuracy = 0;
   }
 
@@ -434,9 +434,9 @@ static int setup_capture(){
     CI[i].semaphore = &semaphore;
     func = NULL;
 
-    if ( strncmp("pcap", CI[i].nic, 4) == 0 ){
+    if ( strncmp("pcap", CI[i].iface, 4) == 0 ){
       CI[i].driver = DRIVER_PCAP;
-    } else if (strncmp("dag", CI[i].nic, 3)==0) {
+    } else if (strncmp("dag", CI[i].iface, 3)==0) {
       CI[i].driver = DRIVER_DAG;
     } else {
       CI[i].driver = DRIVER_RAW;
@@ -444,26 +444,26 @@ static int setup_capture(){
       
     switch ( CI[i].driver ){
     case DRIVER_PCAP:
-      fprintf(verbose, "\tpcap for %s.\n", CI[i].nic);
+      fprintf(verbose, "\tpcap for %s.\n", CI[i].iface);
 
-      memmove(CI[i].nic, &CI[i].nic[4], strlen(&CI[i].nic[4])+1); /* plus terminating */
+      memmove(CI[i].iface, &CI[i].iface[4], strlen(&CI[i].iface[4])+1); /* plus terminating */
 
       func = pcap_capture;
       break;
 
     case DRIVER_RAW:
-      fprintf(verbose, "\tRAW for %s.\n", CI[i].nic);
+      fprintf(verbose, "\tRAW for %s.\n", CI[i].iface);
 
       CI[i].sd = socket(PF_PACKET,SOCK_RAW,htons(ETH_P_ALL));
-      ifindex=iface_get_id(CI[i].sd, CI[i].nic);
+      ifindex=iface_get_id(CI[i].sd, CI[i].iface);
       iface_bind(CI[i].sd, ifindex);
-      setpromisc(CI[i].sd, CI[i].nic);
+      setpromisc(CI[i].sd, CI[i].iface);
 
       func = capture;
       break;
 
     case DRIVER_DAG:
-      fprintf(verbose, "\tDAG for %s.\n", CI[i].nic);
+      fprintf(verbose, "\tDAG for %s.\n", CI[i].iface);
 
       break;
 
@@ -560,10 +560,10 @@ int main (int argc, char **argv)
   
   printf("Capture Interfaces \n");
   for (i=0; i < iflag; i++) {
-    printf(" CI[%d]=%s (%zd) T_delta = %d digits\n", i, CI[i].nic, strlen(CI[i].nic), CI[i].accuracy);
-    if (!strncmp("dag", CI[i].nic, 3)) {
+    printf(" CI[%d]=%s (%zd) T_delta = %d digits\n", i, CI[i].iface, strlen(CI[i].iface), CI[i].accuracy);
+    if (!strncmp("dag", CI[i].iface, 3)) {
       strcpy(dagdev,"/dev/");
-      strncat(dagdev, CI[i].nic, 4);
+      strncat(dagdev, CI[i].iface, 4);
       printf("nic[%d]=%s (%zd)\n", i, dagdev,strlen(dagdev));
       printf("No support for DAG in this version, only RAW and PCAP.\n");
       exit(1);
@@ -629,7 +629,7 @@ int main (int argc, char **argv)
   fprintf(verbose, "my Children.\n");
   for(i=0;i<iflag;i++)
   {
-    fprintf(verbose, "Child %d known as %d working on %s.\n",i,(int)child[i],CI[i].nic);
+    fprintf(verbose, "Child %d known as %d working on %s.\n",i,(int)child[i],CI[i].iface);
   }
   fprintf(verbose, "Child %d working on sender.\n", (int)senderPID);
   fprintf(verbose, "Child %d working as controller.\n",(int)controlPID);
@@ -656,8 +656,8 @@ int main (int argc, char **argv)
 //Print out statistics on screen  
   printf("Socket stats.\n");
   for (i=0;i<iflag;i++)  {
-    printf("%s\n", CI[i].nic);
-    if (!strncmp("dag", CI[i].nic, 3)) {
+    printf("%s\n", CI[i].iface);
+    if (!strncmp("dag", CI[i].iface, 3)) {
 
     } else {
       info(CI[i].sd);

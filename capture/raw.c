@@ -63,7 +63,7 @@ void* capture(void* ptr){
   struct raw_context cap;
   
   /* initialize raw capture */
-  logmsg(verbose, "CI[%d] initializing capture on %s using RAW_SOCKET (memory at %p).\n", CI->id, CI->nic, &datamem[CI->id]);
+  logmsg(verbose, "CI[%d] initializing capture on %s using RAW_SOCKET (memory at %p).\n", CI->id, CI->iface, &datamem[CI->id]);
   cap.socket = CI->sd;
 
   /* setup callbacks */
@@ -73,7 +73,7 @@ void* capture(void* ptr){
   capture_loop(CI, (struct capture_context*)&cap);
 
   /* stop capture */
-  logmsg(verbose, "CI[%d] stopping capture on %s.\n", CI->id, CI->nic);
+  logmsg(verbose, "CI[%d] stopping capture on %s.\n", CI->id, CI->iface);
 
   return NULL;
 }
