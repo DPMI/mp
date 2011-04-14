@@ -241,6 +241,7 @@ static void flushBuffer(int i){
 
   con->shead=(struct sendhead*)(sendmem[i]+sizeof(struct ethhdr)); // Set pointer to the sendhead, i.e. mp transmission protocol 
   con->shead->flush=htons(1);
+  con->shead->nopkts=con->sendcount;
 
   printf("Consumer %d needs to be flushed, contains %d pkts\n", i, con->sendcount);
 
