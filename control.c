@@ -61,7 +61,7 @@ static void mp_filter(struct MPFilter* event){
 
   struct FPI* rule = malloc(sizeof(struct FPI));
   convUDPtoFPI(&rule->filter, &event->filter);
-  logmsg(stdout, "Updating filter with id %d\n", rule->filter.filter_id);
+  logmsg(stdout, "Updating filter {%d}\n", rule->filter.filter_id);
   addFilter(rule);
   if ( verbose_flag ){
     printFilter(stdout, rule);
