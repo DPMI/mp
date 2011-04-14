@@ -112,7 +112,7 @@ int capture_loop(struct CI* CI, struct capture_context* cap){
 
     /* read a packet */
     struct timeval timestamp;
-    size_t bytes = cap->read_packet(cap, packet_buffer, &timestamp);
+    ssize_t bytes = cap->read_packet(cap, packet_buffer, &timestamp);
 
     if ( bytes < 0 ){ /* failed to read */
       break;
