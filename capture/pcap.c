@@ -39,11 +39,19 @@ void* pcap_capture(void* ptr){
   struct CI* CI = (struct CI*)ptr;
   struct pcap_context cap;
 
-  /* initialize pcap capture */
   logmsg(verbose, "CI[%d] initializing capture on %s using pcap (memory at %p).\n", CI->id, CI->iface, &datamem[CI->id]);
-  cap.handle = pcap_open_live (CI->iface, BUFSIZ, 1, 0, cap.errbuf);   /* open device for reading */
+
+  /* initialize pcap capture */
+  if ( CI->iface[0] != ':' ){ /* live capture */
+    logmsg(verbose, "  pcap live capture\n");    
+    cap.handle = pcap_open_live (CI->iface, BUFSIZ, 1, 0, cap.errbuf);   /* open device for reading */
+  } else { /* offline capture */
+    logmsg(verbose, "  pcap offline capture\n");
+    cap.handle = pcap_open_offline (CI->iface+1, cap.errbuf);
+  }
+
   if ( !cap.handle ) {
-    logmsg(stderr, "pcap_open_live(): %s\n", cap.errbuf);
+    logmsg(stderr, "pcap_open: %s\n", cap.errbuf);
     exit (1);
   }
 
