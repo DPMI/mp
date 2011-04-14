@@ -85,6 +85,10 @@ static void mp_filter_reload(int id){
   }
 }
 
+static void mp_filter_del(int id){
+  delFilter(id);
+}
+
 /**
  * Dump the content of data as hexadecimal (and its ascii repr.)
  */
@@ -213,11 +217,15 @@ void* control(void* prt){
       break;
 
     case MP_FILTER_RELOAD_EVENT:
-      mp_filter_reload(-1);
+      mp_filter_reload(event.filter_id.id);
+      break;
+
+    case MP_FILTER_DEL_EVENT:
+      mp_filter_del(event.filter_id.id);
       break;
 
     case MP_FILTER_REQUEST_EVENT:
-      mp_filter_reload(event.refresh.filter_id);
+      mp_filter_reload(event.filter_id.id);
       break;
 
     default:
