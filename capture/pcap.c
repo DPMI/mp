@@ -16,22 +16,35 @@ struct pcap_context {
 };
 
 static int read_packet_pcap(struct pcap_context* ctx, unsigned char* dst, struct timeval* timestamp){
-  struct pcap_pkthdr pcaphead;	/* pcap.h */
-  const u_char* payload = pcap_next(ctx->handle, &pcaphead);
-  if(payload==NULL) {
-    logmsg(stderr, "CAPTURE_PCAP: Couldnt get payload, %s\n", pcap_geterr(ctx->handle));
+  struct pcap_pkthdr* pcaphead;
+  const u_char* payload;
+
+  switch ( pcap_next_ex(ctx->handle, &pcaphead, &payload) ){
+  case 1: /* ok */
+    break;
+
+  case 0: /* timeout */
+    logmsg(stderr, "pcap_next() timeout\n");
+    return 0;
+    
+  case -2: /* offline capture EOF */
+    logmsg(verbose, "pcap offline capture EOF\n");
+    return -1;
+
+  case -1: /* error */
+    logmsg(stderr, "pcap_next(): %s\n", pcap_geterr(ctx->handle));
     return -1;
   }
 
-  const size_t data_len = MIN(pcaphead.caplen, PKT_CAPSIZE);
+  const size_t data_len = MIN(pcaphead->caplen, PKT_CAPSIZE);
   const size_t padding = PKT_CAPSIZE - data_len;
 
   memcpy(dst, payload, data_len);
   memset(dst + data_len, 0, padding);
-  timestamp->tv_sec = pcaphead.ts.tv_sec;
-  timestamp->tv_usec = pcaphead.ts.tv_usec;
+  timestamp->tv_sec = pcaphead->ts.tv_sec;
+  timestamp->tv_usec = pcaphead->ts.tv_usec;
 
-  return pcaphead.caplen;
+  return pcaphead->caplen;
 }
 
 /* This is the PCAP_SOCKET capturer..   */ 
@@ -40,14 +53,17 @@ void* pcap_capture(void* ptr){
   struct pcap_context cap;
 
   logmsg(verbose, "CI[%d] initializing capture on %s using pcap (memory at %p).\n", CI->id, CI->iface, &datamem[CI->id]);
+  const char* iface;
 
   /* initialize pcap capture */
   if ( CI->iface[0] != ':' ){ /* live capture */
     logmsg(verbose, "  pcap live capture\n");    
-    cap.handle = pcap_open_live (CI->iface, BUFSIZ, 1, 0, cap.errbuf);   /* open device for reading */
+    iface = CI->iface;
+    cap.handle = pcap_open_live (iface, BUFSIZ, 1, 0, cap.errbuf);   /* open device for reading */
   } else { /* offline capture */
     logmsg(verbose, "  pcap offline capture\n");
-    cap.handle = pcap_open_offline (CI->iface+1, cap.errbuf);
+    iface = CI->iface+1; /* +1 to remove : */
+    cap.handle = pcap_open_offline (iface, cap.errbuf);
   }
 
   if ( !cap.handle ) {
@@ -62,7 +78,7 @@ void* pcap_capture(void* ptr){
   capture_loop(CI, (struct capture_context*)&cap);
 
   /* stop capture */
-  logmsg(verbose, "CI[%d] stopping capture on %s.\n", CI->id, CI->iface);
+  logmsg(verbose, "CI[%d] stopping capture on %s.\n", CI->id, iface);
   pcap_close(cap.handle);
 
   return NULL;
