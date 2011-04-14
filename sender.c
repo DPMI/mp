@@ -63,7 +63,9 @@ void send_packet(struct consumer* con){
   const size_t payload_size = con->sendpointer - con->sendptrref;
   const size_t packet_full_size = header_size + payload_size; /* includes ethernet, sendheader and payload */
 
-  con->shead->nopkts = htons(con->sendcount); //maSendsize;
+  //con->shead->nopkts = htons(con->sendcount); //maSendsize;
+  con->shead->nopkts = 0; /** @todo bad value */
+
   /*con->shead->losscounter=htons((globalDropcount+memDropcount)-dropCount[whead->consumer]); */
   con->dropCount = globalDropcount+memDropcount;
 
@@ -81,7 +83,7 @@ void send_packet(struct consumer* con){
 
   uint32_t seqnr = ntohl(con->shead->sequencenr);
 
-  fprintf(stdout,  "SendThread %p sending %zd bytes\n", pthread_self(), payload_size);
+  fprintf(stdout,  "SendThread %ld sending %zd bytes\n", pthread_self(), payload_size);
   fprintf(verbose, "\tcaputils-%d.%d\n", ntohs(con->shead->version.major), ntohs(con->shead->version.minor));
   fprintf(verbose, "\tdropCount[] = %d (g%d/m%d)\n", con->dropCount, globalDropcount, memDropcount);
   fprintf(verbose, "\tPacket length = %ld bytes, Eth %ld, Send %ld, Cap %ld bytes\n", packet_full_size, sizeof(struct ethhdr), sizeof(struct sendhead), sizeof(struct cap_header));
@@ -169,24 +171,16 @@ void* sender(void *ptr){
 
       const size_t packet_size = sizeof(cap_head)+head->caplen;
 
-      //	printf("readPos[oldest] = %d \n", readPos[oldest]);
-      //  pthread_mutex_lock( &mutex1 );
       whead->free=0; // Let the capture_nicX now that we have read it.
-      //  pthread_mutex_unlock( &mutex1 );
       readPos[oldest]++; // update the read position.
       if(readPos[oldest]>=PKT_BUFFER){
 	readPos[oldest]=0;//when all posts in datamem is read begin from 0 again
       }
+
       _CI[oldest].bufferUsage--;
-      //	printf("ST: bufferUsage[%d]=%d\n", oldest,bufferUsage[oldest]);
       if(_CI[oldest].bufferUsage<0){
 	_CI[oldest].bufferUsage=0;
       }
-      //      These two rows were used when we used FIXED payload lenghts, PKT_CAPSIZE. 
-      //	memcpy(sendpointer[whead->consumer],head,(sizeof(cap_head)+PKT_CAPSIZE)); //copy the packet to the sendbuffer
-      //	sendpointer[whead->consumer]+=(sizeof(cap_head)+PKT_CAPSIZE);// Update the send pointer.
-
-      //      These two rows use variable capture lengths. 
 
       memcpy(con->sendpointer, head, packet_size);// copy the packet to the sendbuffer
       memset(head, 0, sizeof(cap_head) + PKT_CAPSIZE);// Clear the memory where we read the packet. ALWAYS clear the full caplen.
@@ -201,7 +195,10 @@ void* sender(void *ptr){
       const size_t mtu_size = MAmtu-2*(sizeof(cap_head)+nextPDUlen); // This row accounts for the fact that the consumer buffers only need extra space for one PDU of of the capture size for that particular filter. 
 
       /* still not enough payload, wait for more */
-      if( payload_size < mtu_size ){
+      const int sub_mtu = payload_size < mtu_size;
+      const int need_flush = con->status == 0 && payload_size > 0;
+      printf("sub_mtu: %d needflush: %d\n", sub_mtu, need_flush);
+      if( sub_mtu && !need_flush ){
 	continue;
       }
 
@@ -230,18 +227,13 @@ static void flushBuffer(int i){
   struct consumer* con = &MAsd[i];
   
   /* no consumer */
-  if ( !con ){
-    return;
-  }
-
-  /* no packages to send */
-  if ( con->sendcount == 0 ){
+  if ( !con || con->status == 0 ){
     return;
   }
 
   con->shead=(struct sendhead*)(sendmem[i]+sizeof(struct ethhdr)); // Set pointer to the sendhead, i.e. mp transmission protocol 
   con->shead->flush=htons(1);
-  con->shead->nopkts=con->sendcount;
+  con->shead->nopkts = 0; /** @todo bad value */
 
   printf("Consumer %d needs to be flushed, contains %d pkts\n", i, con->sendcount);
 
