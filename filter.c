@@ -23,6 +23,7 @@
 
 #include "capture.h"
 #include "filter.h"
+#include "log.h"
 
 #include <libmarc/filter.h>
 #include <stdlib.h>
@@ -52,7 +53,7 @@ struct Haystack {
 };
 
 static int matchEth(const unsigned char d[], const unsigned char m[], const unsigned char n[]);
-static void flushSendBuffer(int i);
+static void stop_consumer(struct consumer* con);
 
 static char hex_string[IFHWADDRLEN * 3] = "00:00:00:00:00:00";
 static char* hexdump_address (const unsigned char address[IFHWADDRLEN]){
@@ -373,99 +374,56 @@ int addFilter(struct FPI *newRule){
 /*
  This function finds a filter that matched the filter_id, and removes it.
 */
-int delFilter(int filter_id){
-  int seeked=filter_id;
-  struct FPI *pointer1,*pointer2;
-  pointer1=pointer2=0;
-  if(myRules==0){
-    // No Rules present, ERROR..
-    return(0);
+int delFilter(const int filter_id){
+  struct FPI* cur = myRules;
+  struct FPI* prev = NULL;
+  while ( cur ){
+    if ( cur->filter.filter_id == filter_id ){ /* filter matches */
+      logmsg(verbose, "Removing filter {%d}\n", filter_id);
+
+      /* stop consumer */
+      const int consumer = cur->filter.consumer;
+      struct consumer* con = &MAsd[consumer];
+      stop_consumer(con);
+
+      /* unlink filter from list */
+      if ( prev ){
+	prev->next = cur->next;
+      } else { /* first node */
+	myRules = cur->next;
+      }
+
+      free(cur);
+      noRules--;
+      return 0;
+    }
+
+    prev = cur;
+    cur = cur->next;
   }
-  pointer1=myRules;
-  if(pointer1->filter.filter_id==seeked){ // Found the desired filter..It was first.
-    myRules=pointer1->next;// Update the basepointer-> the next rule
-    flushSendBuffer(pointer1->filter.consumer);
-    free(pointer1);  // Release the old pointer. 
-    noRules--; // Update the amount of rules.
-    return(1);
-  }
-  while(pointer1->filter.filter_id!=seeked && pointer1->next != 0) {
-    pointer2=pointer1;
-    pointer1=pointer1->next;
-  }
-  // Two reasons to leave while loop. 1) pointer1->filter_id == seeked, 2) pointer1->next == 0
-  if(pointer1->filter.filter_id==seeked){ // We found it.
-    pointer2->next = pointer1->next;// Make sure that the old element is not in the list anymore.
-    flushSendBuffer(pointer1->filter.consumer);
-    free(pointer1);              // relase the memory allocated by the old rule.
-    noRules--;
-    return(1);
-  }
-  // We didnt find it... (if we did at the last location, the previous if would catch it.
-  return(0);
+
+  logmsg(stderr, "Trying to delete non-existing filter {%d}\n", filter_id);
+  return -1;
 }
 
-/*
- Flush the sendbuffer.
-*/
-static void flushSendBuffer(int index){
-  printf("CTRL: DEL FILTER TO CONSUMER %d \n",index);
-  int i,written;
-  unsigned char DESTADDR[6] = {0x01, 0x00, 0x00, 0x00, 0x00, 0x00};
-  i=written=0;
-
-  /** @todo mostly dup of flushBuffer */
-  
-  struct consumer* con = &MAsd[i];
-  
+/**
+ * Stop consumer.
+ */
+static void stop_consumer(struct consumer* con){
   /* no consumer */
-  if ( !con ){
+  if ( !con || con->status == 0 ){
     return;
   }
 
-  /* no packages to send */
-  if ( con->sendcount == 0 ){
-    return;
-  }
-  
-
-  con->shead=(struct sendhead*)(sendmem[index]+sizeof(struct ethhdr)); // Set pointer to the sendhead, i.e. mp transmission protocol 
-  con->shead->flush=htons(1);
-
-  printf("\tConsumer %d needs to be flushed, contains %d pkts\n",i, con->sendcount);
-
-  con->shead->nopkts=con->sendcount;
-
-  size_t len = con->sendpointer - con->sendptrref;
-  con->stream->write(con->stream, con->sendptrref, len);
-
-  printf("Sent %d bytes.\n",written);
-  if(written==-1) {
-    printf("sendto():");
-  }
+  /* no need to flush, it will be handled by the sender eventually */
 
   long ret = 0;
   if ( (ret=closestream(con->stream)) != 0 ){
     fprintf(stderr, "closestream() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
   }
   con->stream = NULL;
-
-  /* Reinitialize ethernet and sendheader */
-  memcpy(con->ethhead->h_dest, DESTADDR, ETH_ALEN);
-
-  con->ethhead->h_dest[5]=index;   // Set the destination address, defaults to 0x01:00:00:00:[i]
-  con->shead->sequencenr=htonl(0x000);
-  con->shead->nopkts=htons(0);			  // Initialize the number of packet to zero
-  con->shead->flush=htons(0);			  // Make sure that the flush indicator is zero!
-  con->shead->version.major=CAPUTILS_VERSION_MAJOR; // Specify the file format used, major number
-  con->shead->version.minor=CAPUTILS_VERSION_MINOR; // Specify the file format used, minor number
-  /*con->shead->losscounter=htons(0); */
-  con->sendpointer=sendmem[index]+sizeof(struct ethhdr)+sizeof(struct sendhead);            // Set sendpointer to first place in sendmem where the packets will be stored.
-  con->sendptrref=con->sendpointer;          // Grab a copy of the pointer, simplifies treatment when we sent the packets.
-  con->sendcount=0;
   con->status=0;
   
-  bzero(con->sendpointer, maxSENDSIZE*(sizeof(cap_head)+PKT_CAPSIZE)); // Clear memory.
   return;
 }
 
