@@ -109,13 +109,10 @@ struct config_option {
   const char *name;
   int has_arg;
   int flag;
-  union {
-    option_callback callback;
-    struct {
-      int* ptr;
-      int value;
-    };
-  };
+
+  option_callback callback;
+  int* ptr;
+  int value;
 };
 
 /* really worstcase implementation of clamp =) */
@@ -213,13 +210,13 @@ static void set_td(const char* arg) {
 }
 
 static struct config_option myOptions[]={
-  {"MAnic=",  1, OPTION_FUNC, {.callback=ma_nic}},
-  {"ENCRYPT", 0, OPTION_STORE_TRUE, {.ptr=&ENCRYPT}},
-  {"BUFFER=", 1, OPTION_STORE, {.ptr=&bufsize}},
-  {"CAPSIZE=",1, OPTION_STORE, {.ptr=&capsize}},
-  {"CI=",     1, OPTION_FUNC, {.callback=set_ci}},
-  {"TD=",     1, OPTION_FUNC, {.callback=set_td}},
-  {"LOCAL",   0, OPTION_STORE_TRUE, {.ptr=&local}},
+  {"MAnic=",  1, OPTION_FUNC,       .callback=ma_nic},
+  {"ENCRYPT", 0, OPTION_STORE_TRUE, .ptr=&ENCRYPT},
+  {"BUFFER=", 1, OPTION_STORE,      .ptr=&bufsize},
+  {"CAPSIZE=",1, OPTION_STORE,      .ptr=&capsize},
+  {"CI=",     1, OPTION_FUNC,       .callback=set_ci},
+  {"TD=",     1, OPTION_FUNC,       .callback=set_td},
+  {"LOCAL",   0, OPTION_STORE_TRUE, .ptr=&local},
 };
 
 static int parse_config(const char* filename){
