@@ -81,11 +81,13 @@ static void mp_filter_reload(int id){
   if ( id == -1 ){
     struct FPI* cur = myRules;
     while ( cur ){
+      logmsg(verbose, "Requesting filter {%02d} from MArCd.\n", id);
       marc_filter_request(client, MAMPid, cur->filter.filter_id);
       cur = cur->next;
     }
     return;
   } else {
+    logmsg(verbose, "Requesting filter {%02d} from MArCd.\n", id);
     marc_filter_request(client, MAMPid, id);
   }
 }
@@ -233,15 +235,15 @@ void* control(void* prt){
       break;
 
     case MP_FILTER_RELOAD_EVENT:
-      mp_filter_reload(event.filter_id.id);
+      mp_filter_reload(ntohl(event.filter_id.id));
       break;
 
     case MP_FILTER_DEL_EVENT:
-      mp_filter_del(event.filter_id.id);
+      mp_filter_del(ntohl(event.filter_id.id));
       break;
 
     case MP_FILTER_REQUEST_EVENT:
-      mp_filter_reload(event.filter_id.id);
+      mp_filter_reload(ntohl(event.filter_id.id));
       break;
 
     default:
@@ -285,7 +287,7 @@ static void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
     logmsg(stderr, "marc_push_event() returned %d: %s\n", ret, strerror(ret));
   }
   
-  logmsg(verbose, "Status report for %s\n"
+  logmsg(stderr, "Status report for %s\n"
 	 "\t%d Filters Present\n"
 	 "\t%d Capture Interfaces.\n"
 	 "\t%d Packets Matched Filters.\n",
