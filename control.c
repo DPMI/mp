@@ -271,12 +271,13 @@ static void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
   }
 
   struct MPstatus stat;
+  memset(&stat, 0, sizeof(struct MPstatus));
   stat.type = MP_STATUS_EVENT;
   strncpy(stat.MAMPid, MAMPid, 16);
   stat.noFilters = ntohl(noRules);
   stat.matched   = ntohl(matchPkts);
   stat.noCI      = ntohl(noCI);
-  
+
   char* dst = stat.CIstats;
   for( int i=0; i < noCI; i++){
     /* OMFG! This string is executed as SQL in MArCd */
