@@ -5,7 +5,7 @@
 #include <caputils/filter.h>
 #include <stdio.h>
 
-int addFilter(struct FPI *newRule);
+int setFilter(struct FPI *newRule);
 int delFilter(int filter_id);
 
 struct FPI *myRules;
