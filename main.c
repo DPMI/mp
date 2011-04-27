@@ -336,17 +336,17 @@ static int parse_argv(int argc, char** argv){
       printf("(C) 2004 patrik.arlos@bth.se\n");
       printf("(C) 2011 david.sveningsson@bth.se\n"),
       printf("Usage: %s [OPTION]... -i INTERFACE... -s INTERFACE\n", argv[0]);
-      printf(" -h, --help                  help (this text)\n");
-      printf(" -s, --manic=INTERFACE       MA Interface. (REQUIRED)\n");
-      printf(" -p, --port=PORT             Control interface listen port (default 1500)\n");
-      printf(" -i, --interface=INTERFACE   Capture Interface (REQUIRED)\n");
-      printf("     --local                 LOCAL MODE, do not talk to MArC, capture\n"
-             "                             everything and store to file.\n");
-      printf("     --capfile=FILE          Store all captured packets in this capfile (in\n"
-             "                             addition to filter dst). Multiple filters are\n"
-             "                             aggregated.\n");
-      printf(" -v, --verbose               Verbose output\n");
-      printf("     --quiet                 Less output (inverse of --verbose)\n");
+      printf("  -h, --help                  help (this text)\n");
+      printf("  -s, --manic=INTERFACE       MA Interface. (REQUIRED)\n");
+      printf("  -p, --port=PORT             Control interface listen port (default 1500)\n");
+      printf("  -i, --interface=INTERFACE   Capture Interface (REQUIRED)\n");
+      printf("      --local                 LOCAL MODE, do not talk to MArC, capture\n"
+             "                              everything and store to file.\n");
+      printf("      --capfile=FILE          Store all captured packets in this capfile (in\n"
+             "                              addition to filter dst). Multiple filters are\n"
+             "                              aggregated.\n");
+      printf("  -v, --verbose               Verbose output\n");
+      printf("      --quiet                 Less output (inverse of --verbose)\n");
       exit(0);
       break;
 

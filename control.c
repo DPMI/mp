@@ -246,6 +246,10 @@ void* control(void* prt){
       mp_filter_reload(ntohl(event.filter_id.id));
       break;
 
+    case MP_FILTER_INVALID_ID:
+      logmsg(verbose, "Filter request failed: invalid id\n");
+      break;
+
     default:
       printf("Control thread got unhandled event of type %d containing %zd bytes.\n", event.type, size);
       printf("PAYLOAD:\n");
