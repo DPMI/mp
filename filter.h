@@ -7,7 +7,6 @@
 
 int addFilter(struct FPI *newRule);
 int delFilter(int filter_id);
-void printFilter(FILE* fp, const struct FPI *F); // Print One filter
 
 struct FPI *myRules;
 unsigned int noRules;

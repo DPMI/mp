@@ -116,7 +116,7 @@ int filter_match(const struct Filter* filter, const struct Haystack* haystack) {
   /* Ethernet Source */
   if ( filter->index & FILTER_ETH_SRC ) {
     /** @todo shouldn't VLAN_PRESENT be considered */
-    if ( matchEth(filter->ETH_SRC.ether_addr_octet, filter->ETH_SRC_MASK, ether->h_source) == 0 ){
+    if ( matchEth(filter->ETH_SRC.ether_addr_octet, filter->ETH_SRC_MASK.ether_addr_octet, ether->h_source) == 0 ){
       return 0;
     }
   }
@@ -124,7 +124,7 @@ int filter_match(const struct Filter* filter, const struct Haystack* haystack) {
   /* Ethernet Destination */
   if( filter->index & FILTER_ETH_DST ) {
     /** @todo shouldn't VLAN_PRESENT be considered */
-    if ( matchEth(filter->ETH_DST.ether_addr_octet, filter->ETH_DST_MASK, ether->h_dest) == 0 ){
+    if ( matchEth(filter->ETH_DST.ether_addr_octet, filter->ETH_DST_MASK.ether_addr_octet, ether->h_dest) == 0 ){
       return 0;
     }
   }
@@ -496,67 +496,7 @@ void printFilters(void){
   
   const struct FPI *pointer=myRules;
   while( pointer != 0 ){
-    printFilter(stdout, pointer);
+    marc_filter_print(stdout, &pointer->filter, 0);
     pointer = pointer->next;
-  }
-}
-
-void printFilter(FILE* fp, const struct FPI* rule){
-  const struct Filter* F = &rule->filter;
-
-  fprintf(fp, "FILTER (id: %02d consumer: %d)\n", F->filter_id, F->consumer);
-  switch(F->TYPE){
-    case 3:
-    case 2:
-      fprintf(fp, "\tDESTADDRESS   : %s://%s:%d\n", F->TYPE == 2 ? "udp" : "tcp", F->DESTADDR, F->DESTPORT);
-      break;
-    case 1:
-      fprintf(fp, "\tDESTADDRESS   : %02X:%02X:%02X:%02X:%02X:%02X\n",F->DESTADDR[0],F->DESTADDR[1],F->DESTADDR[2],F->DESTADDR[3],F->DESTADDR[4],F->DESTADDR[5]);
-      break;
-    case 0:
-      fprintf(fp, "\tDESTFILE      : %s\n", F->DESTADDR);
-      break;
-  }
-  fprintf(fp, "\tCAPLEN        : %d\n", F->CAPLEN);
-  fprintf(fp, "\tindex         : %d\n", F->index);
-
-  if(F->index&512){
-    fprintf(fp, "\tCI_ID         : %s\n", F->CI_ID);
-  }  
-
-  if(F->index&256){
-    fprintf(fp, "VLAN_TCI      : %d MASK (%d)", F->VLAN_TCI, F->VLAN_TCI_MASK);
-  }
-
-  if(F->index&128){
-    fprintf(fp, "ETH_TYPE      : %d (MASK: %d)\n", F->ETH_TYPE, F->ETH_TYPE_MASK);
-  }
-  
-  if(F->index&64){
-    fprintf(fp, "ETH_SRC       : %s (MASK: %s)\n", hexdump_address(F->ETH_SRC.ether_addr_octet), hexdump_address(F->ETH_SRC_MASK));
-  }
-
-  if(F->index&32){
-    fprintf(fp, "ETH_DST       : %s (MASK: %s)\n", hexdump_address(F->ETH_DST.ether_addr_octet), hexdump_address(F->ETH_DST_MASK));
-  }
-  
-  if(F->index&16){
-    fprintf(fp, "IP_PROTO      : %d\n", F->IP_PROTO);
-  }
-
-  if(F->index&8){
-    fprintf(fp, "IP_SRC        : %s (MASK: %s)\n", F->IP_SRC, F->IP_SRC_MASK);
-  }
-
-  if(F->index&4){
-    fprintf(fp, "IP_DST        : %s (MASK: %s)\n", F->IP_DST, F->IP_DST_MASK);
-  }
-
-  if(F->index&2){
-    fprintf(fp, "PORT_SRC      : %d (MASK: %d)\n", F->SRC_PORT, F->SRC_PORT_MASK);
-  }
-
-  if(F->index&1){
-    fprintf(fp, "PORT_DST      : %d (MASK: %d)\n", F->DST_PORT, F->DST_PORT_MASK);
   }
 }

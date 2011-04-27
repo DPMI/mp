@@ -39,7 +39,6 @@
 
 #define STATUS_INTERVAL 60
 
-static int convUDPtoFPI(struct Filter* dst,  struct FilterPacked* src);
 static void CIstatus(int sig); // Runs when ever a ALRM signal is received.
 
 static marc_context_t client = NULL;
@@ -60,11 +59,17 @@ static void mp_filter(struct MPFilter* event){
   }
 
   struct FPI* rule = malloc(sizeof(struct FPI));
-  convUDPtoFPI(&rule->filter, &event->filter);
+  marc_filter_unpack(&event->filter, &rule->filter);
+
+  /* Make sure that the User doesnt request more information than we can give. */
+  if ( rule->filter.CAPLEN > PKT_CAPSIZE ){
+    rule->filter.CAPLEN = PKT_CAPSIZE;
+  }
+
   logmsg(stdout, "Updating filter {%d}\n", rule->filter.filter_id);
   addFilter(rule);
   if ( verbose_flag ){
-    printFilter(stdout, rule);
+    marc_filter_print(stdout, &rule->filter, 0);
   }
 }
 
@@ -142,20 +147,19 @@ void* control(void* prt){
     pthread_sigmask(SIG_SETMASK, &sigmask, &saved);
   }
   
-  /* setup libmarc */
-  {
-    /* redirect output */
-    marc_set_output_handler(logmsg, vlogmsg, stderr, verbose);
 
-    struct marc_client_info info;
-    info.client_ip = NULL;
-    info.client_port = 0;
-    info.max_filters = CONSUMERS;
-    info.noCI = noCI;
-    if ( (ret=marc_init_client(&client, MAnic, &info)) != 0 ){
-      fprintf(stderr, "marc_init_client() returned %d: %s\n", ret, strerror(ret));
-      exit(1);
-    }
+  /* redirect output */
+  marc_set_output_handler(logmsg, vlogmsg, stderr, verbose);
+
+  /* setup libmarc */
+  struct marc_client_info info;
+  info.client_ip = NULL;
+  info.client_port = 0;
+  info.max_filters = CONSUMERS;
+  info.noCI = noCI;
+  if ( (ret=marc_init_client(&client, MAnic, &info)) != 0 ){
+    fprintf(stderr, "marc_init_client() returned %d: %s\n", ret, strerror(ret));
+    exit(1);
   }
 
   /* restore sigmask */
@@ -176,13 +180,24 @@ void* control(void* prt){
 
   /* process messages from MArCd */
   MPMessage event;
-  struct timeval timeout = {1, 0}; /* 1 sec timeout */
   size_t size;
+  unsigned int auth_retry = 0;
   while( terminateThreads==0 ){
+    struct timeval timeout = {1, 0}; /* 1 sec timeout */
+
+    if ( !is_authorized() && auth_retry >= 15 ){
+      logmsg(stderr, "No reply from MArCd (make sure MArCd is running). Resending request.\n");
+      marc_client_init_request(client, &info);
+      auth_retry = 0;
+    }
+
     /* get next message */
-    switch ( (ret=marc_poll_event(client, &event, &size, &timeout)) ){
+    switch ( (ret=marc_poll_event(client, &event, &size, NULL, &timeout)) ){
     case EAGAIN: /* delivered if using a timeout */
     case EINTR:  /* interuped */
+      if ( auth_retry >= 0 ){
+	auth_retry++;
+      }
       continue;
 
     case 0: /* success, continue processing */
@@ -210,6 +225,7 @@ void* control(void* prt){
     switch (event.type) { /* ntohl not needed, called by marc_poll_event */
     case MP_CONTROL_AUTHORIZE_EVENT:
       mp_auth(&event.auth);
+      auth_retry = -1;
       break;
 
     case MP_FILTER_EVENT:
@@ -240,64 +256,6 @@ void* control(void* prt){
   client = NULL;
 
   return NULL;
-}
-
-static int convUDPtoFPI(struct Filter* dst,  struct FilterPacked* src){
-  char *pos=0;
-  dst->filter_id = src->filter_id;
-  dst->index     = src->index;
-
-  dst->VLAN_TCI      = src->VLAN_TCI;
-  dst->VLAN_TCI_MASK = src->VLAN_TCI_MASK;
-  dst->ETH_TYPE      = src->ETH_TYPE;
-  dst->ETH_TYPE_MASK = src->ETH_TYPE_MASK;
-  
-  dst->IP_PROTO      = src->IP_PROTO;
-
-  strncpy(dst->CI_ID, src->CI_ID, 8);
-  memcpy(dst->IP_SRC, src->IP_SRC, 16);
-  memcpy(dst->IP_SRC_MASK, src->IP_SRC_MASK, 16);
-  memcpy(dst->IP_DST, src->IP_DST, 16);
-  memcpy(dst->IP_DST_MASK, src->IP_DST_MASK, 16);
-  
-  dst->SRC_PORT      = src->SRC_PORT;
-  dst->SRC_PORT_MASK = src->SRC_PORT_MASK;
-  dst->DST_PORT      = src->DST_PORT;
-  dst->DST_PORT_MASK = src->DST_PORT_MASK;
-  dst->consumer      = src->consumer;
-  
-  memcpy(&dst->ETH_SRC, &src->ETH_SRC, ETH_ALEN);
-  memcpy(&dst->ETH_SRC_MASK, &src->ETH_SRC_MASK, ETH_ALEN);
-  memcpy(&dst->ETH_DST, &src->ETH_DST, ETH_ALEN);
-  memcpy(&dst->ETH_DST_MASK, &src->ETH_DST_MASK, ETH_ALEN);
-
-  dst->TYPE = src->TYPE;
-  dst->CAPLEN = src->CAPLEN;
-  if ( dst->CAPLEN > PKT_CAPSIZE ){ // Make sure that the User doesnt request more information than we can give. 
-    dst->CAPLEN = PKT_CAPSIZE;
-  }
-  switch(dst->TYPE){
-    case 3: // TCP
-    case 2: // UDP
-      // DESTADDR is ipaddress:port
-      memcpy(dst->DESTADDR, src->DESTADDR, 22);
-      pos=index((char*)(dst->DESTADDR),':');
-      if(pos!=NULL) {
-	*pos=0; /* put null terminator after ip */
-	dst->DESTPORT=atoi(pos+1); /* extract port */
-      } else {
-	dst->DESTPORT=MYPROTO;
-      }
-      break;
-    case 1: // Ethernet
-      memcpy(dst->DESTADDR, src->DESTADDR, ETH_ALEN);
-      break;
-    case 0: // File
-      memcpy(dst->DESTADDR,src->DESTADDR, 22);
-      break;
-  }
-
-  return 1;
 }
 
 static void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
