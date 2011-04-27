@@ -83,7 +83,7 @@ void send_packet(struct consumer* con){
 
   uint32_t seqnr = ntohl(con->shead->sequencenr);
 
-  fprintf(stdout,  "SendThread %ld sending %zd bytes\n", pthread_self(), payload_size);
+  fprintf(verbose,  "SendThread %ld sending %zd bytes\n", pthread_self(), payload_size);
   fprintf(verbose, "\tcaputils-%d.%d\n", ntohs(con->shead->version.major), ntohs(con->shead->version.minor));
   fprintf(verbose, "\tdropCount[] = %d (g%d/m%d)\n", con->dropCount, globalDropcount, memDropcount);
   fprintf(verbose, "\tPacket length = %zd bytes, Eth %zd, Send %zd, Cap %zd bytes\n", packet_full_size, sizeof(struct ethhdr), sizeof(struct sendhead), sizeof(struct cap_header));
