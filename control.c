@@ -67,7 +67,7 @@ static void mp_filter(struct MPFilter* event){
   }
 
   logmsg(stdout, "Updating filter {%d}\n", rule->filter.filter_id);
-  addFilter(rule);
+  setFilter(rule);
   if ( verbose_flag ){
     marc_filter_print(stdout, &rule->filter, 0);
   }

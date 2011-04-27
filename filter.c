@@ -295,9 +295,9 @@ static int next_free_consumer(){
   return -1;
 }
 /*
-  This function adds a filter to the end of the list.
+  This function adds a filter to the end of the list. The comment is a lie.
 */
-int addFilter(struct FPI *newRule){
+int setFilter(struct FPI *newRule){
   long ret = 0;
   newRule->next=0; // Make sure that the rule does not point to some strange place.
 
@@ -349,13 +349,26 @@ int addFilter(struct FPI *newRule){
     return 1;
   }
 
+  /* Find suitable spot in the linked list */
   struct FPI* cur = myRules;
   while ( cur->filter.filter_id < newRule->filter.filter_id && cur->next ){
     cur = cur->next;
   };
 
+  /* If the filter ids match assume the new filter is supposed to overwrite the previous.
+   * By design, two filters cannot have the same filter_id even if it is currently possible to have it in the database */
   if ( cur->filter.filter_id == newRule->filter.filter_id ){
-    fprintf(stderr, "warning: filter rules have duplicate filter_id (%d)\n", cur->filter.filter_id);
+    /* close old consumer */
+    struct consumer* oldcon = &MAsd[cur->filter.consumer];
+    oldcon->status = 0;
+    if ( (ret=closestream(con->stream)) != 0 ){
+      fprintf(stderr, "closestream() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
+      exit(1);
+    }
+    
+    /* Update existing filter */
+    memcpy(&cur->filter, &newRule->filter, sizeof(struct Filter));
+    return 1;
   }
 
   if ( cur->filter.filter_id < newRule->filter.filter_id ) {
@@ -363,6 +376,7 @@ int addFilter(struct FPI *newRule){
     newRule->next = cur;
     myRules = newRule;
   } else {
+    /* add link */
     newRule->next = cur->next;
     cur->next = newRule;
   }
@@ -426,67 +440,6 @@ static void stop_consumer(struct consumer* con){
   
   return;
 }
-
-/*
- This function finds a filter and changes it.
-A change will NOT allow a change of consumer, new mutlicast address is OK ,but not recommended..
-*/
-int changeFilter(struct FPI *newRule){
-  int seeked=newRule->filter.filter_id;
-  struct FPI *pointer1,*pointer2;
-  pointer1=pointer2=0;
-  struct ethhdr *ethhead;
-  int i;
-
-  printf("CTRL: CHANGE RULE.\n");
-  if(myRules==0){
-    // No Rules present, ERROR..
-    return(0);
-    
-  }
-  pointer1=myRules;
-  if(pointer1->filter.filter_id==seeked){ // Found the desired filter..It was first.fil
-    newRule->filter.consumer=pointer1->filter.consumer;
-    newRule->next=pointer1->next; // Make sure that the new rule points to the next.
-    myRules=newRule; // Update the basepointer-> the new rule.
-    free(pointer1);  // Release the old pointer. 
-
-    ethhead= (struct ethhdr*)sendmem[newRule->filter.consumer];
-    printf("\tDestination address => ");
-    for(i=0;i<ETH_ALEN;i++){
-      ethhead->h_dest[i]=newRule->filter.DESTADDR[i];   // Set the destination address, defaults to 0x01:00:00:00:[i]
-      printf("%02X:",ethhead->h_dest[i]);
-    }
-    printf("\n");
-    return(1);
-  }
-
-  while(pointer1->filter.filter_id!=seeked && pointer1->next != 0) {
-    pointer2=pointer1;
-    pointer1=pointer1->next;
-  }
-  // Two reasons to leave while loop. 1) pointer1->filter_id == seeked, 2) pointer1->next == 0
-  if(pointer1->filter.filter_id==seeked){ // We found it.
-    newRule->filter.consumer=pointer1->filter.consumer;
-    newRule->next=pointer1->next;//Make sure that the new rule points to the next.
-    pointer2->next=newRule;      // Update the previous rule so it points to the new.
-    free(pointer1);              // relase the memory allocated by the old rule.
-
-    ethhead= (struct ethhdr*)sendmem[newRule->filter.consumer];
-    printf("\tDestination address => ");
-    for(i=0;i<ETH_ALEN;i++){
-      ethhead->h_dest[i]=newRule->filter.DESTADDR[i];   // Set the destination address, defaults to 0x01:00:00:00:[i]
-      printf("%02X:",ethhead->h_dest[i]);
-    }
-    printf("\n");
-
-    return(1);
-  }
-  // We didnt find it... (if we did at the last location, the previous if would catch it.
-    return(0);
-
-} 
-
 
 void printFilters(void){
   if( !myRules ){
