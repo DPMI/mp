@@ -80,12 +80,19 @@ static int push_packet(struct CI* CI, write_head* whead, cap_head* head, const u
 }
 
 static int fill_caphead(cap_head* head, struct timeval* tv, size_t bytes, const char* iface, const char* MAMPid){
+  /* reset caphead to it won't contain any garbage */
+  memset(head, 0, sizeof(cap_head));
+
   head->ts.tv_sec   = tv->tv_sec;   // Store arrival time in seconds
   head->ts.tv_psec  = tv->tv_usec; // Write timestamp in picosec
   head->ts.tv_psec *= 1000000;
   head->len         = bytes;
+  
   strncpy(head->nic, iface, 4);
   strncpy(head->mampid, MAMPid, 8);
+
+  /* force nullterminator */
+  head->mampid[7] = 0;
   return 0;
 }
 

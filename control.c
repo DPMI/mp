@@ -183,7 +183,7 @@ void* control(void* prt){
   /* process messages from MArCd */
   MPMessage event;
   size_t size;
-  unsigned int auth_retry = 0;
+  int auth_retry = 0;
   while( terminateThreads==0 ){
     struct timeval timeout = {1, 0}; /* 1 sec timeout */
 
@@ -204,7 +204,7 @@ void* control(void* prt){
 
     case 0: /* success, continue processing */
       /* always handle authorization event */
-      if ( event.type == MP_CONTROL_AUTHORIZE_EVENT ){
+      if ( event.type == MP_CONTROL_AUTHORIZE_EVENT || event.type == MP_CONTROL_AUTHORIZE_REQUEST ){
 	break;
       }
 
@@ -228,6 +228,11 @@ void* control(void* prt){
     case MP_CONTROL_AUTHORIZE_EVENT:
       mp_auth(&event.auth);
       auth_retry = -1;
+      break;
+
+    case MP_CONTROL_AUTHORIZE_REQUEST:
+      logmsg(verbose, "Got an authorization request, asking MArCd for a new authorization message.\n");
+      marc_client_init_request(client, &info);
       break;
 
     case MP_FILTER_EVENT:
