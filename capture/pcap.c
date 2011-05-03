@@ -15,7 +15,7 @@ struct pcap_context {
   char errbuf[PCAP_ERRBUF_SIZE];
 };
 
-static int read_packet_pcap(struct pcap_context* ctx, unsigned char* dst, struct timeval* timestamp){
+static int read_packet_pcap(struct pcap_context* ctx, unsigned char* dst, struct cap_header* head){
   struct pcap_pkthdr* pcaphead;
   const u_char* payload;
 
@@ -41,8 +41,12 @@ static int read_packet_pcap(struct pcap_context* ctx, unsigned char* dst, struct
 
   memcpy(dst, payload, data_len);
   memset(dst + data_len, 0, padding);
-  timestamp->tv_sec = pcaphead->ts.tv_sec;
-  timestamp->tv_usec = pcaphead->ts.tv_usec;
+
+  head->ts.tv_sec   = pcaphead->ts.tv_sec;            // Store arrival time in seconds
+  head->ts.tv_psec  = pcaphead->ts.tv_usec * 1000000; // Write timestamp in picosec
+  head->len         = pcaphead->caplen;
+  head->caplen      = data_len;
+  head->flags       = 0;
 
   return pcaphead->caplen;
 }

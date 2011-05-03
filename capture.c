@@ -79,15 +79,10 @@ static int push_packet(struct CI* CI, write_head* whead, cap_head* head, const u
   return recipient;
 }
 
-static int fill_caphead(cap_head* head, struct timeval* tv, size_t bytes, const char* iface, const char* MAMPid){
+static int fill_caphead(cap_head* head, const char* iface, const char* MAMPid){
   /* reset caphead to it won't contain any garbage */
   memset(head, 0, sizeof(cap_head));
 
-  head->ts.tv_sec   = tv->tv_sec;   // Store arrival time in seconds
-  head->ts.tv_psec  = tv->tv_usec; // Write timestamp in picosec
-  head->ts.tv_psec *= 1000000;
-  head->len         = bytes;
-  
   strncpy(head->nic, iface, 4);
   strncpy(head->mampid, MAMPid, 8);
 
@@ -117,18 +112,17 @@ int capture_loop(struct CI* CI, struct capture_context* cap){
     cap_head* head      = (cap_head*)(raw_buffer + sizeof(write_head));
     unsigned char* packet_buffer = raw_buffer + sizeof(write_head) + sizeof(cap_head);
 
+    /* fill details into capture header */
+    fill_caphead(head, CI->iface, MAMPid);
+
     /* read a packet */
-    struct timeval timestamp;
-    ssize_t bytes = cap->read_packet(cap, packet_buffer, &timestamp);
+    ssize_t bytes = cap->read_packet(cap, packet_buffer, head);
 
     if ( bytes < 0 ){ /* failed to read */
       break;
     } else if ( bytes == 0 ){ /* no data */
       continue;
     }
-
-    /* fill details into capture header */
-    fill_caphead(head, &timestamp, bytes, CI->iface, MAMPid);
 
     /* stats */
     recvPkts++;

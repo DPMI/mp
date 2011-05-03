@@ -128,7 +128,7 @@ void* control(void*); // Control thread
  */
 int filter(const char* nic, const void* pkt, struct cap_header* head); //filtering routine
 
-typedef int (*read_packet_callback)(void* context, unsigned char* dst, struct timeval* timestamp);
+typedef int (*read_packet_callback)(void* context, unsigned char* dst, struct cap_header* head);
 
 struct capture_context {
   read_packet_callback read_packet;
