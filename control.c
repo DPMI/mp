@@ -278,7 +278,7 @@ static void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
   struct MPstatus stat;
   memset(&stat, 0, sizeof(struct MPstatus));
   stat.type = MP_STATUS_EVENT;
-  strncpy(stat.MAMPid, MAMPid, 16);
+  mampid_set(stat.MAMPid, MAMPid);
   stat.noFilters = ntohl(noRules);
   stat.matched   = ntohl(matchPkts);
   stat.noCI      = ntohl(noCI);
