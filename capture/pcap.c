@@ -46,7 +46,7 @@ static int read_packet_pcap(struct pcap_context* ctx, unsigned char* dst, struct
   head->ts.tv_psec  = pcaphead->ts.tv_usec * 1000000; // Write timestamp in picosec
   head->len         = pcaphead->caplen;
   head->caplen      = data_len;
-  head->flags       = 0;
+  /*head->flags       = 0;*/
 
   return pcaphead->caplen;
 }
