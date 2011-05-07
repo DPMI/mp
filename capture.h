@@ -94,15 +94,19 @@ enum CIDriver {
 #define NICLEN 256
 struct CI {
   int id;
+  char iface[NICLEN]; /* capture interface */
+  uint8_t accuracy;   /* Accuracy of interface, read from config file. */
   enum CIDriver driver;
+
   int sd;
   int writepos;
   u_char* datamem;
   sem_t* semaphore;
-  long pktCnt;
-  int bufferUsage;    /* How many bytes of the buffer is used? */
-  char iface[NICLEN]; /* capture interface */
-  uint8_t accuracy;   /* Accuracy of interface, read from config file. */
+
+  /* Statistics */
+  long packet_count;
+  long matched_count;
+  int buffer_usage;    /* How many bytes of the buffer is used? */
 };
 
 extern struct CI* _CI; /* DO _*NOT*_ USE! For backwards compability ONLY! */

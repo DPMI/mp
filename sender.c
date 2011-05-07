@@ -177,9 +177,9 @@ void* sender(void *ptr){
 	readPos[oldest]=0;//when all posts in datamem is read begin from 0 again
       }
 
-      _CI[oldest].bufferUsage--;
-      if(_CI[oldest].bufferUsage<0){
-	_CI[oldest].bufferUsage=0;
+      _CI[oldest].buffer_usage--;
+      if(_CI[oldest].buffer_usage<0){ /* wait what? (if the usage is 0, why did we just send a packet?) -- ext 2011-05-05 */
+	_CI[oldest].buffer_usage=0;
       }
 
       memcpy(con->sendpointer, head, packet_size);// copy the packet to the sendbuffer

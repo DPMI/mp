@@ -269,12 +269,7 @@ void* control(void* prt){
   return NULL;
 }
 
-static void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
-  if( MAMPid==0 ){
-    logmsg(stderr, "Not authorized. No need to inform MArC about the status.\n");
-    return;
-  }
-
+static void CIstatus1(){
   struct MPstatus stat;
   memset(&stat, 0, sizeof(struct MPstatus));
   stat.type = MP_STATUS_EVENT;
@@ -288,28 +283,72 @@ static void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
     /* OMFG! This string is executed as SQL in MArCd */
     dst += sprintf(dst,", CI%d='%s', PKT%d='%ld', BU%d='%d' ",
 		   i, _CI[i].iface,
-		   i, _CI[i].pktCnt,
-		   i, _CI[i].bufferUsage);
+		   i, _CI[i].packet_count,
+		   i, _CI[i].buffer_usage);
   }
   
   int ret;
   if ( (ret=marc_push_event(client, (MPMessage*)&stat, NULL)) != 0 ){
     logmsg(stderr, "marc_push_event() returned %d: %s\n", ret, strerror(ret));
   }
+}
+
+static void CIstatus2(){
+  size_t size = sizeof(struct MPstatus2) + sizeof(struct CIstats) * noCI;
+  struct MPstatus2* stat = (struct MPstatus2*)alloca(size);
   
-  logmsg(stderr, "Status report for %s\n"
-	 "\t%d Filters Present\n"
-	 "\t%d Capture Interfaces.\n"
-	 "\t%d Packets Matched Filters.\n",
-	 MAMPid, noRules,noCI,matchPkts);
+  memset(stat, 0, size);
+  stat->type = MP_STATUS2_EVENT;
+  mampid_set(stat->MAMPid, MAMPid);
+
+  stat->packet_count = htonl(recvPkts);
+  stat->matched_count = htonl(matchPkts);
+  stat->status = htonl(0);
+  stat->noFilters = htonl(noRules);
+  stat->noCI = htonl(noCI);
+
   for( int i=0; i < noCI; i++){
-    fprintf(verbose, "\tCI[%d]=%s  PKT[%d]=%ld BU[%d]=%d\n",
+    strncpy(stat->CI[i].iface, _CI[i].iface, 8);
+    stat->CI[i].packet_count  = htonl(_CI[i].packet_count);
+    stat->CI[i].matched_count = htonl(_CI[i].matched_count);
+    stat->CI[i].buffer_usage  = htonl(_CI[i].buffer_usage);
+  }
+
+  int ret;
+  if ( (ret=marc_push_event(client, (MPMessage*)stat, NULL)) != 0 ){
+    logmsg(stderr, "marc_push_event() returned %d: %s\n", ret, strerror(ret));
+  }
+}
+
+static void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
+  if( MAMPid==0 ){
+    logmsg(stderr, "Not authorized. No need to inform MArC about the status.\n");
+    return;
+  }
+
+  /* Legacy status event */
+  CIstatus1();
+
+  /* Extended status report */
+  CIstatus2();
+
+  /* Logging */
+  logmsg(stderr, "Status report for %s\n"
+	 "\t%d Filters present\n"
+	 "\t%d Capture Interfaces.\n"
+	 "\t%d Packets received.\n"
+	 "\t%d Packets matched filters.\n",
+	 MAMPid, noRules, noCI, recvPkts, matchPkts);
+  for( int i=0; i < noCI; i++){
+    fprintf(verbose, "\tCI[%d]=%s  PKT[%d]=%ld  MCH[%d]=%ld  BU[%d]=%d\n",
 	   i, _CI[i].iface,
-	   i, _CI[i].pktCnt,
-	   i, _CI[i].bufferUsage);
+	   i, _CI[i].packet_count,
+	   i, _CI[i].matched_count,
+	   i, _CI[i].buffer_usage);
   }
 
   if ( noRules == 0 ){
     logmsg(stderr, "Warning: no filters present.\n");
   }
+
 }

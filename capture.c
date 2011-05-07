@@ -60,11 +60,11 @@ static int push_packet(struct CI* CI, write_head* whead, cap_head* head, const u
   
   if ( whead->free>1 ){ //Control buffer overrun
     logmsg(stderr, "CI[%d] OVERWRITING: %ld @ %d for the %d time \n", CI->id, pthread_self(), CI->writepos, whead->free);
-    logmsg(stderr, "CI[%d] bufferUsage=%d\n", CI->id, CI->bufferUsage);
+    logmsg(stderr, "CI[%d] bufferUsage=%d\n", CI->id, CI->buffer_usage);
   }
 
   CI->writepos++;
-  CI->bufferUsage++;
+  CI->buffer_usage++;
 
   /* wrap buffer if needed */
   if( CI->writepos >= PKT_BUFFER ){
@@ -126,7 +126,7 @@ int capture_loop(struct CI* CI, struct capture_context* cap){
 
     /* stats */
     recvPkts++;
-    CI->pktCnt++;
+    CI->packet_count++;
 
     /* return -1 when no filter matches */
     if ( push_packet(CI, whead, head, packet_buffer) == -1 ){
@@ -134,6 +134,7 @@ int capture_loop(struct CI* CI, struct capture_context* cap){
     }
 
     matchPkts++;
+    CI->matched_count++;
   }
 
   return 0;

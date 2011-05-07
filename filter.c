@@ -371,7 +371,7 @@ int setFilter(struct FPI *newRule){
     return 1;
   }
 
-  if ( cur->filter.filter_id < newRule->filter.filter_id ) {
+  if ( cur->filter.filter_id > newRule->filter.filter_id ) {
     /* add first */
     newRule->next = cur;
     myRules = newRule;

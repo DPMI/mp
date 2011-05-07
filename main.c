@@ -411,8 +411,9 @@ static int init_capture(){
     CI[i].sd = -1;
     CI[i].datamem = NULL;
     CI[i].semaphore = NULL;
-    CI[i].pktCnt = 0;
-    CI[i].bufferUsage = 0;
+    CI[i].packet_count = 0;
+    CI[i].matched_count = 0;
+    CI[i].buffer_usage = 0;
     CI[i].iface[0] = 0;
     CI[i].accuracy = 0;
   }
