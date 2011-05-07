@@ -294,18 +294,18 @@ static void CIstatus1(){
 }
 
 static void CIstatus2(){
-  size_t size = sizeof(struct MPstatus2) + sizeof(struct CIstats) * noCI;
-  struct MPstatus2* stat = (struct MPstatus2*)alloca(size);
+  MPMessage msg;
+  struct MPstatus2* stat = (struct MPstatus2*)&msg.status2;
   
-  memset(stat, 0, size);
+  memset(stat, 0, sizeof(MPMessage));
   stat->type = MP_STATUS2_EVENT;
   mampid_set(stat->MAMPid, MAMPid);
 
   stat->packet_count = htonl(recvPkts);
   stat->matched_count = htonl(matchPkts);
-  stat->status = htonl(0);
-  stat->noFilters = htonl(noRules);
-  stat->noCI = htonl(noCI);
+  stat->status = 0;
+  stat->noFilters = noRules;
+  stat->noCI = noCI;
 
   for( int i=0; i < noCI; i++){
     strncpy(stat->CI[i].iface, _CI[i].iface, 8);
