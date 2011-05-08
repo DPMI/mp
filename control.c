@@ -40,6 +40,7 @@
 #define STATUS_INTERVAL 60
 
 static void CIstatus(int sig); // Runs when ever a ALRM signal is received.
+static void distress(int sig); /* SIGSEGV, fatal */
 
 static marc_context_t client = NULL;
 
@@ -179,6 +180,9 @@ void* control(void* prt){
     signal(SIGALRM, CIstatus);
     setitimer(ITIMER_REAL, &difftime, NULL);
   }
+
+  /* Catch SIGSEGV to send a distress signal to MArCd */
+  signal(SIGSEGV, distress);
 
   /* process messages from MArCd */
   MPMessage event;
@@ -351,4 +355,29 @@ static void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
     logmsg(stderr, "Warning: no filters present.\n");
   }
 
+}
+
+static volatile sig_atomic_t fatal_error_in_progress = 0;
+static void distress(int sig){
+  MPMessage event;
+  int ret;
+
+  /* http://www.gnu.org/s/libc/manual/html_node/Termination-in-Handler.html */
+  if ( fatal_error_in_progress ){
+    raise(sig);
+  }
+  fatal_error_in_progress = 1;
+
+  logmsg(stderr, "Catched SIGSEGV, sending distress signal to MArCd before dying.\n");
+
+  event.type = MP_CONTROL_DISTRESS;
+  mampid_set(event.MAMPid, MAMPid);
+
+  if ( (ret=marc_push_event(client, (MPMessage*)&event, NULL)) != 0 ){
+    logmsg(stderr, "marc_push_event() returned %d: %s\n", ret, strerror(ret));
+  }
+
+  /* if distress is called, it is a fatal error so lets die here. */
+  signal(sig, SIG_DFL);
+  raise(sig);
 }
