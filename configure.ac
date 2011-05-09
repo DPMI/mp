@@ -1,4 +1,19 @@
-AC_INIT([mp],[0.6], [dsv@bth.se])
+m4_define([__VERSION_MAJOR__], [0])
+m4_define([__VERSION_MINOR__], [7])
+m4_define([__VERSION_MICRO__], [0])
+
+AC_INIT([mp],[__VERSION_MAJOR__.__VERSION_MINOR__.__VERSION_MICRO__], [dsv@bth.se])
+
+VERSION_MAJOR=__VERSION_MAJOR__
+VERSION_MINOR=__VERSION_MINOR__
+VERSION_MICRO=__VERSION_MICRO__
+
+AC_DEFINE_UNQUOTED([VERSION_MAJOR], [${VERSION_MAJOR}], [Major version number])
+AC_DEFINE_UNQUOTED([VERSION_MINOR], [${VERSION_MINOR}], [Minor version number])
+AC_DEFINE_UNQUOTED([VERSION_MICRO], [${VERSION_MICRO}], [Micro version number])
+AC_SUBST([VERSION_MAJOR])
+AC_SUBST([VERSION_MINOR])
+AC_SUBST([VERSION_MICRO])
 
 AC_CONFIG_AUX_DIR([build-aux])
 AM_INIT_AUTOMAKE([-Wall 1.11 silent-rules foreign])

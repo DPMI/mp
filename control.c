@@ -155,11 +155,23 @@ void* control(void* prt){
   marc_set_output_handler(logmsg, vlogmsg, stderr, verbose);
 
   /* setup libmarc */
-  struct marc_client_info info;
+  struct marc_client_info info = {0,};
   info.client_ip = NULL;
   info.client_port = 0;
   info.max_filters = CONSUMERS;
   info.noCI = noCI;
+  info.version.caputils.major = CAPUTILS_VERSION_MAJOR;
+  info.version.caputils.minor = CAPUTILS_VERSION_MINOR;
+  info.version.caputils.micro = CAPUTILS_VERSION_MICRO;
+  info.version.self.major = VERSION_MAJOR;
+  info.version.self.minor = VERSION_MINOR;
+  info.version.self.micro = VERSION_MICRO;
+  info.drivers = 3;
+  
+  for ( int i = 0; i < noCI; i++ ){
+    strncpy(info.CI[i].iface, _CI[i].iface, 8);
+  }
+
   if ( (ret=marc_init_client(&client, MAnic, &info)) != 0 ){
     fprintf(stderr, "marc_init_client() returned %d: %s\n", ret, strerror(ret));
     exit(1);
