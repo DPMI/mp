@@ -53,4 +53,10 @@ AS_IF([test "x$with_endace_dag" == "xyes"], [
 	)]
 )
 
+AC_ARG_WITH([max-packet-age], [AS_HELP_STRING([--with-max-packet-age=MS], [set the maximum time (in ms) a packet can be kept in the sender buffers. @<:@default=800@:>@])])
+AS_IF([test "x$with_max_packet_age" != "x"],
+	[AC_DEFINE_UNQUOTED([MAX_PACKET_AGE], $with_max_packet_age, [Max packet age])],
+	[AC_DEFINE([MAX_PACKET_AGE], 800, [Max packet age])]
+)
+
 AC_OUTPUT

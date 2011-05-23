@@ -19,6 +19,11 @@
   the shared memory in order by timestamps. The packets read from the memory
   are appended together into tcp packets and sent to the tcpserver software.
  ***************************************************************************/ 
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif /* HAVE_CONFIG_H */
+
 #include "capture.h"
 #include "sender.h"
 #include <errno.h>
@@ -198,7 +203,26 @@ void* sender(void *ptr){
       const int sub_mtu = payload_size < mtu_size;
       const int need_flush = con->status == 0 && payload_size > 0;
       if( sub_mtu && !need_flush ){
-	continue;
+	
+	/* calculate age of the first packet (in ms) */
+	/* only calculating age if buffer isn't full */
+	struct timespec ts;
+	cap_head* first = (cap_head*)con->sendptrref;
+	clock_gettime(CLOCK_REALTIME, &ts);
+	timepico tp = timespec_to_timepico(ts);
+	signed long int sec = (tp.tv_sec - first->ts.tv_sec) * 1000;
+	signed long int msec = (tp.tv_psec - first->ts.tv_psec);
+	msec /= 1000000000; /* please keep this division a separate statement. It
+			     * ensures that the subtraction above is stored as a
+			     * signed value. If the division is put together the
+			     * subtraction will be calculated as unsigned (tv_psec
+			     * is stored as unsigned), then divided and only then
+			     * converted to signed int. */
+	signed long int age = sec + msec;
+
+	if ( age < MAX_PACKET_AGE ){
+	  continue;
+	}
       }
 
       send_packet(con);
