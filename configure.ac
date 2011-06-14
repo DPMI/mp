@@ -31,15 +31,30 @@ AC_SEARCH_LIBS([clock_gettime], [rt])
 PKG_CHECK_MODULES([CAP_UTILS], [cap_utils >= 0.7])
 PKG_CHECK_MODULES([LIBMARC], [libmarc >= 0.7])
 
-AC_ARG_WITH([pcap], [AS_HELP_STRING([--with-pcap], [support for pcap (tcpdump)@<:@default=disabled@:>@])])
-AC_ARG_WITH([endace-dag-v1], [AS_HELP_STRING([--with-endace-dag-v1], [support for endace DAG-cards (API 1, deprecated)@<:@default=disabled@:>@])])
-AC_ARG_WITH([endace-dag-v2], [AS_HELP_STRING([--with-endace-dag-v2], [support for endace DAG-cards (API 2)@<:@default=disabled@:>@])])
+ax_dag="no"
+ax_dag_legacy="no"
 
+AC_ARG_WITH([raw], [AS_HELP_STRING([--with-raw], [raw packet capture @<:@default=enabled@:>@])])
+AC_ARG_WITH([pcap], [AS_HELP_STRING([--with-pcap], [support for pcap (tcpdump) @<:@default=disabled@:>@])])
+AC_ARG_WITH([dag], [AS_HELP_STRING([--with-endace-dag@<:@=PATH@:>@], [support for endace DAG-cards @<:@default=disabled@:>@])], [
+        ax_dag="yes"
+	AX_DAG([$withval])
+	AC_DEFINE([HAVE_DRIVER_DAG], 1, [Define to 1 if you have Endace DAG new API])	
+])
+AC_ARG_WITH([dag-legacy], [AS_HELP_STRING([--with-endace-dag-legacy@<:@=PATH@:>@], [support for endace DAG-cards (using deprecated API) @<:@default=disabled@:>@])], [
+        ax_dag_legacy="yes"
+	AX_DAG([$withval])
+	AC_DEFINE([HAVE_DRIVER_DAG_LEGACY], 1, [Define to 1 if you have Endace DAG deprecated API])	
+])
+
+AS_IF([test "x$with_raw" != "xno"], [
+	AC_DEFINE([HAVE_DRIVER_RAW], 1, [Define to 1 if you want raw packet capture])
+])
 
 AS_IF([test "x$with_pcap" == "xyes"], [
 	AC_CHECK_HEADER([pcap/pcap.h], [
 		AC_CHECK_LIB([pcap], [pcap_close], [
-			AC_DEFINE([HAVE_PCAP], 1, [Define to 1 if you have libpcap])
+			AC_DEFINE([HAVE_DRIVER_PCAP], 1, [Define to 1 if you have libpcap])
  			PCAP_LIBS="-lpcap"
         	],[
 			AC_MSG_ERROR([Make sure libpcap is available])
@@ -50,19 +65,10 @@ AS_IF([test "x$with_pcap" == "xyes"], [
 ])
 AC_SUBST(PCAP_LIBS)
 
-AS_IF([test "x$with_endace_dag_v1" == "xyes"], [
-	AC_CHECK_HEADER([dagapi.h],
-		[AC_DEFINE([HAVE_DAG_1], 1, [Define to 1 if you have Endace DAG deprecated API])],
-		[AC_MSG_ERROR([Make sure the Endace DAG drivers are installed.])]
-	)]
-)
-
-AS_IF([test "x$with_endace_dag_v2" == "xyes"], [
-	AC_CHECK_HEADER([dagapi.h],
-		[AC_DEFINE([HAVE_DAG_2], 1, [Define to 1 if you have Endace DAG new API])],
-		[AC_MSG_ERROR([Make sure the Endace DAG drivers are installed.])]
-	)]
-)
+dnl New and legacy DAG API is mutually exclusive.
+AS_IF([test "x$ax_dag" == "xyes" -a "x$ax_dag_legacy" == "xyes"], [
+	AC_MSG_ERROR([Cannot enable both new and legacy DAG API at the same time.])
+])
 
 AC_ARG_WITH([max-packet-age], [AS_HELP_STRING([--with-max-packet-age=MS], [set the maximum time (in ms) a packet can be kept in the sender buffers. @<:@default=800@:>@])])
 AS_IF([test "x$with_max_packet_age" != "x"],
