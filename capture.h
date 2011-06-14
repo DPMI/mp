@@ -120,6 +120,8 @@ u_char sendmem[CONSUMERS][sizeof(struct ethhdr)+sizeof(struct sendhead)+maxSENDS
 // Threads
 void* capture(void*); //capture thread
 void* pcap_capture(void*); //PCAP capture thread
+void* dag_capture(void*);
+void* dag_legacy_capture(void*);
 void* sender(void*); // send thread
 void* control(void*); // Control thread
 

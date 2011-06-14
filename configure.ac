@@ -50,6 +50,7 @@ AC_ARG_WITH([dag-legacy], [AS_HELP_STRING([--with-dag-legacy@<:@=PATH@:>@], [sup
 AS_IF([test "x$with_raw" != "xno"], [
 	AC_DEFINE([HAVE_DRIVER_RAW], 1, [Define to 1 if you want raw packet capture])
 ])
+AM_CONDITIONAL(HAVE_RAW, [test "x$with_raw" != "xno"])
 
 AS_IF([test "x$with_pcap" == "xyes"], [
 	AC_CHECK_HEADER([pcap/pcap.h], [
@@ -63,12 +64,14 @@ AS_IF([test "x$with_pcap" == "xyes"], [
 		AC_MSG_ERROR([Make sure libpcap is available])       
 	])
 ])
+AM_CONDITIONAL(HAVE_PCAP, [test "x$with_pcap" == "xyes"])
 AC_SUBST(PCAP_LIBS)
 
 dnl New and legacy DAG API is mutually exclusive.
 AS_IF([test "x$ax_dag" == "xyes" -a "x$ax_dag_legacy" == "xyes"], [
 	AC_MSG_ERROR([Cannot enable both new and legacy DAG API at the same time.])
 ])
+AM_CONDITIONAL(HAVE_DAG, [test "x$ax_dag" == "xyes" -o "x$ax_dag_legacy" == "xyes"])
 
 AC_ARG_WITH([max-packet-age], [AS_HELP_STRING([--with-max-packet-age=MS], [set the maximum time (in ms) a packet can be kept in the sender buffers. @<:@default=800@:>@])])
 AS_IF([test "x$with_max_packet_age" != "x"],

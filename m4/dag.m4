@@ -16,8 +16,8 @@ AC_DEFUN([AX_DAG], [
       AC_SUBST(DAG_CFLAGS, [-I$ax_dag_path/include])
       AC_SUBST(DAG_LIBS, ["-L$ax_dag_path/lib -ldag"])
     ], [
-      AC_SUBST(RRDTOOL_CFLAGS, [])
-      AC_SUBST(RRDTOOL_LIBS, [-ldag])
+      AC_SUBST(DAG_CFLAGS, [])
+      AC_SUBST(DAG_LIBS, [-ldag])
     ])
     AC_DEFINE([HAVE_DAG], 1, [Define to 1 if you have Endace DAG])
   ], [

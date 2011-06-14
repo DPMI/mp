@@ -53,6 +53,10 @@
 #include <pthread.h>
 #include <signal.h>
 
+#ifdef HAVE_DAG
+#include <dagapi.h>
+#endif /* HAVE_DAG */
+
 struct sched_param prio;         // Priority schedule variable
 
 struct packet_stat{              // struct for interface statistics
@@ -61,10 +65,13 @@ struct packet_stat{              // struct for interface statistics
 };
 
 static void cleanup(int sig); // Runs when program terminates
-static void setpromisc(int sd, char* device); // function for setting interfaces to listen on all traffic
 static int packet_stats(int sd, struct packet_stat *stat); // function for collecting statistics
+
+#ifdef HAVE_RAW
+static void setpromisc(int sd, char* device); // function for setting interfaces to listen on all traffic
 static int iface_get_id(int sd, const char *device); //comments in code
 static int iface_bind(int fd, int ifindex); //comments in code
+#endif /* HAVE_RAW */
 
 static void info(int sd);// function for presentating statistics
 
@@ -442,14 +449,21 @@ static int setup_capture(){
       
     switch ( CI[i].driver ){
     case DRIVER_PCAP:
+#ifdef HAVE_PCAP
       fprintf(verbose, "\tpcap for %s.\n", CI[i].iface);
 
       memmove(CI[i].iface, &CI[i].iface[4], strlen(&CI[i].iface[4])+1); /* plus terminating */
 
       func = pcap_capture;
+#else /* HAVE_PCAP */
+	fprintf(stderr, "This MP lacks support for libpcap (rebuild with --with-pcap)\n");
+	return EINVAL;
+#endif /* HAVE_PCAP */
+
       break;
 
     case DRIVER_RAW:
+#ifdef HAVE_RAW
       fprintf(verbose, "\tRAW for %s.\n", CI[i].iface);
 
       CI[i].sd = socket(PF_PACKET,SOCK_RAW,htons(ETH_P_ALL));
@@ -458,11 +472,45 @@ static int setup_capture(){
       setpromisc(CI[i].sd, CI[i].iface);
 
       func = capture;
+#else /* HAVE_RAW */
+	fprintf(stderr, "This MP lacks support for raw packet capture (use libpcap or DAG instead or rebuild with --with-raw)\n");
+	return EINVAL;
+#endif /* HAVE_RAW */
+
       break;
 
     case DRIVER_DAG:
+#ifdef HAVE_DAG
       fprintf(verbose, "\tDAG for %s.\n", CI[i].iface);
 
+      {
+	char dev[256];
+	snprintf(dev, 256, "/dev/%s", CI[i].iface);
+
+	CI[i].sd = dag_open(dev);
+	if ( CI[i].sd < 0) {
+	  int e = errno;
+	  fprintf(stderr, "dag_open() on interface %s returned %d: %s\n", dev, e, strerror(e));
+	  return e;
+	}
+
+	if ( dag_configure(CI[i].sd, "") < 0 ) {
+	  int e = errno;
+	  fprintf(stderr, "dag_configure() on interface %s returned %d: %s\n", dev, e, strerror(e));
+	  return e;
+	}
+      }
+
+#ifdef HAVE_DRIVER_DAG
+      func = dag_capture;
+#else /* HAVE_DRIVER_DAG */
+      func = dag_legacy_capture;
+#endif
+
+#else /* HAVE_DAG */
+	fprintf(stderr, "This MP lacks support for Endace DAG (rebuild with --with-dag)\n");
+	return EINVAL;
+#endif
       break;
 
     case DRIVER_UNKNOWN:
@@ -482,13 +530,12 @@ static int setup_capture(){
 int main (int argc, char **argv)
 {
   int i, ret = 0;
+
   //saveProcess mySave;
   send_proc_t sender;
 
   globalDropcount=0;
   memDropcount=0;
-
-  char dagdev[9];
 
   printf("Measurement Point " VERSION " (caputils-" CAPUTILS_VERSION ")\n");
 
@@ -559,13 +606,6 @@ int main (int argc, char **argv)
   printf("Capture Interfaces \n");
   for (i=0; i < iflag; i++) {
     printf(" CI[%d]=%s (%zd) T_delta = %d digits\n", i, CI[i].iface, strlen(CI[i].iface), CI[i].accuracy);
-    if (!strncmp("dag", CI[i].iface, 3)) {
-      strcpy(dagdev,"/dev/");
-      strncat(dagdev, CI[i].iface, 4);
-      printf("nic[%d]=%s (%zd)\n", i, dagdev,strlen(dagdev));
-      printf("No support for DAG in this version, only RAW and PCAP.\n");
-      exit(1);
-    }
   }
 
   if ( !MAnic ){
@@ -612,6 +652,7 @@ int main (int argc, char **argv)
 
   if ( (ret=setup_capture()) != 0 ){
     fprintf(stderr, "setup_capture() returned %d: %s\n", ret, strerror(ret));
+    return 1;
   }
   
   printf("Waiting 1s befor starting controler thread.\n");
@@ -727,7 +768,7 @@ static void info(int sd)
     (void)fprintf(stderr, "\t%d packets dropped by kernel\n", stat.pkg_drop);
 }
 
-
+#ifdef HAVE_RAW
 
 //Sets Nic to promisc mode
 static void setpromisc(int sd, char* device)
@@ -786,6 +827,8 @@ static int iface_bind(int fd, int ifindex){
   }
   return 0;
 }
+
+#endif /* HAVE_RAW */
 
 //create statistics for Nic (pkgdrop)
 static int packet_stats(int sd, struct packet_stat *stats){
