@@ -16,7 +16,7 @@ AC_SUBST([VERSION_MINOR])
 AC_SUBST([VERSION_MICRO])
 
 AC_CONFIG_AUX_DIR([build-aux])
-AM_INIT_AUTOMAKE([-Wall 1.11 silent-rules foreign])
+AM_INIT_AUTOMAKE([-Wall foreign])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([Makefile])
@@ -30,25 +30,35 @@ AC_SEARCH_LIBS([clock_gettime], [rt])
 PKG_CHECK_MODULES([CAP_UTILS], [cap_utils >= 0.7])
 PKG_CHECK_MODULES([LIBMARC], [libmarc >= 0.7])
 
-AC_CHECK_HEADER([pcap/pcap.h],
-[
-        AC_CHECK_LIB([pcap], [pcap_close],
-        [
-                AC_DEFINE([HAVE_PCAP], 1, [Define to 1 if you have libpcap])
-                PCAP_LIBS="-lpcap"
-        ],[
-                AC_MSG_ERROR([Make sure libpcap is available])
-        ])
-], [
-   AC_MSG_ERROR([Make sure libpcap is available])       
+AC_ARG_WITH([pcap], [AS_HELP_STRING([--with-pcap], [support for pcap (tcpdump)@<:@default=disabled@:>@])])
+AC_ARG_WITH([endace-dag-v1], [AS_HELP_STRING([--with-endace-dag-v1], [support for endace DAG-cards (API 1, deprecated)@<:@default=disabled@:>@])])
+AC_ARG_WITH([endace-dag-v2], [AS_HELP_STRING([--with-endace-dag-v2], [support for endace DAG-cards (API 2)@<:@default=disabled@:>@])])
+
+
+AS_IF([test "x$with_pcap" == "xyes"], [
+	AC_CHECK_HEADER([pcap/pcap.h], [
+		AC_CHECK_LIB([pcap], [pcap_close], [
+			AC_DEFINE([HAVE_PCAP], 1, [Define to 1 if you have libpcap])
+ 			PCAP_LIBS="-lpcap"
+        	],[
+			AC_MSG_ERROR([Make sure libpcap is available])
+        	])
+	], [
+		AC_MSG_ERROR([Make sure libpcap is available])       
+	])
 ])
 AC_SUBST(PCAP_LIBS)
 
-AC_ARG_WITH([endace-dag], [AS_HELP_STRING([--with-endace-dag], [support for endace DAG-cards @<:@default=disabled@:>@])])
+AS_IF([test "x$with_endace_dag_v1" == "xyes"], [
+	AC_CHECK_HEADER([dagapi.h],
+		[AC_DEFINE([HAVE_DAG_1], 1, [Define to 1 if you have Endace DAG deprecated API])],
+		[AC_MSG_ERROR([Make sure the Endace DAG drivers are installed.])]
+	)]
+)
 
-AS_IF([test "x$with_endace_dag" == "xyes"], [
-	AC_CHECK_HEADER([dagnew.h],
-		[AC_DEFINE([HAVE_DAG], 1, [Define to 1 if you have Endace DAG])],
+AS_IF([test "x$with_endace_dag_v2" == "xyes"], [
+	AC_CHECK_HEADER([dagapi.h],
+		[AC_DEFINE([HAVE_DAG_2], 1, [Define to 1 if you have Endace DAG new API])],
 		[AC_MSG_ERROR([Make sure the Endace DAG drivers are installed.])]
 	)]
 )
