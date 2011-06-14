@@ -36,12 +36,12 @@ ax_dag_legacy="no"
 
 AC_ARG_WITH([raw], [AS_HELP_STRING([--with-raw], [raw packet capture @<:@default=enabled@:>@])])
 AC_ARG_WITH([pcap], [AS_HELP_STRING([--with-pcap], [support for pcap (tcpdump) @<:@default=disabled@:>@])])
-AC_ARG_WITH([dag], [AS_HELP_STRING([--with-endace-dag@<:@=PATH@:>@], [support for endace DAG-cards @<:@default=disabled@:>@])], [
+AC_ARG_WITH([dag], [AS_HELP_STRING([--with-dag@<:@=PATH@:>@], [support for endace DAG-cards @<:@default=disabled@:>@])], [
         ax_dag="yes"
 	AX_DAG([$withval])
 	AC_DEFINE([HAVE_DRIVER_DAG], 1, [Define to 1 if you have Endace DAG new API])	
 ])
-AC_ARG_WITH([dag-legacy], [AS_HELP_STRING([--with-endace-dag-legacy@<:@=PATH@:>@], [support for endace DAG-cards (using deprecated API) @<:@default=disabled@:>@])], [
+AC_ARG_WITH([dag-legacy], [AS_HELP_STRING([--with-dag-legacy@<:@=PATH@:>@], [support for endace DAG-cards (using deprecated API) @<:@default=disabled@:>@])], [
         ax_dag_legacy="yes"
 	AX_DAG([$withval])
 	AC_DEFINE([HAVE_DRIVER_DAG_LEGACY], 1, [Define to 1 if you have Endace DAG deprecated API])	
