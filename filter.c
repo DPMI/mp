@@ -351,13 +351,22 @@ int setFilter(struct FPI *newRule){
 
   /* Find suitable spot in the linked list */
   struct FPI* cur = myRules;
+  struct FPI* prev = NULL;
   while ( cur->filter.filter_id < newRule->filter.filter_id && cur->next ){
+    prev = cur;
     cur = cur->next;
   };
 
+  /* if the new rule should be placed last, the previous while-loop won't catch
+   * it because it cannot dereference cur if it is the last (null) */
+  if ( cur->filter.filter_id < newRule->filter.filter_id ){
+    prev = cur;
+    cur = NULL;
+  }
+
   /* If the filter ids match assume the new filter is supposed to overwrite the previous.
    * By design, two filters cannot have the same filter_id even if it is currently possible to have it in the database */
-  if ( cur->filter.filter_id == newRule->filter.filter_id ){
+  if ( cur && cur->filter.filter_id == newRule->filter.filter_id ){
     /* close old consumer */
     struct consumer* oldcon = &MAsd[cur->filter.consumer];
     oldcon->status = 0;
@@ -371,14 +380,14 @@ int setFilter(struct FPI *newRule){
     return 1;
   }
 
-  if ( cur->filter.filter_id > newRule->filter.filter_id ) {
+  if ( !prev ) {
     /* add first */
     newRule->next = cur;
     myRules = newRule;
   } else {
     /* add link */
-    newRule->next = cur->next;
-    cur->next = newRule;
+    prev->next = newRule;
+    newRule->next = cur;
   }
 
   noRules++;
