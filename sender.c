@@ -106,6 +106,30 @@ void send_packet(struct consumer* con){
   con->sendpointer=con->sendptrref; // Restore the pointer to the first spot where the next packet will be placed.
 }
 
+static int can_defer_send(struct consumer* con, struct timespec* now, struct timespec* last_sent, int nextPDUlen){
+  /* calculate time since last send. If it was long ago (longer than
+   * MAX_PACKET_AGE) the send buffer is flushed even if it doesn't contain
+   * enough payload for a full packet. */
+  signed long int sec = (now->tv_sec - last_sent->tv_sec) * 1000;
+  signed long int msec = (now->tv_nsec - last_sent->tv_nsec);
+  msec /= 1000000; /* please keep this division a separate statement. It ensures
+		    * that the subtraction above is stored as a signed value. If
+		    * the division is put together the subtraction will be
+		    * calculated as unsigned (tv_psec is stored as unsigned),
+		    * then divided and only then  converted to signed int. */
+
+  const signed long int age = sec + msec;
+  const size_t payload_size = con->sendpointer - con->sendptrref;
+  const size_t mtu_size = MAmtu -2*(sizeof(cap_head)+nextPDUlen); // This row accounts for the fact that the consumer buffers only need extra space for one PDU of of the capture size for that particular filter. 
+
+
+  const int larger_mtu = payload_size >= mtu_size;
+  const int need_flush = con->status == 0 && payload_size > 0;
+  const int old_age = age >= MAX_PACKET_AGE;
+
+  return  !( old_age || larger_mtu || need_flush );
+}
+
 void* sender(void *ptr){
     send_proc_t* proc = (send_proc_t*)ptr;      // Extract the parameters that we got from our master, i.e. parent process..
     const int nics = proc->nics;             // The number of CIs I need to handle. 
@@ -205,30 +229,8 @@ void* sender(void *ptr){
       struct timespec now;
       clock_gettime(CLOCK_REALTIME, &now);
 
-      const size_t payload_size = con->sendpointer - con->sendptrref;
-      const size_t mtu_size = MAmtu-2*(sizeof(cap_head)+nextPDUlen); // This row accounts for the fact that the consumer buffers only need extra space for one PDU of of the capture size for that particular filter. 
-
-      /* test if the payload is still to small or if a flush was requested. */
-      const int sub_mtu = payload_size < mtu_size;
-      const int need_flush = con->status == 0 && payload_size > 0;
-      if( sub_mtu && !need_flush ){
-	/* calculate time since last send. If it was long ago (longer than
-	 * MAX_PACKET_AGE) the send buffer is flushed even if it doesn't contain
-	 * enough payload for a full packet. */
-
-	signed long int sec = (now.tv_sec - last_sent.tv_sec) * 1000;
-	signed long int msec = (now.tv_nsec - last_sent.tv_nsec);
-	msec /= 1000000; /* please keep this division a separate statement. It
-			  * ensures that the subtraction above is stored as a
-			  * signed value. If the division is put together the
-			  * subtraction will be calculated as unsigned (tv_psec
-			  * is stored as unsigned), then divided and only then
-			  * converted to signed int. */
-	signed long int age = sec + msec;
-
-	if ( age < MAX_PACKET_AGE ){
-	  continue;
-	}
+      if ( can_defer_send(con, &now, &last_sent, nextPDUlen) ){
+	continue;
       }
 
       /* store timestamp (used to determine if sender must be flushed or not, due to old packages) */
