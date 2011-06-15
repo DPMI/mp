@@ -68,8 +68,7 @@ void send_packet(struct consumer* con){
   const size_t payload_size = con->sendpointer - con->sendptrref;
   const size_t packet_full_size = header_size + payload_size; /* includes ethernet, sendheader and payload */
 
-  //con->shead->nopkts = htons(con->sendcount); //maSendsize;
-  con->shead->nopkts = 0; /** @todo bad value */
+  con->shead->nopkts = htons(con->sendcount); //maSendsize;
 
   /*con->shead->losscounter=htons((globalDropcount+memDropcount)-dropCount[whead->consumer]); */
   con->dropCount = globalDropcount+memDropcount;
