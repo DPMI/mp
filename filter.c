@@ -78,6 +78,16 @@ int filter_match(const struct Filter* filter, const struct Haystack* haystack) {
   struct udphdr* udp = NULL;
   const size_t vlan_offset = haystack->vlan ? 4 : 0;
 
+  if ( ip_hdr ){
+    if ( ip_hdr->ip_p == IPPROTO_UDP ){
+      udp = (struct udphdr*)(haystack->pkt+sizeof(struct ethhdr) + vlan_offset + 4*(ip_hdr->ip_hl));
+    }
+    
+    if ( ip_hdr->ip_p == IPPROTO_TCP ){
+      tcp = (struct tcphdr*)(haystack->pkt+sizeof(struct ethhdr) + vlan_offset + 4*(ip_hdr->ip_hl));
+    }
+  }
+
   /* Capture Interface */
   if ( filter->index & FILTER_CI ){
     if( strstr(haystack->CI, filter->CI_ID) == NULL ){ 
@@ -138,14 +148,6 @@ int filter_match(const struct Filter* filter, const struct Haystack* haystack) {
 
     if ( filter->IP_PROTO != ip_hdr->ip_p ){ 
       return 0;
-    }
-
-    if( filter->IP_PROTO == IPPROTO_UDP ){
-      udp = (struct udphdr*)(haystack->pkt+sizeof(struct ethhdr) + vlan_offset + 4*(ip_hdr->ip_hl));
-    }
-
-    if( filter->IP_PROTO == IPPROTO_TCP ){
-      tcp = (struct tcphdr*)(haystack->pkt+sizeof(struct ethhdr) + vlan_offset + 4*(ip_hdr->ip_hl));
     }
   }
 
@@ -225,6 +227,7 @@ int filter(const char* CI, const void *pkt, struct cap_header *head){
 
   struct Haystack haystack;
   haystack.CI = CI;
+  haystack.pkt = pkt;
   haystack.ether = (struct ethhdr*)pkt;
   haystack.vlan = NULL;
   haystack.ip_hdr = NULL;
