@@ -25,6 +25,7 @@
 #define CAPT
 
 #include <caputils/caputils.h>
+#include <libmarc/libmarc.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <semaphore.h>
@@ -56,6 +57,8 @@ struct consumer {
   struct ethhdr* ethhead;            // pointer to ethernet header
 };
 
+void consumer_init(struct consumer* con, unsigned char* buffer);
+
 /* // Global variables. */
 int maSendsize;                     // number of packets to include in capture payload.
 struct consumer MAsd[CONSUMERS];
@@ -67,13 +70,14 @@ int writtenPkts; // counters for captured ans sent packets
 
 extern struct MAinfo {
   char* iface;
+  mampid_t MAMPid; /* MP id */
+  char* MPcomment;   /* MP comment */
   int MTU;
   struct ether_addr hwaddr;
 } MA;
 
 int noCI;                           // Number of Capture Interfaces
 int ENCRYPT;                        // If set to >0 then it will encrypt IP addresses...?
-char *MAMPid;                      // String identifying the MySQL identity.
 
 int globalDropcount;               // Total amount of PDUs that were dropped by Interface.
 int memDropcount;                  // Total amount of PDUs that were dropped between CI and Sender.
@@ -125,7 +129,6 @@ void* capture(void*); //capture thread
 void* pcap_capture(void*); //PCAP capture thread
 void* dag_capture(void*);
 void* dag_legacy_capture(void*);
-void* sender(void*); // send thread
 void* control(void*); // Control thread
 
 /**

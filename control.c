@@ -46,15 +46,15 @@ static marc_context_t client = NULL;
 
 static void mp_auth(struct MPauth* event){
   if( strlen(event->MAMPid) > 0 ){
-    MAMPid = strdup(event->MAMPid);
-    logmsg(stdout, "MP has been authorized as \"%s\".\n", MAMPid);
+    mampid_set(MA.MAMPid, event->MAMPid);
+    logmsg(stdout, "MP has been authorized as \"%s\".\n", MA.MAMPid);
   } else {
     logmsg(stdout, "This is a unauthorized MP.\n");
   }
 }
 
 static void mp_filter(struct MPFilter* event){
-  if( strcmp(event->MAMPid, MAMPid) != 0){
+  if( strcmp(event->MAMPid, MA.MAMPid) != 0){
     fprintf(stderr, "This reply was intened for a different MP (%s).\n", event->MAMPid);
     return;
   }
@@ -83,13 +83,13 @@ static void mp_filter_reload(int id){
     struct FPI* cur = myRules;
     while ( cur ){
       logmsg(verbose, "Requesting filter {%02d} from MArCd.\n", id);
-      marc_filter_request(client, MAMPid, cur->filter.filter_id);
+      marc_filter_request(client, MA.MAMPid, cur->filter.filter_id);
       cur = cur->next;
     }
     return;
   } else {
     logmsg(verbose, "Requesting filter {%02d} from MArCd.\n", id);
-    marc_filter_request(client, MAMPid, id);
+    marc_filter_request(client, MA.MAMPid, id);
   }
 }
 
@@ -135,7 +135,7 @@ static void hexdump(FILE* fp, const char* data, size_t size){
 }
 
 static int is_authorized(){
-  return MAMPid != NULL;
+  return MA.MAMPid != NULL;
 }
 
 void* control(void* prt){
@@ -289,7 +289,7 @@ static void CIstatus1(){
   struct MPstatus stat;
   memset(&stat, 0, sizeof(struct MPstatus));
   stat.type = MP_STATUS_EVENT;
-  mampid_set(stat.MAMPid, MAMPid);
+  mampid_set(stat.MAMPid, MA.MAMPid);
   stat.noFilters = ntohl(noRules);
   stat.matched   = ntohl(matchPkts);
   stat.noCI      = ntohl(noCI);
@@ -315,7 +315,7 @@ static void CIstatus2(){
   
   memset(stat, 0, sizeof(MPMessage));
   stat->type = MP_STATUS2_EVENT;
-  mampid_set(stat->MAMPid, MAMPid);
+  mampid_set(stat->MAMPid, MA.MAMPid);
 
   stat->packet_count = htonl(recvPkts);
   stat->matched_count = htonl(matchPkts);
@@ -337,7 +337,7 @@ static void CIstatus2(){
 }
 
 static void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
-  if( MAMPid==0 ){
+  if( !is_authorized() ){
     logmsg(stderr, "Not authorized. No need to inform MArC about the status.\n");
     return;
   }
@@ -354,7 +354,7 @@ static void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
 	 "\t%d Capture Interfaces.\n"
 	 "\t%d Packets received.\n"
 	 "\t%d Packets matched filters.\n",
-	 MAMPid, noRules, noCI, recvPkts, matchPkts);
+	 mampid_get(MA.MAMPid), noRules, noCI, recvPkts, matchPkts);
   for( int i=0; i < noCI; i++){
     fprintf(verbose, "\tCI[%d]=%s  PKT[%d]=%ld  MCH[%d]=%ld  BU[%d]=%d\n",
 	   i, _CI[i].iface,
@@ -383,7 +383,7 @@ static void distress(int sig){
   logmsg(stderr, "Catched SIGSEGV, sending distress signal to MArCd before dying.\n");
 
   event.type = MP_CONTROL_DISTRESS;
-  mampid_set(event.MAMPid, MAMPid);
+  mampid_set(event.MAMPid, MA.MAMPid);
 
   if ( (ret=marc_push_event(client, (MPMessage*)&event, NULL)) != 0 ){
     logmsg(stderr, "marc_push_event() returned %d: %s\n", ret, strerror(ret));

@@ -29,12 +29,14 @@
 #include "log.h"
 #include <errno.h>
 #include <string.h>
+#include <assert.h>
 #include <arpa/inet.h>
 #include <pthread.h>
 
 #define SEMAPHORE_TIMEOUT_SEC 1
 
 static void flushBuffer(int i); // Flush sender buffer i.
+static void flushAll(); /* flushes all send buffers */
 
 pthread_mutex_t mutex1 = PTHREAD_MUTEX_INITIALIZER;
 
@@ -130,68 +132,129 @@ static int can_defer_send(struct consumer* con, struct timespec* now, struct tim
   return  !( old_age || larger_mtu || need_flush );
 }
 
-void* sender(void *ptr){
+static int oldest_packet(int nics, int readPos[], sem_t* semaphore){
+  int oldest = -1;
+  while( oldest == -1 ){       // Loop while we havent gotten any pkts.
+    if ( terminateThreads>0 ) {
+      return -1;
+    }
+
+    struct picotime timeOldest;        // timestamp of oldest packet
+    timeOldest.tv_sec = UINT32_MAX;
+    timeOldest.tv_psec = UINT64_MAX;
+    
+    for( int i = 0; i < nics; i++){
+      unsigned char* raw_buffer = datamem[i][readPos[i]];
+      write_head* whead   = (write_head*)raw_buffer;
+      cap_head* head      = (cap_head*)(raw_buffer + sizeof(write_head));
+      
+      /* This consumer has no packages yet */
+      if( whead->free == 0 ) {
+	continue;
+      }
+      
+      if( timecmp(&head->ts, &timeOldest) < 0 ){
+	timeOldest.tv_sec  = head->ts.tv_sec;
+	timeOldest.tv_psec = head->ts.tv_psec;
+	oldest = i;
+      }
+    }
+       
+    /* No packages, wait until some arrives */
+    if ( oldest==-1 ){ 
+      wait_for_capture(semaphore);
+    }
+  }
+
+  return oldest;
+}
+
+void copy_to_sendbuffer(struct consumer* dst, unsigned char* src, int* readPtr, struct CI* CI){
+  assert(dst);
+  assert(readPtr);
+  assert(CI);
+  assert(CI->buffer_usage > 0);
+
+  int readPos = *readPtr;
+
+  write_head* whead   = (write_head*)src;
+  cap_head* head      = (cap_head*)(src + sizeof(write_head));
+  const size_t packet_size = sizeof(cap_head)+head->caplen;
+
+  assert(whead->free != 0);
+  
+  /* mark as free */
+  whead->free = 0;
+  CI->buffer_usage--;
+
+  /* increment read position */
+  *readPtr = (readPos+1) % PKT_BUFFER ;
+  
+  /* copy packet */
+  memcpy(dst->sendpointer, head, packet_size);
+  memset(head, 0, sizeof(cap_head) + PKT_CAPSIZE);
+  
+  /* update sendpointer */
+  dst->sendpointer += packet_size;
+  dst->sendcount += 1;
+}
+
+void* sender_capfile(void* ptr){
+  send_proc_t* proc = (send_proc_t*)ptr;
+  const int nics = proc->nics;       /* The number active CIs */
+  int readPos[CI_NIC] = {0,};        /* read pointers */
+
+  logmsg(stderr, "Sender initializing (local mode).\n");
+ 
+  long int ret;
+
+  struct consumer con;
+  consumer_init(&con, sendmem[0]); /* in local mode only 1 stream is created, so it is safe to "steal" memory from consumer 0 */
+  con.want_sendhead = 0;
+
+  if ( (ret=createstream(&con.stream, proc->filename, PROTOCOL_LOCAL_FILE, NULL, mampid_get(MA.MAMPid), MA.MPcomment)) != 0 ){
+    logmsg(stderr, "  createstream() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
+    return NULL;
+  }
+
+  printf("term: %d\n", terminateThreads);
+  while( terminateThreads == 0 ){
+    int oldest = oldest_packet(proc->nics, readPos, proc->semaphore);
+    
+    /* couldn't find a packet, gave up waiting. we are probably terminating. */
+    if ( oldest == -1 ){
+      continue;
+    }
+    
+    unsigned char* raw_buffer = datamem[oldest][readPos[oldest]];
+
+    copy_to_sendbuffer(&con, raw_buffer, &readPos[oldest], &_CI[oldest]);    
+    send_packet(&con);
+    sentPkts++;
+  }
+
+  logmsg(stderr, "Sender finished (local).\n");
+  return NULL;
+}
+
+void* sender_caputils(void *ptr){
     send_proc_t* proc = (send_proc_t*)ptr;      // Extract the parameters that we got from our master, i.e. parent process..
-    const int nics = proc->nics;             // The number of CIs I need to handle. 
-    sem_t* semaphore = proc->semaphore;   // Semaphore stuff.
+    const int nics = proc->nics;             // The number of active CIs
 
-    int readPos[CI_NIC];               // array of memory positions
-    int i;                           // index to active memory area
-
-    int exitnr=0;                      // flag for exit
+    int readPos[CI_NIC] = {0,};        // array of memory positions
     int nextPDUlen=0;                  // The length of PDUs stored in the selected consumer.
 
-    sentPkts = 0;                    // Total number of mp_packets that I've passed into a sendbuffer. 
-    writtenPkts = 0;                 // Total number of mp_packets that I've acctually sent to the network. Ie. sentPkts-writtenPkts => number of packets present in the send buffers. 
+    sentPkts = 0;                      // Total number of mp_packets that I've passed into a sendbuffer. 
+    writtenPkts = 0;                   // Total number of mp_packets that I've acctually sent to the network. Ie. sentPkts-writtenPkts => number of packets present in the send buffers. 
 
     /* Timestamp when the sender last sent a packet.  */
     struct timespec last_sent;
     clock_gettime(CLOCK_REALTIME, &last_sent);
 
-    printf("Sender Initializing. There are %d captures.\n", nics);
-    for(i=0;i<nics;i++){
-      readPos[i] = 0;  // start all reading att position 0
-    }
+    logmsg(stderr, "Sender initializing. There are %d captures.\n", nics);
 
-//this turns to 1 when terminateThreads=1 and there are no more packets to send
-    while( exitnr==0 ){
-      //Find who's next.
-      int oldest=-1;
-      //      printf("ST: Search.\n");
-      while( oldest == -1 && exitnr==0 ){       // Loop while we havent gotten any pkts.
-	struct picotime timeOldest;        // timestamp of oldest packet
-	timeOldest.tv_sec = UINT32_MAX;
-	timeOldest.tv_psec = UINT64_MAX;
-
-	for( i=0; i < nics; i++){                //check all the nics and look for new packet
-	  unsigned char* raw_buffer = datamem[i][readPos[i]];
-	  write_head* whead   = (write_head*)raw_buffer;
-	  cap_head* head      = (cap_head*)(raw_buffer + sizeof(write_head));
-
-	  /* no packages yet */
-	  if( whead->free == 0 ) {
-	    continue;
-	  }
-
-	  if( timecmp(&head->ts, &timeOldest) < 0 ){
-	    timeOldest.tv_sec  = head->ts.tv_sec;
-	    timeOldest.tv_psec = head->ts.tv_psec;
-	    oldest = i;
-	  }
-	} //end for loop
-
-	if(terminateThreads>0) {
-	  //Problems, We have tried to kill it multiple times..  
-	  // DIE DIE you evil thread!
-	  exitnr=1;
-	  break;
-	}
-
-	//No new pkts have arrived. Wait for a signal from one of the capture threads.
-	if ( oldest==-1 ){ 
-	  wait_for_capture(semaphore);
-	}
-      } // End while loop. Oldest now contains an index to the oldest packet
+    while( terminateThreads == 0 ){
+      int oldest = oldest_packet(proc->nics, readPos, proc->semaphore);
       
       /* couldn't find a packet, gave up waiting. we are probably terminating. */
       if ( oldest == -1 ){
@@ -203,27 +266,8 @@ void* sender(void *ptr){
       cap_head* head      = (cap_head*)(raw_buffer + sizeof(write_head));
       struct consumer* con = &MAsd[whead->consumer];
 
-      const size_t packet_size = sizeof(cap_head)+head->caplen;
-
-      whead->free=0; // Let the capture_nicX now that we have read it.
-      readPos[oldest]++; // update the read position.
-      if(readPos[oldest]>=PKT_BUFFER){
-	readPos[oldest]=0;//when all posts in datamem is read begin from 0 again
-      }
-
-      _CI[oldest].buffer_usage--;
-      if(_CI[oldest].buffer_usage<0){ /* wait what? (if the usage is 0, why did we just send a packet?) -- ext 2011-05-05 */
-	_CI[oldest].buffer_usage=0;
-      }
-
-      memcpy(con->sendpointer, head, packet_size);// copy the packet to the sendbuffer
-      memset(head, 0, sizeof(cap_head) + PKT_CAPSIZE);// Clear the memory where we read the packet. ALWAYS clear the full caplen.
-
-      con->sendpointer += packet_size; // Update the send pointer.
-      con->sendcount += 1;
-
+      copy_to_sendbuffer(con, raw_buffer, &readPos[oldest], &_CI[oldest]);
       nextPDUlen = head->caplen;
-      sentPkts++;
 
       /* get current timestamp */
       struct timespec now;
@@ -233,23 +277,17 @@ void* sender(void *ptr){
 	continue;
       }
 
+      /* send packet */
+      send_packet(con);
+      sentPkts++;
+
       /* store timestamp (used to determine if sender must be flushed or not, due to old packages) */
       last_sent = now;
-
-      send_packet(con);
-
-      if( terminateThreads > 0 ){ // program is ending and all packets are sent
-	exitnr=1;
-      }
-    }// End of while(exitnr==0)
-
-    // Flush all buffers..
-    printf("Flushing sendbuffers.\n");
-    for(i=0;i<CONSUMERS;i++){
-      flushBuffer(i);
     }
 
-    //comes here when exitnr =1    
+    logmsg(verbose, "Flushing sendbuffers.\n");
+    flushAll();
+
     printf("Sender Child %ld My work here is done .\n", pthread_self());
     return(NULL) ;
 }
@@ -292,4 +330,10 @@ static void flushBuffer(int i){
   bzero(con->sendptrref,(maSendsize*(sizeof(cap_head)+PKT_CAPSIZE))); //Clear the memory location, for the packet data. 
   con->sendpointer = con->sendptrref; // Restore the pointer to the first spot where the next packet will be placed.
   con->shead->flush=htons(0); //Restore flush indicator
+}
+
+static void flushAll(){
+  for( int i = 0; i < CONSUMERS; i++){
+    flushBuffer(i);
+  }
 }

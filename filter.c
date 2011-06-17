@@ -34,7 +34,7 @@
 #include <netinet/ip_icmp.h>
 #include <netinet/ether.h>
 #include <string.h>
-#include <linux/if.h>
+//#include <linux/if.h>
 // 
 //#define STPBRIDGES 0x0026
 //#define CDPVTP 0x016E
@@ -327,7 +327,7 @@ int setFilter(struct FPI *newRule){
   }
 
   /** @todo hardcoded stream comment */
-  if ( (ret=createstream(&con->stream, address, newRule->filter.TYPE, MA.iface, MAMPid, "caputils 0.7 test MP")) != 0 ){
+  if ( (ret=createstream(&con->stream, address, newRule->filter.TYPE, MA.iface, mampid_get(MA.MAMPid), MA.MPcomment)) != 0 ){
     fprintf(stderr, "createstream() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
     exit(1);
   }

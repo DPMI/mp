@@ -275,29 +275,34 @@ static int parse_argv(int argc, char** argv){
   return 0;
 }
 
+void consumer_init(struct consumer* con, unsigned char* buffer){
+  con->stream = NULL;
+  con->status = 0;
+  
+  con->dropCount=0;
+
+  con->ethhead=(struct ethhdr*)buffer; // pointer to ethernet header.
+  con->ethhead->h_proto=htons(MYPROTO);    // Set the protocol field of the ethernet header.
+  
+  //memcpy(con->ethhead->h_dest, dest_mac, ETH_ALEN);
+  //memcpy(con->ethhead->h_source, my_mac, ETH_ALEN);
+  
+  con->shead=(struct sendhead*)(buffer+sizeof(struct ethhdr)); // Set pointer to the sendhead, i.e. mp transmission protocol 
+  con->shead->sequencenr=htons(0x0000);    // Initialize the sequencenr to zero.
+  con->shead->nopkts=htons(0);                    // Initialize the number of packet to zero
+  con->shead->flush=htons(0);                     // Initialize the flush indicator.
+  con->shead->version.major=htons(CAPUTILS_VERSION_MAJOR); // Specify the file format used, major number
+  con->shead->version.minor=htons(CAPUTILS_VERSION_MINOR); // Specify the file format used, minor number
+  /*shead[i]->losscounter=htons(0); */
+
+  con->sendpointer=buffer+sizeof(struct ethhdr)+sizeof(struct sendhead);            // Set sendpointer to first place in sendmem where the packets will be stored.
+  con->sendptrref=con->sendpointer;          // Grab a copy of the pointer, simplifies treatment when we sent the packets.
+  con->sendcount=0;                        // Initialize the number of pkt stored in the packet, used to determine when to send the packet.
+}
+
 static int init_consumers(){
   for( int i=0; i<CONSUMERS; i++) {
-    MAsd[i].stream = NULL;
-    MAsd[i].status = 0;
-
-    MAsd[i].dropCount=0;
-    MAsd[i].ethhead=(struct ethhdr*)sendmem[i]; // pointer to ethernet header.
-    
-    //memcpy(MAsd[i].ethhead->h_dest, dest_mac, ETH_ALEN);
-    //memcpy(MAsd[i].ethhead->h_source, my_mac, ETH_ALEN);
-    
-    MAsd[i].ethhead->h_proto=htons(MYPROTO);    // Set the protocol field of the ethernet header.
-    MAsd[i].ethhead->h_dest[5]=i;               // Adjust the mutlicast address last byte to become [i].. Dirty but works... 
-    MAsd[i].shead=(struct sendhead*)(sendmem[i]+sizeof(struct ethhdr)); // Set pointer to the sendhead, i.e. mp transmission protocol 
-    MAsd[i].shead->sequencenr=htons(0x0000);    // Initialize the sequencenr to zero.
-    MAsd[i].shead->nopkts=htons(0);                    // Initialize the number of packet to zero
-    MAsd[i].shead->flush=htons(0);                     // Initialize the flush indicator.
-    MAsd[i].shead->version.major=htons(CAPUTILS_VERSION_MAJOR); // Specify the file format used, major number
-    MAsd[i].shead->version.minor=htons(CAPUTILS_VERSION_MINOR); // Specify the file format used, minor number
-    /*shead[i]->losscounter=htons(0); */
-    MAsd[i].sendpointer=sendmem[i]+sizeof(struct ethhdr)+sizeof(struct sendhead);            // Set sendpointer to first place in sendmem where the packets will be stored.
-    MAsd[i].sendptrref=MAsd[i].sendpointer;          // Grab a copy of the pointer, simplifies treatment when we sent the packets.
-    MAsd[i].sendcount=0;                        // Initialize the number of pkt stored in the packet, used to determine when to send the packet.
+    consumer_init(&MAsd[i], sendmem[i]);
   }
 
   return 0;
@@ -306,12 +311,12 @@ static int init_consumers(){
 static int setup_sender(send_proc_t* proc, sem_t* sem){
   proc->nics = iflag;
   proc->semaphore = sem;
-
+  
   if ( local ){
-    logmsg(stderr, "Local mode not supported yet.\n");
-    return EINVAL;
+    proc->filename = capfile;
+    return pthread_create(&senderPID, NULL, sender_capfile, proc);
   } else {
-    return pthread_create(&senderPID, NULL, sender, proc);
+    return pthread_create(&senderPID, NULL, sender_caputils, proc);
   }
 }
 
@@ -429,9 +434,10 @@ void join_threads(){
     pthread_join(child[i], NULL);
   }
   
-  logmsg(verbose, "[MAIN] - Waiting for control thread\n");
-  pthread_join(controlPID, NULL);
-  
+  if ( controlPID ){
+    logmsg(verbose, "[MAIN] - Waiting for control thread\n");
+    pthread_join(controlPID, NULL);
+  }
 
   logmsg(stderr, "Main thread awakens, all threads terminated. Stopping\n");
 }
@@ -457,6 +463,7 @@ int main (int argc, char **argv)
 
   /* Initialize MAinfo */
   memset(&MA, 0, sizeof(struct MAinfo));
+  MA.MPcomment = strdup("MP " VERSION);
 
   // Configure rules.
   noRules=0;
@@ -519,13 +526,15 @@ int main (int argc, char **argv)
     return 1;
   }
   
-  printf("Waiting 1s befor starting controler thread.\n");
-  sleep(1);
-
-  /* Initialize MA-controller */
-  if(pthread_create(&controlPID, NULL, control, NULL) ) {
-    fprintf(stderr,"Error creating Control Thread. \n");
-    abort();
+  if ( !local ){
+    printf("Waiting 1s befor starting controler thread.\n");
+    sleep(1);
+    
+    /* Initialize MA-controller */
+    if(pthread_create(&controlPID, NULL, control, NULL) ) {
+      fprintf(stderr,"Error creating Control Thread. \n");
+      abort();
+    }
   }
   
   pthread_sigmask(SIG_SETMASK, &sigmask, NULL);
@@ -575,7 +584,7 @@ int main (int argc, char **argv)
   }
 
   free(MA.iface);
-  free(MAMPid);
+  free(MA.MPcomment);
 
   return 0;
 } // Main end
@@ -595,7 +604,9 @@ static void cleanup(int sig) {
   }
 
   /* tell control thread to stop */
-  pthread_kill(controlPID, SIGUSR1);
+  if ( controlPID){
+    pthread_kill(controlPID, SIGUSR1);
+  }
 }
 
 //Function presenting dropped packets
