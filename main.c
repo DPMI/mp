@@ -304,17 +304,15 @@ static int init_consumers(){
 }
 
 static int setup_sender(send_proc_t* proc, sem_t* sem){
-  int ret;
-
   proc->nics = iflag;
-  //proc->nic = CI;
   proc->semaphore = sem;
-  
-  if ( (ret=pthread_create(&senderPID, NULL, sender, proc)) != 0 ){
-    return ret;
-  }
 
-  return 0;
+  if ( local ){
+    logmsg(stderr, "Local mode not supported yet.\n");
+    return EINVAL;
+  } else {
+    return pthread_create(&senderPID, NULL, sender, proc);
+  }
 }
 
 static int init_capture(){
@@ -421,11 +419,27 @@ static int setup_capture(){
   return 0;
 }
 
+void join_threads(){
+  logmsg(verbose, "Main thread goes to sleep; waiting for threads to die.\n");
+  logmsg(verbose, "[MAIN] - Waiting for sender thread\n");
+  pthread_join( senderPID, NULL);
+
+  for ( int i = 0; i < noCI; i++ )  {
+    logmsg(verbose, "[MAIN] - Waiting for CI[%d] thread\n", i);
+    pthread_join(child[i], NULL);
+  }
+  
+  logmsg(verbose, "[MAIN] - Waiting for control thread\n");
+  pthread_join(controlPID, NULL);
+  
+
+  logmsg(stderr, "Main thread awakens, all threads terminated. Stopping\n");
+}
+
 int main (int argc, char **argv)
 {
   int ret = 0;
 
-  //saveProcess mySave;
   send_proc_t sender;
 
   globalDropcount=0;
@@ -494,14 +508,9 @@ int main (int argc, char **argv)
   init_consumers();
 
   /* initialize sender */
-  if ( local ){
-    fprintf(stderr, "Local mode not supported yet.\n");
-    exit(1);
-  } else {
-    if ( (ret=setup_sender(&sender, &semaphore)) != 0 ){
-      fprintf(stderr, "setup_sender() returned %d: %s\n", ret, strerror(ret));
-      return 1;
-    }
+  if ( (ret=setup_sender(&sender, &semaphore)) != 0 ){
+    logmsg(stderr, "setup_sender() returned %d: %s\n", ret, strerror(ret));
+    return 1;
   }
 
   /* initialize capture */
@@ -521,19 +530,8 @@ int main (int argc, char **argv)
   
   pthread_sigmask(SIG_SETMASK, &sigmask, NULL);
 
-  logmsg(verbose, "Main thread goes to sleep; waiting for threads to die.\n");
-  logmsg(verbose, "[MAIN] - Waiting for sender thread\n");
-  pthread_join( senderPID, NULL);
-
-  for ( int i = 0; i < noCI; i++ )  {
-    logmsg(verbose, "[MAIN] - Waiting for CI[%d] thread\n", i);
-    pthread_join(child[i], NULL);
-  }
-  
-  logmsg(verbose, "[MAIN] - Waiting for control thread\n");
-  pthread_join(controlPID, NULL);
-  
-  logmsg(stderr, "Main thread awakens, all threads terminated. Stopping\n");
+  /* wait until all threads has finished */
+  join_threads();
 
   fprintf(stderr,"\n----------TERMINATING---------------\n\n");
   fprintf(stderr,"Captured %d pkts\nSent %d pkts\n",recvPkts, sentPkts);
