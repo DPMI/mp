@@ -80,9 +80,6 @@ short int tdflag=0; // Number of T_delta definitions.
 pid_t allC;
 sem_t semaphore;
 
-int dagfd[CI_NIC];
-void* dagbuf[CI_NIC];
-
 int verbose_flag = 0;     /* verbose output */
 static int local = 0;       /* run in local-mode, don't try to contact MArCd */
 static int destination = 0; /* If set to 0, it will store data locally. If 1 it will send to a TCPserver (MA) 0 requires mpid and comment, 1 requires IP optional port. */
