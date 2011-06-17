@@ -259,6 +259,20 @@ static int parse_argv(int argc, char** argv){
              "                              aggregated.\n");
       printf("  -v, --verbose               Verbose output\n");
       printf("      --quiet                 Less output (inverse of --verbose)\n");
+      printf("\n");
+      printf("Available drivers:\n");
+#ifdef HAVE_DRIVER_RAW
+      printf("  * RAW socket\n");
+#endif
+#ifdef HAVE_DRIVER_PCAP
+      printf("  * PCAP (prefix iface with pcap to use; e.g. \"pcapeth0\")\n");
+#endif
+#ifdef HAVE_DRIVER_DAG
+      printf("  * Endace DAG\n");
+#endif
+#ifdef HAVE_DRIVER_DAG_LEGACY
+      printf("  * Endace DAG (legacy API)\n");
+#endif
       exit(0);
       break;
 
