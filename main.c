@@ -71,11 +71,11 @@ struct MAinfo MA;
 static void cleanup(int sig); // Runs when program terminates
 static int packet_stats(int sd, struct packet_stat *stat); // function for collecting statistics
 
-#ifdef HAVE_RAW
+#ifdef HAVE_DRIVER_RAW
 static void setpromisc(int sd, char* device); // function for setting interfaces to listen on all traffic
 static int iface_get_id(int sd, const char *device); //comments in code
 static int iface_bind(int fd, int ifindex); //comments in code
-#endif /* HAVE_RAW */
+#endif /* HAVE_DRIVER_RAW */
 
 static void info(int sd);// function for presentating statistics
 
@@ -353,19 +353,19 @@ static int setup_capture(){
       
     switch ( CI[i].driver ){
     case DRIVER_PCAP:
-#ifdef HAVE_PCAP
+#ifdef HAVE_DRIVER_PCAP
       memmove(CI[i].iface, &CI[i].iface[4], strlen(&CI[i].iface[4])+1); /* plus terminating */
 
       func = pcap_capture;
-#else /* HAVE_PCAP */
+#else /* HAVE_DRIVER_PCAP */
 	fprintf(stderr, "This MP lacks support for libpcap (rebuild with --with-pcap)\n");
 	return EINVAL;
-#endif /* HAVE_PCAP */
+#endif /* HAVE_DRIVER_PCAP */
 
       break;
 
     case DRIVER_RAW:
-#ifdef HAVE_RAW
+#ifdef HAVE_DRIVER_RAW
       {
         int ifindex;
 	CI[i].sd = socket(PF_PACKET,SOCK_RAW,htons(ETH_P_ALL));
@@ -375,10 +375,10 @@ static int setup_capture(){
       }
 
       func = capture;
-#else /* HAVE_RAW */
+#else /* HAVE_DRIVER_RAW */
 	fprintf(stderr, "This MP lacks support for raw packet capture (use libpcap or DAG instead or rebuild with --with-raw)\n");
 	return EINVAL;
-#endif /* HAVE_RAW */
+#endif /* HAVE_DRIVER_RAW */
 
       break;
 
@@ -660,7 +660,7 @@ static void info(int sd)
     (void)fprintf(stderr, "\t%d packets dropped by kernel\n", stat.pkg_drop);
 }
 
-#ifdef HAVE_RAW
+#ifdef HAVE_DRIVER_RAW
 
 //Sets Nic to promisc mode
 static void setpromisc(int sd, char* device)
@@ -720,7 +720,7 @@ static int iface_bind(int fd, int ifindex){
   return 0;
 }
 
-#endif /* HAVE_RAW */
+#endif /* HAVE_DRIVER_RAW */
 
 //create statistics for Nic (pkgdrop)
 static int packet_stats(int sd, struct packet_stat *stats){
