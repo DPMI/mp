@@ -82,17 +82,13 @@ static short int tdflag=0; // Number of T_delta definitions.
 
 static sem_t semaphore;
 
-int verbose_flag = 0;     /* verbose output */
 static int local = 0;       /* run in local-mode, don't try to contact MArCd */
-static int destination = 0; /* If set to 0, it will store data locally. If 1 it will send to a TCPserver (MA) 0 requires mpid and comment, 1 requires IP optional port. */
 static int bufsize = 1000;
 static int capsize = 90;
 static int port = 0;
 static const char* capfile = NULL;
 static struct CI CI[CI_NIC];
 struct CI* _CI = CI;
-
-FILE* verbose = NULL; /* stdout if verbose is enabled, /dev/null otherwise */
 
 static pthread_t child[CI_NIC];           // array of capture threads
 static pthread_t senderPID;               // thread id for the sender thread
@@ -112,14 +108,14 @@ static int clamp(int v, int min, int max){
 
 static void ma_nic(const char* arg) {
   struct ifreq ifr;
-  destination=1;
+  local = 0;
 
   MA.iface = strdup(arg);
   strncpy(ifr.ifr_name, MA.iface, IFNAMSIZ);
 
   int s = socket(AF_PACKET, SOCK_RAW, htons(MYPROTO));
   if ( s == -1 ){
-    perror("socket");
+    perror("MA iface - socket()");
     exit(1);
   }
 
@@ -173,6 +169,19 @@ static void set_td(const char* arg) {
   }
 
   tdflag++;
+}
+
+static void show_configuration(){
+  logmsg(verbose, "\n");
+  logmsg(verbose, "MP Configuration:\n");
+  logmsg(verbose, "  Capture Interfaces \n");
+  for ( int i = 0; i < noCI; i++) {
+    logmsg(verbose, "    CI[%d]: %s   T_delta: %d digits\n", i, CI[i].iface, CI[i].accuracy);
+  }
+
+  logmsg(verbose, "  MA Interface\n");
+  logmsg(verbose, "    MAnic: %s   MTU: %d   hwaddr: %s\n", MA.iface, MA.MTU, ether_ntoa(&MA.hwaddr));
+  logmsg(verbose, "\n");
 }
 
 enum Options {
@@ -428,7 +437,7 @@ static int setup_capture(){
 
 int main (int argc, char **argv)
 {
-  int i, ret = 0;
+  int ret = 0;
 
   //saveProcess mySave;
   send_proc_t sender;
@@ -453,9 +462,12 @@ int main (int argc, char **argv)
   noRules=0;
   myRules=0;
   ENCRYPT=0;
+  recvPkts=0;
+  matchPkts=0;
 
   // Joint signaling to threads to terminate nicely.
   terminateThreads=0;
+
   /* activating signal*/
   signal(SIGINT, cleanup);
   signal(SIGTERM, cleanup);
@@ -464,10 +476,6 @@ int main (int argc, char **argv)
   sigset_t sigmask;
   sigfillset(&empty);
   sigprocmask(SIG_SETMASK, &empty, &sigmask);
-
-  /* prioschedule*/
-  //prio.sched_priority=sched_get_priority_max(SCHED_RR)-10;
-  //sched_setscheduler(0, SCHED_RR,&prio);
 
   init_capture();
 
@@ -482,6 +490,7 @@ int main (int argc, char **argv)
     perror("parse_argv");
     exit(1);
   }
+  noCI = iflag;
 
   /* setup vfp to stdout or /dev/null depending on verbose flag */
   verbose = stdout;
@@ -495,51 +504,21 @@ int main (int argc, char **argv)
     exit(1);
   }
 
-  logmsg(verbose, "\n");
-  logmsg(verbose, "MP Configuration:\n");
-  logmsg(verbose, "  Capture Interfaces \n");
-  for (i=0; i < iflag; i++) {
-    logmsg(verbose, "    CI[%d]: %s   T_delta: %d digits\n", i, CI[i].iface, CI[i].accuracy);
-  }
-
-  logmsg(verbose, "  MA Interface\n");
-  logmsg(verbose, "    MAnic: %s   MTU: %d   hwaddr: %s\n", MA.iface, MA.MTU, ether_ntoa(&MA.hwaddr));
-  logmsg(verbose, "\n");
-  
-/*
-  tid1.tv_sec=60;
-  tid1.tv_usec=0;
-  tid2.tv_sec=60;
-  tid2.tv_usec=0;
-
-  difftime.it_interval=tid2;
-  difftime.it_value=tid1;
-  signal(SIGALRM, cleanup);
-  setitimer(ITIMER_REAL,&difftime,NULL);
-*/
-  
-  if (local==1){
-    destination=0;
-  }
-
+  show_configuration();
   init_consumers();
 
-  noCI=iflag;
-  recvPkts=0;
-  matchPkts=0;
-  
-  // No use doing this if we cant send the data somewhere..
-  // We should also do some initialization here. Ie. get information from the MA.
-  // Thats a later story.
-  // Create child process for configuration, OR let the config be running separately and use SHM.
-  
-  
-  if ( destination == 1 && (ret=setup_sender(&sender, &semaphore)) != 0 ){
-    fprintf(stderr, "setup_sender() returned %d: %s\n", ret, strerror(ret));
-    return 1;
+  /* initialize sender */
+  if ( local ){
+    fprintf(stderr, "Local mode not supported yet.\n");
+    exit(1);
+  } else {
+    if ( (ret=setup_sender(&sender, &semaphore)) != 0 ){
+      fprintf(stderr, "setup_sender() returned %d: %s\n", ret, strerror(ret));
+      return 1;
+    }
   }
-  // Create childprocess for the Sender/Saver
 
+  /* initialize capture */
   if ( (ret=setup_capture()) != 0 ){
     fprintf(stderr, "setup_capture() returned %d: %s\n", ret, strerror(ret));
     return 1;
@@ -547,44 +526,35 @@ int main (int argc, char **argv)
   
   printf("Waiting 1s befor starting controler thread.\n");
   sleep(1);
-  /* 
-     Connect to the MA-controller 
-  */
+
+  /* Initialize MA-controller */
   if(pthread_create(&controlPID, NULL, control, NULL) ) {
     fprintf(stderr,"Error creating Control Thread. \n");
     abort();
   }
   
-  fprintf(verbose, "my Children.\n");
-  for(i=0;i<iflag;i++)
-  {
-    fprintf(verbose, "Child %d known as %d working on %s.\n",i,(int)child[i],CI[i].iface);
-  }
-  fprintf(verbose, "Child %d working on sender.\n", (int)senderPID);
-  fprintf(verbose, "Child %d working as controller.\n",(int)controlPID);
-
   pthread_sigmask(SIG_SETMASK, &sigmask, NULL);
-  //Main will wait here for all children
-    printf("Waiting for them to die.\n");
-  //End parent when all children are dead
-  if(destination==1) {
-    fprintf(verbose, "Waiting for sender thread\n");
-    pthread_join( senderPID, NULL);
-  }
-  for(i=0;i < iflag; i++)  {
-    fprintf(verbose, "Waiting for CI[%d] thread\n", i);
-    pthread_join( child[i], NULL);
+
+  logmsg(verbose, "Main thread goes to sleep; waiting for threads to die.\n");
+  logmsg(verbose, "[MAIN] - Waiting for sender thread\n");
+  pthread_join( senderPID, NULL);
+
+  for ( int i = 0; i < noCI; i++ )  {
+    logmsg(verbose, "[MAIN] - Waiting for CI[%d] thread\n", i);
+    pthread_join(child[i], NULL);
   }
   
-  fprintf(verbose, "Waiting for control thread\n");
+  logmsg(verbose, "[MAIN] - Waiting for control thread\n");
   pthread_join(controlPID, NULL);
   
+  logmsg(stderr, "Main thread awakens, all threads terminated. Stopping\n");
+
   fprintf(stderr,"\n----------TERMINATING---------------\n\n");
   fprintf(stderr,"Captured %d pkts\nSent %d pkts\n",recvPkts, sentPkts);
   
 //Print out statistics on screen  
   printf("Socket stats.\n");
-  for (i=0;i<iflag;i++)  {
+  for ( int i = 0; i < noCI; i++ )  {
     printf("%s\n", CI[i].iface);
     if (!strncmp("dag", CI[i].iface, 3)) {
 
@@ -595,7 +565,7 @@ int main (int argc, char **argv)
   }
   
   printf("Closing MA connection....");
-  for(i=0;i<CONSUMERS;i++){
+  for( int i=0; i < CONSUMERS; i++ ){
     if ( !MAsd[i].stream ){
       continue;
     }

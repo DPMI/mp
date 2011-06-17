@@ -77,8 +77,6 @@ char *MAMPid;                      // String identifying the MySQL identity.
 
 int globalDropcount;               // Total amount of PDUs that were dropped by Interface.
 int memDropcount;                  // Total amount of PDUs that were dropped between CI and Sender.
-extern FILE* verbose;
-extern int verbose_flag;
 
 struct write_header //Used for marking a packet as read or written in the shared memory
 {

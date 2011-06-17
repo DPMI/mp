@@ -6,6 +6,9 @@
 #include <time.h>
 #include <sys/time.h>
 
+int verbose_flag = 0;
+FILE* verbose = NULL; 
+
 int vlogmsg(FILE* fp, const char* fmt, va_list ap){
   struct timeval tid1;
   gettimeofday(&tid1,NULL);
