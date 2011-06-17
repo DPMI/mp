@@ -22,6 +22,7 @@ endif
 mp_CFLAGS = -Wall ${CAP_UTILS_CFLAGS} ${LIBMARC_CFLAGS} ${PTHREAD_CFLAGS} ${DAG_CFLAGS}
 mp_LDADD = libcapture.a ${CAP_UTILS_LIBS} ${LIBMARC_LIBS} ${PTHREAD_LIBS} ${PCAP_LIBS} ${DAG_LIBS}
 mp_SOURCES = \
+	configfile.c configfile.h \
 	control.c \
 	filter.c \
 	headers.h \

@@ -33,6 +33,7 @@
 #include "capture.h"
 #include "filter.h"
 #include "sender.h"
+#include "configfile.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -96,28 +97,6 @@ static pthread_t child[CI_NIC];           // array of capture threads
 static pthread_t senderPID;               // thread id for the sender thread
 static pthread_t controlPID;              // thread id for the control thread
 static pthread_t mainPID;                 // thread id for the main process, ie. the daddy of all threads.
-
-
-typedef void (*option_callback)(const char* line);
-
-enum OptionFlags {
-  OPTION_NONE = 0,             /* do nothing */
-  OPTION_FUNC = (1<<0),        /* run callback */
-  OPTION_STORE = (1<<1),       /* store line in ptr */
-  OPTION_STORE_TRUE = (1<<2),  /* store 1 in ptr */
-  OPTION_STORE_FALSE = (1<<3), /* store 0 in ptr */
-  OPTION_STORE_CONST = (1<<4), /* store value in ptr */
-};
-
-struct config_option {
-  const char *name;
-  int has_arg;
-  int flag;
-
-  option_callback callback;
-  int* ptr;
-  int value;
-};
 
 /* really worstcase implementation of clamp =) */
 static int clamp(int v, int min, int max){
@@ -213,99 +192,43 @@ static void set_td(const char* arg) {
   tdflag++;
 }
 
-static struct config_option myOptions[]={
-  {"MAnic=",  1, OPTION_FUNC,       .callback=ma_nic},
-  {"ENCRYPT", 0, OPTION_STORE_TRUE, .ptr=&ENCRYPT},
-  {"BUFFER=", 1, OPTION_STORE,      .ptr=&bufsize},
-  {"CAPSIZE=",1, OPTION_STORE,      .ptr=&capsize},
-  {"CI=",     1, OPTION_FUNC,       .callback=set_ci},
-  {"TD=",     1, OPTION_FUNC,       .callback=set_td},
-  {"LOCAL",   0, OPTION_STORE_TRUE, .ptr=&local},
+/* static struct config_option myOptions[]={ */
+/*   {"MAnic=",  1, OPTION_FUNC,       .callback=ma_nic}, */
+/*   {"ENCRYPT", 0, OPTION_STORE_TRUE, .ptr=&ENCRYPT}, */
+/*   {"BUFFER=", 1, OPTION_STORE,      .ptr=&bufsize}, */
+/*   {"CAPSIZE=",1, OPTION_STORE,      .ptr=&capsize}, */
+/*   {"CI=",     1, OPTION_FUNC,       .callback=set_ci}, */
+/*   {"TD=",     1, OPTION_FUNC,       .callback=set_td}, */
+/*   {"LOCAL",   0, OPTION_STORE_TRUE, .ptr=&local}, */
+/* }; */
+
+enum Options {
+  OPTION_IGNORE = 256
 };
 
-static int parse_config(const char* filename){
-  static char line[256];
-  static const int noOptions=sizeof(myOptions)/sizeof(struct config_option);
-  int linenum = 0;
-
-  assert(filename);
-  FILE* fp = fopen(filename, "r");
-  if ( !fp ){
-    return errno;
-  }
-
-  while( fgets(line, sizeof(line), fp) != NULL) {
-    linenum++;
-    if( line[0] == '#' ) {
-      continue;
-    }
-
-    if ( strlen(line) < 2 ){
-      continue;
-    }
-
-    //-- Argument parsing
-    int optionIndex = -1;
-    for( int i=0; i < noOptions; i++ ){
-      if( strstr(line, myOptions[i].name) != NULL ){
-	optionIndex=i;
-	optarg=(char*)&line+strlen(myOptions[i].name);
-	break;
-      }
-    }
-
-    if( optionIndex == -1 ){
-      fprintf(stderr, "%s:%d: unknown option \"%s\"\n", filename, linenum, line);
-      continue;
-    }
-
-    struct config_option* opt = &myOptions[optionIndex];
-
-    if ( opt->flag & OPTION_STORE_TRUE ){
-      *opt->ptr = 1;
-    }
-
-    if ( opt->flag & OPTION_STORE_FALSE ){
-      *opt->ptr = 0;
-    }
-
-    if ( opt->flag & OPTION_STORE_CONST ){
-      *opt->ptr = opt->value;
-    }
-
-    if ( opt->flag & OPTION_STORE ){
-      *opt->ptr = atoi(optarg);
-    }
-
-    if ( opt->flag & OPTION_FUNC ){
-      opt->callback(optarg);
-    }
-  }//while(fgets(line...
-
-  fclose(fp);
-  return 0;
-}
+static struct option long_options[]= {
+  {"local", 0, &local, 1},
+  {"accuracy", 1, NULL, 'd'},
+  {"interface", 1, NULL, 'i'},
+  {"manic", 1, NULL, 's'},
+  {"help", 0, NULL, 'h'},
+  {"port", 1, NULL, 'p'},
+  {"capfile", 1, NULL, 'c'},
+  {"verbose", 0, &verbose_flag, 1},
+  {"quiet", 0, &verbose_flag, 0},
+  {"config", 1, NULL, OPTION_IGNORE},
+  {0, 0, 0, 0}
+};
 
 static int parse_argv(int argc, char** argv){
-  static struct option long_options[]= {
-    {"local", 0, &local, 1},
-    {"accuracy", 1, NULL, 'd'},
-    {"interface", 1, NULL, 'i'},
-    {"manic", 1, NULL, 's'},
-    {"help", 0, NULL, 'h'},
-    {"port", 1, NULL, 'p'},
-    {"capfile", 1, NULL, 'c'},
-    {"verbose", 0, &verbose_flag, 1},
-    {"quiet", 0, &verbose_flag, 0},
-    {0, 0, 0, 0}
-  };
-  
+ 
   int option_index = 0;
   int op;
 
   while ( (op = getopt_long(argc, argv, "hvd:i:s:p:", long_options, &option_index)) != -1 )
     switch (op){
     case 0: /* longopt with flag set */
+    case OPTION_IGNORE:
       break;
 
     case 'd': // interface to listen on
@@ -570,27 +493,10 @@ int main (int argc, char **argv)
   /*Get my PID*/
   mainPID=pthread_self(); // This is the PID for the main thread.
 
-  FILE *infile;
-  int cfgfile=0;
-  if ( (infile=fopen("mp.conf","rt"))==NULL){
-    printf("No configuration file found. Using command line arguments only.\n");
-    if(argc<2){ // If no arguments are present, leave!
-      printf("use %s -h for help\n",argv[0]);
-      exit(0);
-    }
-  } else {
-    printf("Will read config from mp.conf, and then overwrite these options with\n");
-    printf("found in the commnad line arguments.\n");
-    cfgfile=1;
-  }
+  /* parse_config prints errors, never fatal */
+  parse_config("mp.conf", &argc, &argv, long_options);
 
-// Parse config file
-  if( cfgfile==1 ){
-    if ( parse_config("mp.conf") != 0 ){
-      perror("parse_config");
-    }
-  }
-
+  /* parse CLI arguments */
   if ( parse_argv(argc, argv) != 0 ){
     perror("parse_argv");
     exit(1);
