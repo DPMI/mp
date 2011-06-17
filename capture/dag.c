@@ -191,7 +191,7 @@ static int legacy_read_packet(struct dag_context* cap, unsigned char* dst, struc
     return 0; /* process eventual packages in the next batch */
   }
 
-  dag_record_t* dr = (dag_record_t *) (cap->bottom);
+  dag_record_t* dr = (dag_record_t *)(cap->buffer + cap->bottom);
   const size_t rlen = ntohs(dr->rlen);
 
   /* not enough data in buffer */
