@@ -1,8 +1,41 @@
-To install.
+MP Installation
+---------------
 
-Requires: libcap_utils in /usr/lib, and DAG software in /usr/local/dag
-Requires: mysql libraries
+Software requirements:
+ - [optional] autotools
+ - GNU make
+ - pkgconfig
+ - libcap_utils
+ - libmarc
+ - [optional] libpcap
+ - [optional] endace DAG
 
-(./configure *TO BE IMPLEMENTED*)
-make
-make install
+0. autoreconf --install
+   If installing directly from subversion, autoreconf must be run once to
+   generate the neccesary autotools files. (Hint: if you extracted a tarball you
+   wont need this step)
+
+   Note: the command is autoREconf, not autoconf.
+
+1. mkdir build && cd build
+   [optional] Create an out-of-tree build directory. This is just to make it
+   easier to have multiple builds and won't bloat the source-tree with binary
+   blobs and generated files.
+
+2. ../configure
+   Run the configuration script. Use --help for full list of options.
+   By default it builds only with the RAW socket drivers.
+
+   If the required libraries is installed to a non-standard location (such as a
+   custom prefix) the enviroment variable PKG_CONFIG_PATH must point to
+   $prefix/lib/pkgconfig or you must set the required CFLAGS/LIBS variables
+   manually.
+
+   By default it also uses silent build rules, to override either disable with
+   --disable-silent-rules or use `make V=1` later.
+
+3. make
+   Build the software.
+
+4. make install
+   [optional] Installs the software to the selected prefix (e.g /usr/local)
