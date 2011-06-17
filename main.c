@@ -533,8 +533,8 @@ int main (int argc, char **argv)
   /* wait until all threads has finished */
   join_threads();
 
-  fprintf(stderr,"\n----------TERMINATING---------------\n\n");
-  fprintf(stderr,"Captured %d pkts\nSent %d pkts\n",recvPkts, sentPkts);
+  logmsg(stderr,"\n----------TERMINATING---------------\n\n");
+  logmsg(stderr,"Captured %d pkts\nSent %d pkts\n", recvPkts, sentPkts);
   
 //Print out statistics on screen  
   printf("Socket stats.\n");
