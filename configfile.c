@@ -22,7 +22,7 @@
 #include <errno.h>
 #include <assert.h>
 
-static const char* config_filename(int argc, char* argv[], const char* defname){
+static const char* config_filename(int argc, char* argv[]){
   for ( int i = 0; i < argc; i++ ){
     const char* cur = argv[i];
 
@@ -38,7 +38,7 @@ static const char* config_filename(int argc, char* argv[], const char* defname){
     }
     return argv[i+1];
   }
-  return defname;
+  return NULL;
 }
 
 static char* trim(char* str){
@@ -143,8 +143,8 @@ static struct translation_t {
   {NULL, NULL}
 };
 
-int parse_config(const char* filename, int* argc, char** argv[], struct option options[]){
-  assert(filename);
+int parse_config(const char* default_filename, int* argc, char** argv[], struct option options[]){
+  assert(default_filename);
   assert(argv);
   assert(options);
 
@@ -159,16 +159,20 @@ int parse_config(const char* filename, int* argc, char** argv[], struct option o
   }
 
   /* allow filename to be overridden by --config */
-  const char* _filename = config_filename(*argc, *argv, filename);
+  const char* overridden = config_filename(*argc, *argv);
+  const char* filename = overridden ? overridden : default_filename;
 
-  FILE* fp = fopen(_filename, "r");
+  FILE* fp = fopen(filename, "r");
   if ( !fp ){
     int saved = errno;
-    logmsg(stderr, "Failed to open configuration file \"%s\": %s\n", _filename, strerror(errno));
+    /* only show this error if the user has manually overridden the file */
+    if ( overridden ){
+      logmsg(stderr, "Failed to open configuration file \"%s\": %s\n", filename, strerror(errno));
+    }
     return saved;
   }
 
-  logmsg(stderr, "Reading configuration from \"%s\".\n", _filename);
+  logmsg(stderr, "Reading configuration from \"%s\".\n", filename);
 
   /* create a copy of argv since it is most likely not on the heap already */
   {
@@ -221,7 +225,7 @@ int parse_config(const char* filename, int* argc, char** argv[], struct option o
 
     /* no matching argument */
     if ( !cur->name ){
-      logmsg(stderr, "  %s:%d: Unrecognized configuration option '%s`.\n", _filename, linenum, opt);
+      logmsg(stderr, "  %s:%d: Unrecognized configuration option '%s`.\n", filename, linenum, opt);
       continue;
     }
 
