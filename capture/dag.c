@@ -45,12 +45,6 @@ static int process_packet(dag_record_t* dr, unsigned char* dst, struct cap_heade
   data_len -= alignment;
 
   /* when and why? --ext 2011-06-14 */
-  if ( rlen < dag_record_size ) {
-    //++rlen_errs;
-    return 0;
-  }
-
-  /* when and why? --ext 2011-06-14 */
   if (payload == NULL && pload_len != 0) {
     //++pload_null_errs;
     return 0;
@@ -189,22 +183,21 @@ void* dag_capture(void* ptr){
 
 #ifdef HAVE_DRIVER_DAG_LEGACY
 static int legacy_read_packet(struct dag_context* cap, unsigned char* dst, struct cap_header* head){
-  size_t rlen;      /* DAG record length */
-  size_t pload_len; /* payload length */
-  size_t data_len;  /* data length (payload length minus additional alignment/padding */
-  size_t alignment = 0;
+  const ssize_t diff = cap->top - cap->bottom;
 
-  if ( cap->top - cap->bottom < dag_record_size) {
+  /* no packet in buffer */
+  if ( diff < dag_record_size ){
     cap->top = dag_offset(cap->fd, &cap->bottom, 0);
+    return 0; /* process eventual packages in the next batch */
   }
 
-  dag_record_t* dr = (dag_record_t *) (cap->buffer + cap->bottom);
-  rlen = ntohs(dr->rlen);
+  dag_record_t* dr = (dag_record_t *) (cap->bottom);
+  const size_t rlen = ntohs(dr->rlen);
 
-  while ( cap->top - cap->bottom < rlen) {
+  /* not enough data in buffer */
+  if ( diff < rlen ){
     cap->top = dag_offset(cap->fd, &cap->bottom, 0);
-    dr = (dag_record_t *) (cap->buffer + cap->bottom);
-    rlen = ntohs(dr->rlen);
+    return 0; /* process eventual packages in the next batch */
   }
 
   /* process packet */
