@@ -221,7 +221,7 @@ int parse_config(const char* filename, int* argc, char** argv[], struct option o
 
     /* no matching argument */
     if ( !cur->name ){
-      logmsg(stderr, "%s:%d: Unrecognized configuration option '%s`.\n", _filename, linenum, opt);
+      logmsg(stderr, "  %s:%d: Unrecognized configuration option '%s`.\n", _filename, linenum, opt);
       continue;
     }
 

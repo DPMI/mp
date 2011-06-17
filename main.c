@@ -33,6 +33,7 @@
 #include "capture.h"
 #include "filter.h"
 #include "sender.h"
+#include "log.h"
 #include "configfile.h"
 
 #include <stdio.h>
@@ -64,6 +65,8 @@ struct packet_stat{              // struct for interface statistics
   u_int pkg_recv;
   u_int	pkg_drop;
 };
+
+struct MAinfo MA;
 
 static void cleanup(int sig); // Runs when program terminates
 static int packet_stats(int sd, struct packet_stat *stat); // function for collecting statistics
@@ -113,11 +116,8 @@ static void ma_nic(const char* arg) {
   struct ifreq ifr;
   destination=1;
 
-  MAnic = strdup(arg);
-  strncpy(ifr.ifr_name, MAnic, IFNAMSIZ);
-  if ( verbose_flag ){
-    printf("MAnic =  %s\n",MAnic);
-  }
+  MA.iface = strdup(arg);
+  strncpy(ifr.ifr_name, MA.iface, IFNAMSIZ);
 
   int s = socket(AF_PACKET, SOCK_RAW, htons(MYPROTO));
   if ( s == -1 ){
@@ -125,59 +125,44 @@ static void ma_nic(const char* arg) {
     exit(1);
   }
 
-  if(ioctl(s,SIOCGIFINDEX, &ifr) == -1 ) {
+  /* check if iface exists */
+  if(ioctl(s, SIOCGIFINDEX, &ifr) == -1 ) {
     perror("SIOCGIFINDEX");
     exit(1);
   }
-  if ( verbose_flag ){
-    printf("MA interface index = %d\t", ifr.ifr_ifindex);
-  }
 
-  /*Get my MAC */
+  /* Get my MAC */
   if ( verbose_flag ){
-    if(ioctl(s,SIOCGIFHWADDR,&ifr) == -1) {
+    if(ioctl(s, SIOCGIFHWADDR,&ifr) == -1) {
       perror("SIOCGIFHWADDR");
       exit(1);
     }
 
-    const char* hwaddr = ifr.ifr_hwaddr.sa_data;
-    printf("MAC ADDRESS: ");
-    printf("ifAdd = %02X:%02X:%02X:%02X:%02X:%02X\n",
-	   hwaddr[0],hwaddr[1],hwaddr[2],hwaddr[3],hwaddr[4],hwaddr[5]);
+    memcpy(MA.hwaddr.ether_addr_octet, ifr.ifr_hwaddr.sa_data, ETH_ALEN);
   }
   
-  /*Get my MTU */
-  if(ioctl(s,SIOCGIFMTU,&ifr) == -1) {
+  /* Get my MTU */
+  if(ioctl(s, SIOCGIFMTU,&ifr) == -1) {
     perror("SIOCGIFMTU");
     exit(1);
   }
-  MAmtu=ifr.ifr_mtu; // Store the MA network MTU. 
-  
-  if ( verbose_flag ){
-    printf("MAC Interface MTU: %d \n",ifr.ifr_mtu);
-  }
+  MA.MTU = ifr.ifr_mtu; // Store the MA network MTU. 
 
-  const int sendsize = (ifr.ifr_mtu-sizeof(struct sendhead))/(sizeof(cap_head)+PKT_CAPSIZE);
+  /* This variable should be dropped -- 2011-06-17 */
+  const int sendsize = (MA.MTU - sizeof(struct sendhead))/(sizeof(cap_head)+PKT_CAPSIZE);
   maSendsize = clamp(sendsize, minSENDSIZE, maxSENDSIZE);
-  if ( verbose_flag ){
-    printf("maSendsize: %d (unclamped: %d)\n",maSendsize, sendsize);
-  }
 
   close(s);
 }
 
 static void set_ci(const char* iface) {
   if ( iflag == CI_NIC ){
-    fprintf(stderr, "Cannot specify more than %d capture interface(s)\n", CI_NIC);
+    logmsg(stderr, "Cannot specify more than %d capture interface(s)\n", CI_NIC);
     exit(1);
   }
 
   strncpy(CI[iflag].iface, iface, NICLEN);
   CI[iflag].iface[NICLEN-1] = 0; /* force null-terminator */
-  
-  if ( verbose_flag ){
-    printf("Setting CI(%d) = %s (%zd)\n", iflag, CI[iflag].iface, strlen(CI[iflag].iface));
-  }
 
   iflag++;
 }
@@ -240,9 +225,9 @@ static int parse_argv(int argc, char** argv){
       break;
       
     case 's':  // MA Network Interface name
-      if(destination==1) { // Overwriting config file
-	printf("Overriding mp.conf for MAnic.\n");
-	free(MAnic);
+      if ( MA.iface ) {
+	logmsg(stderr, "Warning: overriding previous MAnic %s with %s.\n", MA.iface, optarg);
+	free(MA.iface);
       }
       ma_nic(optarg);
       break;
@@ -286,8 +271,6 @@ static int parse_argv(int argc, char** argv){
 }
 
 static int init_consumers(){
-  //static const unsigned char dest_mac[6] = {0x01, 0x00, 0x00, 0x00, 0x00, 0x00};
-
   for( int i=0; i<CONSUMERS; i++) {
     MAsd[i].stream = NULL;
     MAsd[i].status = 0;
@@ -311,8 +294,6 @@ static int init_consumers(){
     MAsd[i].sendptrref=MAsd[i].sendpointer;          // Grab a copy of the pointer, simplifies treatment when we sent the packets.
     MAsd[i].sendcount=0;                        // Initialize the number of pkt stored in the packet, used to determine when to send the packet.
   }
-
-  fprintf(verbose, "Consumer Sockets are initialized, i.e. set to zero.\n");
 
   return 0;
 }
@@ -352,7 +333,7 @@ static int init_capture(){
 static int setup_capture(){
   int ret = 0;
   void* (*func)(void*) = NULL;
-  fprintf(verbose, "Creating capture_threads.\n");
+  logmsg(verbose, "Creating capture_threads.\n");
 
   for (int i=0; i < iflag; i++) {
     CI[i].semaphore = &semaphore;
@@ -369,8 +350,6 @@ static int setup_capture(){
     switch ( CI[i].driver ){
     case DRIVER_PCAP:
 #ifdef HAVE_PCAP
-      fprintf(verbose, "\tpcap for %s.\n", CI[i].iface);
-
       memmove(CI[i].iface, &CI[i].iface[4], strlen(&CI[i].iface[4])+1); /* plus terminating */
 
       func = pcap_capture;
@@ -383,8 +362,6 @@ static int setup_capture(){
 
     case DRIVER_RAW:
 #ifdef HAVE_RAW
-      fprintf(verbose, "\tRAW for %s.\n", CI[i].iface);
-
       {
         int ifindex;
 	CI[i].sd = socket(PF_PACKET,SOCK_RAW,htons(ETH_P_ALL));
@@ -403,8 +380,6 @@ static int setup_capture(){
 
     case DRIVER_DAG:
 #ifdef HAVE_DAG
-      fprintf(verbose, "\tDAG for %s.\n", CI[i].iface);
-
       {
 	char dev[256];
 	snprintf(dev, 256, "/dev/%s", CI[i].iface);
@@ -459,7 +434,8 @@ int main (int argc, char **argv)
   globalDropcount=0;
   memDropcount=0;
 
-  printf("Measurement Point " VERSION " (caputils-" CAPUTILS_VERSION ")\n");
+  fprintf(stderr, "Measurement Point " VERSION " (caputils-" CAPUTILS_VERSION ")\n");
+  fprintf(stderr, "----------------------------------------\n");
 
   // Init semaphore
   if ( sem_init(&semaphore, 0, 0) != 0 ){
@@ -467,6 +443,9 @@ int main (int argc, char **argv)
     fprintf(stderr, "%s: sem_init() returned %d: %s\n", argv[0], saved, strerror(saved));
     exit(1);
   }
+
+  /* Initialize MAinfo */
+  memset(&MA, 0, sizeof(struct MAinfo));
 
   // Configure rules.
   noRules=0;
@@ -507,19 +486,23 @@ int main (int argc, char **argv)
   if ( !verbose_flag ){
     verbose = fopen("/dev/null", "w");
   }
-  
-  printf("Capture Interfaces \n");
-  for (i=0; i < iflag; i++) {
-    printf(" CI[%d]=%s (%zd) T_delta = %d digits\n", i, CI[i].iface, strlen(CI[i].iface), CI[i].accuracy);
-  }
 
-  if ( !MAnic ){
-    fprintf(stderr, "No MA interface specifed!\n");
+  if ( !MA.iface ){
+    logmsg(stderr, "No MA interface specifed!\n");
+    logmsg(stderr, "See --help for usage.\n");
     exit(1);
   }
 
-  printf("MA Interface\n");
-  printf("  MAnic=%s\n", MAnic);
+  logmsg(verbose, "\n");
+  logmsg(verbose, "MP Configuration:\n");
+  logmsg(verbose, "  Capture Interfaces \n");
+  for (i=0; i < iflag; i++) {
+    logmsg(verbose, "    CI[%d]: %s   T_delta: %d digits\n", i, CI[i].iface, CI[i].accuracy);
+  }
+
+  logmsg(verbose, "  MA Interface\n");
+  logmsg(verbose, "    MAnic: %s   MTU: %d   hwaddr: %s\n", MA.iface, MA.MTU, ether_ntoa(&MA.hwaddr));
+  logmsg(verbose, "\n");
   
 /*
   tid1.tv_sec=60;
@@ -635,7 +618,7 @@ int main (int argc, char **argv)
     free(tmp); /** @todo create a filter cleanup function */
   }
 
-  free(MAnic);
+  free(MA.iface);
   free(MAMPid);
 
   return 0;

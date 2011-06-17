@@ -326,7 +326,8 @@ int setFilter(struct FPI *newRule){
     address = hexdump_address(address);
   }
 
-  if ( (ret=createstream(&con->stream, address, newRule->filter.TYPE, MAnic, MAMPid, "caputils 0.7 test MP")) != 0 ){
+  /** @todo hardcoded stream comment */
+  if ( (ret=createstream(&con->stream, address, newRule->filter.TYPE, MA.iface, MAMPid, "caputils 0.7 test MP")) != 0 ){
     fprintf(stderr, "createstream() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
     exit(1);
   }

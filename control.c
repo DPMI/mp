@@ -172,7 +172,7 @@ void* control(void* prt){
     strncpy(info.CI[i].iface, _CI[i].iface, 8);
   }
 
-  if ( (ret=marc_init_client(&client, MAnic, &info)) != 0 ){
+  if ( (ret=marc_init_client(&client, MA.iface, &info)) != 0 ){
     fprintf(stderr, "marc_init_client() returned %d: %s\n", ret, strerror(ret));
     exit(1);
   }

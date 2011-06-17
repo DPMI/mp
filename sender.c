@@ -119,7 +119,7 @@ static int can_defer_send(struct consumer* con, struct timespec* now, struct tim
 
   const signed long int age = sec + msec;
   const size_t payload_size = con->sendpointer - con->sendptrref;
-  const size_t mtu_size = MAmtu -2*(sizeof(cap_head)+nextPDUlen); // This row accounts for the fact that the consumer buffers only need extra space for one PDU of of the capture size for that particular filter. 
+  const size_t mtu_size = MA.MTU -2*(sizeof(cap_head)+nextPDUlen); // This row accounts for the fact that the consumer buffers only need extra space for one PDU of of the capture size for that particular filter. 
 
 
   const int larger_mtu = payload_size >= mtu_size;

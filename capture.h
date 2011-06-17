@@ -64,8 +64,13 @@ int recvPkts;
 int matchPkts;
 int sentPkts;
 int writtenPkts; // counters for captured ans sent packets
-char* MAnic;                        // string containing interface that connects to MAc
-int MAmtu;                          // MTU of the MA interface.
+
+extern struct MAinfo {
+  char* iface;
+  int MTU;
+  struct ether_addr hwaddr;
+} MA;
+
 int noCI;                           // Number of Capture Interfaces
 int ENCRYPT;                        // If set to >0 then it will encrypt IP addresses...?
 char *MAMPid;                      // String identifying the MySQL identity.
