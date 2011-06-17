@@ -177,16 +177,6 @@ static void set_td(const char* arg) {
   tdflag++;
 }
 
-/* static struct config_option myOptions[]={ */
-/*   {"MAnic=",  1, OPTION_FUNC,       .callback=ma_nic}, */
-/*   {"ENCRYPT", 0, OPTION_STORE_TRUE, .ptr=&ENCRYPT}, */
-/*   {"BUFFER=", 1, OPTION_STORE,      .ptr=&bufsize}, */
-/*   {"CAPSIZE=",1, OPTION_STORE,      .ptr=&capsize}, */
-/*   {"CI=",     1, OPTION_FUNC,       .callback=set_ci}, */
-/*   {"TD=",     1, OPTION_FUNC,       .callback=set_td}, */
-/*   {"LOCAL",   0, OPTION_STORE_TRUE, .ptr=&local}, */
-/* }; */
-
 enum Options {
   OPTION_IGNORE = 256
 };
