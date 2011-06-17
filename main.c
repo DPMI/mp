@@ -59,8 +59,6 @@
 #include <dagapi.h>
 #endif /* HAVE_DAG */
 
-struct sched_param prio;         // Priority schedule variable
-
 struct packet_stat{              // struct for interface statistics
   u_int pkg_recv;
   u_int	pkg_drop;
@@ -79,10 +77,10 @@ static int iface_bind(int fd, int ifindex); //comments in code
 
 static void info(int sd);// function for presentating statistics
 
-short int iflag=0;  // number of capture interfaces
-short int tdflag=0; // Number of T_delta definitions.
-pid_t allC;
-sem_t semaphore;
+static short int iflag=0;  // number of capture interfaces
+static short int tdflag=0; // Number of T_delta definitions.
+
+static sem_t semaphore;
 
 int verbose_flag = 0;     /* verbose output */
 static int local = 0;       /* run in local-mode, don't try to contact MArCd */
