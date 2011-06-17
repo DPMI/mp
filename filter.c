@@ -56,14 +56,14 @@ static int matchEth(const unsigned char d[], const unsigned char m[], const unsi
 static void stop_consumer(struct consumer* con);
 
 static char hex_string[IFHWADDRLEN * 3] = "00:00:00:00:00:00";
-static char* hexdump_address (const unsigned char address[IFHWADDRLEN]){
+static unsigned char* hexdump_address (const unsigned char address[IFHWADDRLEN]){
   int i;
 
   for (i = 0; i < IFHWADDRLEN - 1; i++) {
-    sprintf (hex_string + 3*i, "%2.2X:", (unsigned char) address[i]);
+    sprintf (hex_string + 3*i, "%2.2X:", address[i]);
   }  
-  sprintf (hex_string + 15, "%2.2X", (unsigned char) address[i]);
-  return (hex_string);
+  sprintf (hex_string + 15, "%2.2X", address[i]);
+  return (unsigned char*)hex_string;
 }
 
 /**
@@ -157,9 +157,9 @@ int filter_match(const struct Filter* filter, const struct Haystack* haystack) {
       return 0;
     }
 
-    const in_addr_t src = ip_hdr->ip_src.s_addr & inet_addr(filter->IP_SRC_MASK);
+    const in_addr_t src = ip_hdr->ip_src.s_addr & inet_addr((const char*)filter->IP_SRC_MASK);
 
-    if ( inet_addr(filter->IP_SRC) != src ){
+    if ( inet_addr((const char*)filter->IP_SRC) != src ){
       return 0;
     }
   }
@@ -170,9 +170,9 @@ int filter_match(const struct Filter* filter, const struct Haystack* haystack) {
       return 0;
     }
 
-    const in_addr_t dst = ip_hdr->ip_dst.s_addr & inet_addr(filter->IP_DST_MASK);
+    const in_addr_t dst = ip_hdr->ip_dst.s_addr & inet_addr((const char*)filter->IP_DST_MASK);
 
-    if ( inet_addr(filter->IP_DST) != dst ){
+    if ( inet_addr((const char*)filter->IP_DST) != dst ){
       return 0;
     }
   }
