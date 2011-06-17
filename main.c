@@ -428,7 +428,6 @@ static int init_capture(){
 // Create childprocess for each Nic
 static int setup_capture(){
   int ret = 0;
-  int ifindex;
   void* (*func)(void*) = NULL;
   fprintf(verbose, "Creating capture_threads.\n");
 
@@ -463,10 +462,13 @@ static int setup_capture(){
 #ifdef HAVE_RAW
       fprintf(verbose, "\tRAW for %s.\n", CI[i].iface);
 
-      CI[i].sd = socket(PF_PACKET,SOCK_RAW,htons(ETH_P_ALL));
-      ifindex=iface_get_id(CI[i].sd, CI[i].iface);
-      iface_bind(CI[i].sd, ifindex);
-      setpromisc(CI[i].sd, CI[i].iface);
+      {
+        int ifindex;
+	CI[i].sd = socket(PF_PACKET,SOCK_RAW,htons(ETH_P_ALL));
+	ifindex=iface_get_id(CI[i].sd, CI[i].iface);
+	iface_bind(CI[i].sd, ifindex);
+	setpromisc(CI[i].sd, CI[i].iface);
+      }
 
       func = capture;
 #else /* HAVE_RAW */
