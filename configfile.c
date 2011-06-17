@@ -179,8 +179,18 @@ int parse_config(const char* filename, int* argc, char** argv[], struct option o
     *argv = tmp;
   }
 
+  /* position to write arguments. Keeps the first argument (program_name) */
+  int index = 1;
+
+  /* if --verbose is specified, move it first */
+  for ( int i = 0; i < *argc; i++ ){
+    if ( strcmp((*argv)[i], "--verbose") == 0 ){
+      index = append_arg(argc, argv, index, "--verbose", NULL);
+      break;
+    }
+  }
+
   unsigned int linenum = 0;
-  int i = 1;
   while( fgets(buffer, sizeof(buffer), fp) != NULL) {
     linenum++;
     char* line = trim(buffer);
@@ -216,7 +226,7 @@ int parse_config(const char* filename, int* argc, char** argv[], struct option o
     }
 
     /* insert these arguments */
-    i = append_arg(argc, argv, i, cur->ref, optarg);
+    index = append_arg(argc, argv, index, cur->ref, optarg);
 
   } //while(fgets(line...
 
