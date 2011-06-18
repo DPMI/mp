@@ -201,7 +201,6 @@ void copy_to_sendbuffer(struct consumer* dst, unsigned char* src, int* readPtr, 
 
 void* sender_capfile(void* ptr){
   send_proc_t* proc = (send_proc_t*)ptr;
-  const int nics = proc->nics;       /* The number active CIs */
   int readPos[CI_NIC] = {0,};        /* read pointers */
 
   logmsg(stderr, "Sender initializing (local mode).\n");
@@ -217,7 +216,6 @@ void* sender_capfile(void* ptr){
     return NULL;
   }
 
-  printf("term: %d\n", terminateThreads);
   while( terminateThreads == 0 ){
     int oldest = oldest_packet(proc->nics, readPos, proc->semaphore);
     
