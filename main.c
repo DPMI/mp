@@ -88,7 +88,6 @@ struct CI* _CI = CI;
 static pthread_t child[CI_NIC];           // array of capture threads
 static pthread_t senderPID;               // thread id for the sender thread
 static pthread_t controlPID;              // thread id for the control thread
-static pthread_t mainPID;                 // thread id for the main process, ie. the daddy of all threads.
 
 /* really worstcase implementation of clamp =) */
 static int clamp(int v, int min, int max){
@@ -418,9 +417,6 @@ int main (int argc, char **argv)
 
   send_proc_t sender;
 
-  globalDropcount=0;
-  memDropcount=0;
-
   fprintf(stderr, "Measurement Point " VERSION " (caputils-" CAPUTILS_VERSION ")\n");
   fprintf(stderr, "----------------------------------------\n");
 
@@ -435,13 +431,13 @@ int main (int argc, char **argv)
   memset(&MA, 0, sizeof(struct MAinfo));
   MA.MPcomment = strdup("MP " VERSION);
 
-  // Configure rules.
+  // Initialize globals
   ENCRYPT=0;
   recvPkts=0;
   matchPkts=0;
-
-  // Joint signaling to threads to terminate nicely.
-  terminateThreads=0;
+  globalDropcount=0;
+  memDropcount=0;
+  terminateThreads=0; // Joint signaling to threads to terminate nicely.
 
   /* activating signal*/
   signal(SIGINT, cleanup);
@@ -453,9 +449,6 @@ int main (int argc, char **argv)
   sigprocmask(SIG_SETMASK, &empty, &sigmask);
 
   init_capture();
-
-  /*Get my PID*/
-  mainPID=pthread_self(); // This is the PID for the main thread.
 
   /* parse_config prints errors, never fatal */
   parse_config("mp.conf", &argc, &argv, long_options);

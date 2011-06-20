@@ -74,7 +74,7 @@ void send_packet(struct consumer* con){
   con->shead->nopkts = htons(con->sendcount); //maSendsize;
 
   /*con->shead->losscounter=htons((globalDropcount+memDropcount)-dropCount[whead->consumer]); */
-  con->dropCount = globalDropcount+memDropcount;
+  con->dropCount = globalDropcount + memDropcount;
 
   {
     const u_char* data = con->sendptrref;
