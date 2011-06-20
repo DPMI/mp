@@ -63,8 +63,8 @@ static void mp_filter(struct MPFilter* event){
   marc_filter_unpack(&event->filter, &rule->filter);
 
   /* Make sure that the User doesnt request more information than we can give. */
-  if ( rule->filter.CAPLEN > PKT_CAPSIZE ){
-    rule->filter.CAPLEN = PKT_CAPSIZE;
+  if ( rule->filter.caplen > PKT_CAPSIZE ){
+    rule->filter.caplen = PKT_CAPSIZE;
   }
 
   logmsg(stdout, "Updating filter {%d}\n", rule->filter.filter_id);

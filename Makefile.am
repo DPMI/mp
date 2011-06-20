@@ -4,7 +4,7 @@ bin_PROGRAMS = mp
 
 noinst_LIBRARIES = libcapture.a
 
-libcapture_a_CFLAGS = -Wall ${CAP_UTILS_CFLAGS} ${PTHREAD_CFLAGS}
+libcapture_a_CFLAGS = -Wall ${CAP_UTILS_CFLAGS} ${PTHREAD_CFLAGS}  ${DAG_CFLAGS}
 libcapture_a_SOURCES = capture.c capture.h
 
 if HAVE_PCAP

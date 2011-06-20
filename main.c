@@ -45,6 +45,7 @@
 #include <getopt.h>
 #include <assert.h>
 #include <caputils/caputils.h>
+#include <caputils/filter.h>
 #include <libmarc/filter.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
@@ -264,6 +265,8 @@ static int parse_argv(int argc, char** argv){
 #ifdef HAVE_DRIVER_DAG_LEGACY
       printf("  * Endace DAG (legacy API)\n");
 #endif
+      printf("\n");
+      filter_from_argv_usage();
       exit(0);
       break;
 

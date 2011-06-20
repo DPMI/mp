@@ -44,15 +44,6 @@
 //#define IP 2
 //#define OTHER 1
 
-struct Haystack {
-  const char* CI;
-  const char* pkt;
-  const struct ethhdr* ether;
-  const struct ether_vlan_header* vlan;
-  struct ip* ip_hdr;
-};
-
-static int matchEth(const unsigned char d[], const unsigned char m[], const unsigned char n[]);
 static void stop_consumer(struct consumer* con);
 
 static char hex_string[IFHWADDRLEN * 3] = "00:00:00:00:00:00";
@@ -66,185 +57,28 @@ static unsigned char* hexdump_address (const unsigned char address[IFHWADDRLEN])
   return (unsigned char*)hex_string;
 }
 
-/**
- * Try to match filter against haystack.
- * @return 1 if match, 0 if not.
- */
-int filter_match(const struct Filter* filter, const struct Haystack* haystack) {
-  const struct ethhdr* ether = haystack->ether;
-  const struct ether_vlan_header* vlan = haystack->vlan;
-  struct ip* ip_hdr = haystack->ip_hdr;
-  struct tcphdr* tcp = NULL;
-  struct udphdr* udp = NULL;
-  const size_t vlan_offset = haystack->vlan ? 4 : 0;
-
-  if ( ip_hdr ){
-    if ( ip_hdr->ip_p == IPPROTO_UDP ){
-      udp = (struct udphdr*)(haystack->pkt+sizeof(struct ethhdr) + vlan_offset + 4*(ip_hdr->ip_hl));
-    }
-    
-    if ( ip_hdr->ip_p == IPPROTO_TCP ){
-      tcp = (struct tcphdr*)(haystack->pkt+sizeof(struct ethhdr) + vlan_offset + 4*(ip_hdr->ip_hl));
-    }
-  }
-
-  /* Capture Interface */
-  if ( filter->index & FILTER_CI ){
-    if( strstr(haystack->CI, filter->CI_ID) == NULL ){ 
-      return 0;
-    }
-  }
-
-  /*  VLAN TCI (Tag Control Information) */
-  if ( filter->index & FILTER_VLAN ){
-    if( !haystack->vlan ){
-      return 0;
-    }
-
-    const uint16_t tci = ntohs(haystack->vlan->vlan_tci) & filter->VLAN_TCI_MASK;
-    if ( filter->VLAN_TCI != tci ){
-      return 0;
-    }
-  }
-
-  /* Ethernet type */
-  if ( filter->index & FILTER_ETH_TYPE ){
-    uint8_t h_proto;
-
-    /* If No vlan is present the h_proto is at its normal place. */
-    if ( haystack->vlan == NULL ) {
-      h_proto = ntohs(ether->h_proto) & filter->ETH_TYPE_MASK;
-    } else {
-      h_proto = ntohs(vlan->h_proto) & filter->ETH_TYPE_MASK;
-    }
-
-    if( filter->ETH_TYPE != h_proto ){
-      return 0;
-    }
-  }
-
-  /* Ethernet Source */
-  if ( filter->index & FILTER_ETH_SRC ) {
-    /** @todo shouldn't VLAN_PRESENT be considered */
-    if ( matchEth(filter->ETH_SRC.ether_addr_octet, filter->ETH_SRC_MASK.ether_addr_octet, ether->h_source) == 0 ){
-      return 0;
-    }
-  }
-
-  /* Ethernet Destination */
-  if( filter->index & FILTER_ETH_DST ) {
-    /** @todo shouldn't VLAN_PRESENT be considered */
-    if ( matchEth(filter->ETH_DST.ether_addr_octet, filter->ETH_DST_MASK.ether_addr_octet, ether->h_dest) == 0 ){
-      return 0;
-    }
-  }
-
-  /* IP Protocol */
-  if ( filter->index & FILTER_IP_PROTO ) {
-    /* not an IP-packet */
-    if ( ip_hdr==0 ){
-      return 0;
-    }
-
-    if ( filter->IP_PROTO != ip_hdr->ip_p ){ 
-      return 0;
-    }
-  }
-
-  /* IP source address */
-  if ( filter->index & FILTER_IP_SRC ){
-    if ( ip_hdr==0 ){
-      return 0;
-    }
-
-    const in_addr_t src = ip_hdr->ip_src.s_addr & inet_addr((const char*)filter->IP_SRC_MASK);
-
-    if ( inet_addr((const char*)filter->IP_SRC) != src ){
-      return 0;
-    }
-  }
-
-  /* IP destination address */
-  if ( filter->index & FILTER_IP_DST ){
-    if ( ip_hdr==0 ){
-      return 0;
-    }
-
-    const in_addr_t dst = ip_hdr->ip_dst.s_addr & inet_addr((const char*)filter->IP_DST_MASK);
-
-    if ( inet_addr((const char*)filter->IP_DST) != dst ){
-      return 0;
-    }
-  }
-
-  /* Transport source port */
-  if ( filter->index & FILTER_SRC_PORT ){
-    if ( ip_hdr==0 ){
-      return 0;
-    }
-
-    uint16_t port;
-    if ( udp != 0 ){ /* UDP */
-      port = ntohs(udp->source) & filter->SRC_PORT_MASK;
-    } else if ( tcp != 0 ){ /* TCP */
-      port = ntohs(tcp->source) & filter->SRC_PORT_MASK;
-    } else {
-      return 0; /* unhandled transport protocol */
-    }
-
-    if ( filter->SRC_PORT != port ){
-      return 0;
-    }
-  }
-
-  /* Transport destionation port */
-  if ( filter->index & FILTER_DST_PORT ){
-    if ( ip_hdr==0 ){
-      return 0;
-    }
-
-    uint16_t port;
-    if ( udp != 0 ){ /* UDP */
-      port = ntohs(udp->dest) & filter->DST_PORT_MASK;
-    } else if ( tcp != 0 ){ /* TCP */
-      port = ntohs(tcp->dest) & filter->DST_PORT_MASK;
-    } else {
-      return 0; /* unhandled transport protocol */
-    }
-
-    if ( filter->DST_PORT != port ){
-      return 0;
-    }
-  }
-
-  return 1;
-}
-
 int filter(const char* CI, const void *pkt, struct cap_header *head){
   if ( noRules==0 ) {
     return -1;
   }
 
-  struct Haystack haystack;
-  haystack.CI = CI;
-  haystack.pkt = pkt;
-  haystack.ether = (struct ethhdr*)pkt;
-  haystack.vlan = NULL;
-  haystack.ip_hdr = NULL;
+  const struct ethhdr* ether = (struct ethhdr*)pkt;
+  const struct ether_vlan_header* vlan = NULL;
+  struct ip* ip_hdr = NULL;
 
   /* setup vlan header */
-  if(ntohs(haystack.ether->h_proto)==0x8100){
-    haystack.vlan = (struct ether_vlan_header*)(pkt);
+  if(ntohs(ether->h_proto)==0x8100){
+    vlan = (struct ether_vlan_header*)(pkt);
   }
 
   /* setup IP header */
-  if ( haystack.vlan == NULL ) {
-    if(ntohs(haystack.ether->h_proto) == ETHERTYPE_IP){
-      haystack.ip_hdr=(struct ip*)(pkt+sizeof(struct ethhdr));
+  if ( vlan == NULL ) {
+    if(ntohs(ether->h_proto) == ETHERTYPE_IP){
+      ip_hdr=(struct ip*)(pkt+sizeof(struct ethhdr));
     }
   } else {
-    if(ntohs(haystack.vlan->h_proto) == ETHERTYPE_IP){
-      haystack.ip_hdr=(struct ip*)(pkt+sizeof(struct ether_vlan_header));
+    if(ntohs(vlan->h_proto) == ETHERTYPE_IP){
+      ip_hdr=(struct ip*)(pkt+sizeof(struct ether_vlan_header));
     }
   }
 
@@ -252,12 +86,12 @@ int filter(const char* CI, const void *pkt, struct cap_header *head){
 
   struct FPI* rule = myRules;
   while ( rule ){
-    const struct Filter* filter = &rule->filter;
+    const struct filter* filter = &rule->filter;
 
-    if ( filter_match(filter, &haystack) == 1 ){
+    if ( filter_match(filter, pkt, head) == 1 ){
       /* packet matches */
       destination = filter->consumer;
-      head->caplen = filter->CAPLEN;
+      head->caplen = filter->caplen;
       break;
     }
 
@@ -265,25 +99,13 @@ int filter(const char* CI, const void *pkt, struct cap_header *head){
     rule = rule->next;
   }
 
-  if( haystack.ip_hdr !=0 && ENCRYPT>0){ // It is atleast a IP header.
-    unsigned char *ptr=(unsigned char *)(haystack.ip_hdr);
+  if( ip_hdr !=0 && ENCRYPT>0){ // It is atleast a IP header.
+    unsigned char *ptr=(unsigned char *)(ip_hdr);
     ptr[15]=ptr[15] << ENCRYPT | ( ptr[15] >> (8-ENCRYPT)); // Encrypt Sender
     ptr[19]=ptr[19] << ENCRYPT | ( ptr[19] >> (8-ENCRYPT)); // Encrypt Destination
   }
 
   return destination;  
-}
-
-static int matchEth(const unsigned char desired[6], const unsigned char mask[6], const unsigned char net[6]){
-  int i;
-  for(i=0;i<6;i++){
-    if((net[i]&mask[i])!=desired[i]){
-       break;
-    }
-  }
-  if(i==6)
-    return(1);
-  return(0);
 }
 
 /**
@@ -314,20 +136,20 @@ int setFilter(struct FPI *newRule){
 
   struct consumer* con = &MAsd[index];
   con->dropCount = globalDropcount + memDropcount;
-  con->want_sendhead = newRule->filter.TYPE != 0; /* capfiles shouldn't contain sendheader */
+  con->want_sendhead = newRule->filter.type != 0; /* capfiles shouldn't contain sendheader */
 
   /* mark consumer as used */
   con->status = 1;
 
-  const unsigned char* address = newRule->filter.DESTADDR;
-  if ( newRule->filter.TYPE == 1 ){
+  const unsigned char* address = newRule->filter.destaddr;
+  if ( newRule->filter.type == 1 ){
     /* address is not passed as "01:00:00:00:00:00", but as actual memory with
      * bytes 01 00 00 ... createstream expects a string. */
     address = hexdump_address(address);
   }
 
   /** @todo hardcoded stream comment */
-  if ( (ret=createstream(&con->stream, address, newRule->filter.TYPE, MA.iface, mampid_get(MA.MAMPid), MA.MPcomment)) != 0 ){
+  if ( (ret=createstream(&con->stream, address, newRule->filter.type, MA.iface, mampid_get(MA.MAMPid), MA.MPcomment)) != 0 ){
     fprintf(stderr, "createstream() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
     exit(1);
   }
@@ -335,12 +157,12 @@ int setFilter(struct FPI *newRule){
   struct ethhdr *ethhead; // pointer to ethernet header
   ethhead = (struct ethhdr*)sendmem[index];
 
-  switch(newRule->filter.TYPE==1){
+  switch(newRule->filter.type==1){
   case 3:
   case 2:
     break;
   case 1:
-    memcpy(ethhead->h_dest, newRule->filter.DESTADDR, ETH_ALEN);
+    memcpy(ethhead->h_dest, newRule->filter.destaddr, ETH_ALEN);
     break;
   case 0:
     break;
@@ -380,7 +202,7 @@ int setFilter(struct FPI *newRule){
     }
     
     /* Update existing filter */
-    memcpy(&cur->filter, &newRule->filter, sizeof(struct Filter));
+    memcpy(&cur->filter, &newRule->filter, sizeof(struct filter));
     return 1;
   }
 
