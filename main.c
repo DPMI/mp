@@ -89,6 +89,17 @@ static pthread_t child[CI_NIC];           // array of capture threads
 static pthread_t senderPID;               // thread id for the sender thread
 static pthread_t controlPID;              // thread id for the control thread
 
+/* Globals */
+int volatile terminateThreads = 0;		     //used for signaling thread to terminate
+int recvPkts = 0;
+int matchPkts = 0;
+int sentPkts = 0;
+int writtenPkts = 0; // counters for captured ans sent packets
+int noCI = 0;
+int ENCRYPT = 0;
+int globalDropcount = 0;
+int memDropcount = 0;
+
 /* really worstcase implementation of clamp =) */
 static int clamp(int v, int min, int max){
   if ( v < min ){
@@ -430,14 +441,6 @@ int main (int argc, char **argv)
   /* Initialize MAinfo */
   memset(&MA, 0, sizeof(struct MAinfo));
   MA.MPcomment = strdup("MP " VERSION);
-
-  // Initialize globals
-  ENCRYPT=0;
-  recvPkts=0;
-  matchPkts=0;
-  globalDropcount=0;
-  memDropcount=0;
-  terminateThreads=0; // Joint signaling to threads to terminate nicely.
 
   /* activating signal*/
   signal(SIGINT, cleanup);

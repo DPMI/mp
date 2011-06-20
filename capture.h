@@ -64,11 +64,16 @@ void consumer_init_all();
 /* // Global variables. */
 int maSendsize;                     // number of packets to include in capture payload.
 struct consumer MAsd[CONSUMERS];
-int volatile terminateThreads;               //used for signaling thread to terminate
-int recvPkts;
-int matchPkts;
-int sentPkts;
-int writtenPkts; // counters for captured ans sent packets
+
+extern int volatile terminateThreads;               //used for signaling thread to terminate
+extern int recvPkts;
+extern int matchPkts;
+extern int sentPkts;
+extern int writtenPkts; // counters for captured ans sent packets
+extern int noCI;                           // Number of Capture Interfaces
+extern int ENCRYPT;                        // If set to >0 then it will encrypt IP addresses...?
+extern int globalDropcount;               // Total amount of PDUs that were dropped by Interface.
+extern int memDropcount;                  // Total amount of PDUs that were dropped between CI and Sender.
 
 extern struct MAinfo {
   char* iface;
@@ -77,12 +82,6 @@ extern struct MAinfo {
   int MTU;
   struct ether_addr hwaddr;
 } MA;
-
-int noCI;                           // Number of Capture Interfaces
-int ENCRYPT;                        // If set to >0 then it will encrypt IP addresses...?
-
-int globalDropcount;               // Total amount of PDUs that were dropped by Interface.
-int memDropcount;                  // Total amount of PDUs that were dropped between CI and Sender.
 
 struct write_header //Used for marking a packet as read or written in the shared memory
 {
