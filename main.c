@@ -445,8 +445,8 @@ int main (int argc, char **argv)
   }
 
   /* Initialize MP{info,stats} */
-  memset(&MPinfo,  0, sizeof(struct MPinfo));
-  memset(&MPstats, 0, sizeof(struct MPstats));
+  memset(&MPinfoI,  0, sizeof(struct MPinfo));
+  memset(&MPstatsI, 0, sizeof(struct MPstats));
   ((struct MPinfo*)&MPinfo)->comment = strdup("MP " VERSION);
 
   /* activating signal*/
