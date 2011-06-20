@@ -58,6 +58,7 @@ struct consumer {
 };
 
 void consumer_init(struct consumer* con, unsigned char* buffer);
+void consumer_init_all();
 
 /* // Global variables. */
 int maSendsize;                     // number of packets to include in capture payload.

@@ -139,3 +139,34 @@ int capture_loop(struct CI* CI, struct capture_context* cap){
 
   return 0;
 }
+
+void consumer_init(struct consumer* con, unsigned char* buffer){
+  con->stream = NULL;
+  con->status = 0;
+  
+  con->dropCount=0;
+
+  con->ethhead=(struct ethhdr*)buffer; // pointer to ethernet header.
+  con->ethhead->h_proto=htons(MYPROTO);    // Set the protocol field of the ethernet header.
+  
+  //memcpy(con->ethhead->h_dest, dest_mac, ETH_ALEN);
+  //memcpy(con->ethhead->h_source, my_mac, ETH_ALEN);
+  
+  con->shead=(struct sendhead*)(buffer+sizeof(struct ethhdr)); // Set pointer to the sendhead, i.e. mp transmission protocol 
+  con->shead->sequencenr=htons(0x0000);    // Initialize the sequencenr to zero.
+  con->shead->nopkts=htons(0);                    // Initialize the number of packet to zero
+  con->shead->flush=htons(0);                     // Initialize the flush indicator.
+  con->shead->version.major=htons(CAPUTILS_VERSION_MAJOR); // Specify the file format used, major number
+  con->shead->version.minor=htons(CAPUTILS_VERSION_MINOR); // Specify the file format used, minor number
+  /*shead[i]->losscounter=htons(0); */
+
+  con->sendpointer=buffer+sizeof(struct ethhdr)+sizeof(struct sendhead);            // Set sendpointer to first place in sendmem where the packets will be stored.
+  con->sendptrref=con->sendpointer;          // Grab a copy of the pointer, simplifies treatment when we sent the packets.
+  con->sendcount=0;                        // Initialize the number of pkt stored in the packet, used to determine when to send the packet.
+}
+
+void consumer_init_all(){
+  for( int i=0; i<CONSUMERS; i++) {
+    consumer_init(&MAsd[i], sendmem[i]);
+  }
+}
