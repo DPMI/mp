@@ -476,14 +476,14 @@ int main (int argc, char **argv)
     verbose = fopen("/dev/null", "w");
   }
 
+  show_configuration();
+  consumer_init_all();
+
   if ( !MPinfo->iface ){
     logmsg(stderr, "No MA interface specifed!\n");
     logmsg(stderr, "See --help for usage.\n");
     exit(1);
   }
-
-  show_configuration();
-  consumer_init_all();
 
   /* initialize sender */
   if ( (ret=setup_sender(&sender, &semaphore)) != 0 ){
