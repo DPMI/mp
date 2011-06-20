@@ -56,7 +56,7 @@ static int push_packet(struct CI* CI, write_head* whead, cap_head* head, const u
   pthread_mutex_lock( &mutex2 );
   {
     strncpy(head->nic, CI->iface, 4);
-    mampid_set(head->mampid, MA.MAMPid);
+    mampid_set(head->mampid, MPinfo->id);
     whead->free++; //marks the post that it has been written
     whead->consumer = recipient;
   }
@@ -97,7 +97,7 @@ static int fill_caphead(cap_head* head, const char* iface, const char* MAMPid){
 
 static void wait_for_auth(){
   while ( terminateThreads == 0 ){
-    if ( MA.MAMPid ){
+    if ( MPinfo->id ){
       return;
     }
     sleep(1); /** @todo should use a pthread cond. variable */
@@ -117,7 +117,7 @@ int capture_loop(struct CI* CI, struct capture_context* cap){
     unsigned char* packet_buffer = raw_buffer + sizeof(write_head) + sizeof(cap_head);
 
     /* fill details into capture header */
-    fill_caphead(head, CI->iface, MA.MAMPid);
+    fill_caphead(head, CI->iface, MPinfo->id);
 
     /* read a packet */
     ssize_t bytes = cap->read_packet(cap, packet_buffer, head);
@@ -129,7 +129,7 @@ int capture_loop(struct CI* CI, struct capture_context* cap){
     }
 
     /* stats */
-    recvPkts++;
+    MPstats->packet_count++;
     CI->packet_count++;
 
     /* return -1 when no filter matches */
@@ -137,7 +137,8 @@ int capture_loop(struct CI* CI, struct capture_context* cap){
       continue;
     }
 
-    matchPkts++;
+    /* stats */
+    MPstats->matched_count++;
     CI->matched_count++;
   }
 

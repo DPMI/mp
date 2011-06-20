@@ -151,7 +151,7 @@ int mprules_add(const struct filter* filter){
   }
 
   /* Open libcap stream */
-  if ( (ret=createstream(&con->stream, address, rule->filter.type, MA.iface, mampid_get(MA.MAMPid), MA.MPcomment)) != 0 ){
+  if ( (ret=createstream(&con->stream, address, rule->filter.type, MPinfo->iface, mampid_get(MPinfo->id), MPinfo->comment)) != 0 ){
     fprintf(stderr, "createstream() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
     exit(1);
   }
@@ -297,7 +297,7 @@ void printFilters(void){
   
   const struct rule* pointer = rules;
   while( pointer != 0 ){
-    marc_filter_print(stdout, &pointer->filter, 0);
+    filter_print(&pointer->filter, stdout, 0);
     pointer = pointer->next;
   }
 }

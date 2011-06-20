@@ -65,7 +65,10 @@ struct packet_stat{              // struct for interface statistics
   u_int	pkg_drop;
 };
 
-struct MAinfo MA;
+static struct MPinfo MPinfoI;
+static struct MPstats MPstatsI;
+const struct MPinfo* MPinfo = &MPinfoI;
+struct MPstats* MPstats = &MPstatsI;
 
 static void cleanup(int sig); // Runs when program terminates
 static int packet_stats(int sd, struct packet_stat *stat); // function for collecting statistics
@@ -113,8 +116,13 @@ static void ma_nic(const char* arg) {
   struct ifreq ifr;
   local = 0;
 
-  MA.iface = strdup(arg);
-  strncpy(ifr.ifr_name, MA.iface, IFNAMSIZ);
+  if ( MPinfoI.iface ) {
+    logmsg(stderr, "Warning: overriding previous MAnic %s with %s.\n", MPinfo->iface, optarg);
+    free(MPinfoI.iface);
+  }
+
+  MPinfoI.iface = strdup(arg);
+  strncpy(ifr.ifr_name, MPinfo->iface, IFNAMSIZ);
 
   int s = socket(AF_PACKET, SOCK_RAW, htons(MYPROTO));
   if ( s == -1 ){
@@ -135,7 +143,7 @@ static void ma_nic(const char* arg) {
       exit(1);
     }
 
-    memcpy(MA.hwaddr.ether_addr_octet, ifr.ifr_hwaddr.sa_data, ETH_ALEN);
+    memcpy(MPinfoI.hwaddr.ether_addr_octet, ifr.ifr_hwaddr.sa_data, ETH_ALEN);
   }
   
   /* Get my MTU */
@@ -143,10 +151,10 @@ static void ma_nic(const char* arg) {
     perror("SIOCGIFMTU");
     exit(1);
   }
-  MA.MTU = ifr.ifr_mtu; // Store the MA network MTU. 
+  MPinfoI.MTU = ifr.ifr_mtu; // Store the MA network MTU. 
 
   /* This variable should be dropped -- 2011-06-17 */
-  const int sendsize = (MA.MTU - sizeof(struct sendhead))/(sizeof(cap_head)+PKT_CAPSIZE);
+  const int sendsize = (MPinfoI.MTU - sizeof(struct sendhead))/(sizeof(cap_head)+PKT_CAPSIZE);
   maSendsize = clamp(sendsize, minSENDSIZE, maxSENDSIZE);
 
   close(s);
@@ -183,7 +191,7 @@ static void show_configuration(){
   }
 
   logmsg(verbose, "  MA Interface\n");
-  logmsg(verbose, "    MAnic: %s   MTU: %d   hwaddr: %s\n", MA.iface, MA.MTU, ether_ntoa(&MA.hwaddr));
+  logmsg(verbose, "    MAnic: %s   MTU: %d   hwaddr: %s\n", MPinfo->iface, MPinfo->MTU, ether_ntoa(&MPinfo->hwaddr));
   logmsg(verbose, "\n");
 }
 
@@ -225,10 +233,6 @@ static int parse_argv(int argc, char** argv){
       break;
       
     case 's':  // MA Network Interface name
-      if ( MA.iface ) {
-	logmsg(stderr, "Warning: overriding previous MAnic %s with %s.\n", MA.iface, optarg);
-	free(MA.iface);
-      }
       ma_nic(optarg);
       break;
 
@@ -436,9 +440,10 @@ int main (int argc, char **argv)
     exit(1);
   }
 
-  /* Initialize MAinfo */
-  memset(&MA, 0, sizeof(struct MAinfo));
-  MA.MPcomment = strdup("MP " VERSION);
+  /* Initialize MP{info,stats} */
+  memset(&MPinfo,  0, sizeof(struct MPinfo));
+  memset(&MPstats, 0, sizeof(struct MPstats));
+  ((struct MPinfo*)&MPinfo)->comment = strdup("MP " VERSION);
 
   /* activating signal*/
   signal(SIGINT, cleanup);
@@ -467,7 +472,7 @@ int main (int argc, char **argv)
     verbose = fopen("/dev/null", "w");
   }
 
-  if ( !MA.iface ){
+  if ( !MPinfo->iface ){
     logmsg(stderr, "No MA interface specifed!\n");
     logmsg(stderr, "See --help for usage.\n");
     exit(1);
@@ -540,8 +545,8 @@ int main (int argc, char **argv)
 
   mprules_clear();
 
-  free(MA.iface);
-  free(MA.MPcomment);
+  free(MPinfoI.iface);
+  free(MPinfoI.comment);
 
   return 0;
 } // Main end

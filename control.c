@@ -46,15 +46,15 @@ static marc_context_t client = NULL;
 
 static void mp_auth(struct MPauth* event){
   if( strlen(event->MAMPid) > 0 ){
-    mampid_set(MA.MAMPid, event->MAMPid);
-    logmsg(stdout, "MP has been authorized as \"%s\".\n", MA.MAMPid);
+    mampid_set((char*)MPinfo->id, event->MAMPid);
+    logmsg(stdout, "MP has been authorized as \"%s\".\n", MPinfo->id);
   } else {
     logmsg(stdout, "This is a unauthorized MP.\n");
   }
 }
 
 static void mp_filter(struct MPFilter* event){
-  if( strcmp(event->MAMPid, MA.MAMPid) != 0){
+  if( strcmp(event->MAMPid, MPinfo->id) != 0){
     fprintf(stderr, "This reply was intened for a different MP (%s).\n", event->MAMPid);
     return;
   }
@@ -69,7 +69,7 @@ static void mp_filter(struct MPFilter* event){
   mprules_add(&filter);
 
   if ( verbose_flag ){
-    marc_filter_print(stdout, &filter, 0);
+    filter_print(&filter, stdout, 0);
   }
 }
 
@@ -82,12 +82,12 @@ static void mp_filter_reload(int id){
     struct rule* cur = mprules();
     while ( cur ){
       logmsg(verbose, "Requesting filter {%02d} from MArCd.\n", cur->filter.filter_id);
-      marc_filter_request(client, MA.MAMPid, cur->filter.filter_id);
+      marc_filter_request(client, MPinfo->id, cur->filter.filter_id);
       cur = cur->next;
     }
   } else {
     logmsg(verbose, "Requesting filter {%02d} from MArCd.\n", id);
-    marc_filter_request(client, MA.MAMPid, id);
+    marc_filter_request(client, MPinfo->id, id);
   }
 }
 
@@ -133,7 +133,7 @@ static void hexdump(FILE* fp, const char* data, size_t size){
 }
 
 static int is_authorized(){
-  return MA.MAMPid != NULL;
+  return MPinfo->id != NULL;
 }
 
 void* control(void* prt){
@@ -170,7 +170,7 @@ void* control(void* prt){
     strncpy(info.CI[i].iface, _CI[i].iface, 8);
   }
 
-  if ( (ret=marc_init_client(&client, MA.iface, &info)) != 0 ){
+  if ( (ret=marc_init_client(&client, MPinfo->iface, &info)) != 0 ){
     fprintf(stderr, "marc_init_client() returned %d: %s\n", ret, strerror(ret));
     exit(1);
   }
@@ -287,9 +287,9 @@ static void CIstatus1(){
   struct MPstatus stat;
   memset(&stat, 0, sizeof(struct MPstatus));
   stat.type = MP_STATUS_EVENT;
-  mampid_set(stat.MAMPid, MA.MAMPid);
+  mampid_set(stat.MAMPid, MPinfo->id);
   stat.noFilters = htonl(mprules_count());
-  stat.matched   = htonl(matchPkts);
+  stat.matched   = htonl(MPstats->matched_count);
   stat.noCI      = htonl(noCI);
 
   char* dst = stat.CIstats;
@@ -313,10 +313,10 @@ static void CIstatus2(){
   
   memset(stat, 0, sizeof(MPMessage));
   stat->type = MP_STATUS2_EVENT;
-  mampid_set(stat->MAMPid, MA.MAMPid);
+  mampid_set(stat->MAMPid, MPinfo->id);
 
-  stat->packet_count = htonl(recvPkts);
-  stat->matched_count = htonl(matchPkts);
+  stat->packet_count = htonl(MPstats->packet_count);
+  stat->matched_count = htonl(MPstats->matched_count);
   stat->status = 0;
   stat->noFilters = htonl(mprules_count());
   stat->noCI = htonl(noCI);
@@ -352,7 +352,7 @@ static void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
 	 "\t%d Capture Interfaces.\n"
 	 "\t%d Packets received.\n"
 	 "\t%d Packets matched filters.\n",
-	 mampid_get(MA.MAMPid), mprules_count(), noCI, recvPkts, matchPkts);
+	 mampid_get(MPinfo->id), mprules_count(), noCI, MPstats->packet_count, MPstats->matched_count);
   for( int i=0; i < noCI; i++){
     fprintf(verbose, "\tCI[%d]=%s  PKT[%d]=%ld  MCH[%d]=%ld  BU[%d]=%d\n",
 	   i, _CI[i].iface,
@@ -381,7 +381,7 @@ static void distress(int sig){
   logmsg(stderr, "Catched SIGSEGV, sending distress signal to MArCd before dying.\n");
 
   event.type = MP_CONTROL_DISTRESS;
-  mampid_set(event.MAMPid, MA.MAMPid);
+  mampid_set(event.MAMPid, MPinfo->id);
 
   if ( (ret=marc_push_event(client, (MPMessage*)&event, NULL)) != 0 ){
     logmsg(stderr, "marc_push_event() returned %d: %s\n", ret, strerror(ret));

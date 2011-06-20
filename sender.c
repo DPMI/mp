@@ -102,7 +102,9 @@ void send_packet(struct consumer* con){
     con->shead->sequencenr = htonl(0);
   }
   
-  writtenPkts += con->sendcount;// Update the total number of sent pkts. 
+  MPstats->written_count += con->sendcount;// Update the total number of sent pkts. 
+  MPstats->sent_count++;
+
   con->sendcount = 0;// Clear the number of packets in this sendbuffer
   bzero(con->sendptrref,(maSendsize*(sizeof(cap_head)+PKT_CAPSIZE))); //Clear the memory location, for the packet data. 
   con->sendpointer=con->sendptrref; // Restore the pointer to the first spot where the next packet will be placed.
@@ -122,7 +124,7 @@ static int can_defer_send(struct consumer* con, struct timespec* now, struct tim
 
   const signed long int age = sec + msec;
   const size_t payload_size = con->sendpointer - con->sendptrref;
-  const size_t mtu_size = MA.MTU -2*(sizeof(cap_head)+nextPDUlen); // This row accounts for the fact that the consumer buffers only need extra space for one PDU of of the capture size for that particular filter. 
+  const size_t mtu_size = MPinfo->MTU -2*(sizeof(cap_head)+nextPDUlen); // This row accounts for the fact that the consumer buffers only need extra space for one PDU of of the capture size for that particular filter. 
 
 
   const int larger_mtu = payload_size >= mtu_size;
@@ -211,7 +213,7 @@ void* sender_capfile(void* ptr){
   consumer_init(&con, 0, sendmem[0]); /* in local mode only 1 stream is created, so it is safe to "steal" memory from consumer 0 */
   con.want_sendhead = 0;
 
-  if ( (ret=createstream(&con.stream, proc->filename, PROTOCOL_LOCAL_FILE, NULL, mampid_get(MA.MAMPid), MA.MPcomment)) != 0 ){
+  if ( (ret=createstream(&con.stream, proc->filename, PROTOCOL_LOCAL_FILE, NULL, mampid_get(MPinfo->id), MPinfo->comment)) != 0 ){
     logmsg(stderr, "  createstream() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
     return NULL;
   }
@@ -228,7 +230,6 @@ void* sender_capfile(void* ptr){
 
     copy_to_sendbuffer(&con, raw_buffer, &readPos[oldest], &_CI[oldest]);    
     send_packet(&con);
-    sentPkts++;
   }
 
   logmsg(stderr, "Sender finished (local).\n");
@@ -241,9 +242,6 @@ void* sender_caputils(void *ptr){
 
     int readPos[CI_NIC] = {0,};        // array of memory positions
     int nextPDUlen=0;                  // The length of PDUs stored in the selected consumer.
-
-    sentPkts = 0;                      // Total number of mp_packets that I've passed into a sendbuffer. 
-    writtenPkts = 0;                   // Total number of mp_packets that I've acctually sent to the network. Ie. sentPkts-writtenPkts => number of packets present in the send buffers. 
 
     /* Timestamp when the sender last sent a packet.  */
     struct timespec last_sent;
@@ -277,7 +275,6 @@ void* sender_caputils(void *ptr){
 
       /* send packet */
       send_packet(con);
-      sentPkts++;
 
       /* store timestamp (used to determine if sender must be flushed or not, due to old packages) */
       last_sent = now;
@@ -321,8 +318,9 @@ static void flushBuffer(int i){
     con->shead->sequencenr=htonl(0);
   }
 
-  writtenPkts += con->sendcount;// Update the total number of sent pkts. 
+  MPstats->written_count += con->sendcount;// Update the total number of sent pkts. 
   con->sendcount=0;// Clear the number of packets in this sendbuffer[i]
+  MPstats->sent_count++;
 
   //printf("ST: Send %d bytes. Total %d packets.\n",written, writtenPkts);
   bzero(con->sendptrref,(maSendsize*(sizeof(cap_head)+PKT_CAPSIZE))); //Clear the memory location, for the packet data. 

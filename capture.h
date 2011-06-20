@@ -50,13 +50,20 @@ struct consumer {
   struct ethhdr* ethhead;            // pointer to ethernet header
 };
 
-extern struct MAinfo {
+extern const struct MPinfo {
   char* iface;
-  mampid_t MAMPid; /* MP id */
-  char* MPcomment;   /* MP comment */
-  int MTU;
+  char* comment;   /* MP comment */
+  mampid_t id; /* MAMPid */
+  size_t MTU;
   struct ether_addr hwaddr;
-} MA;
+} *MPinfo;
+
+extern struct MPstats {
+  long packet_count;   /* number of received packages */
+  long matched_count;  /* number of packages with matched a filter */
+  long sent_count;     /* number of capture packages sent (contains many packages) */
+  long written_count;  /* number of actual packages sent */
+} *MPstats;
 
 enum CIDriver {
   DRIVER_UNKNOWN,
@@ -98,10 +105,6 @@ int maSendsize;                     // number of packets to include in capture p
 struct consumer MAsd[CONSUMERS];
 
 extern int volatile terminateThreads;               //used for signaling thread to terminate
-extern int recvPkts;
-extern int matchPkts;
-extern int sentPkts;
-extern int writtenPkts; // counters for captured ans sent packets
 extern int noCI;                           // Number of Capture Interfaces
 extern int ENCRYPT;                        // If set to >0 then it will encrypt IP addresses...?
 extern int globalDropcount;               // Total amount of PDUs that were dropped by Interface.
