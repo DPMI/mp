@@ -67,18 +67,18 @@ struct packet_stat{              // struct for interface statistics
 
 static struct MPinfo MPinfoI;
 static struct MPstats MPstatsI;
-const struct MPinfo* MPinfo = &MPinfoI;
-struct MPstats* MPstats = &MPstatsI;
+const struct MPinfo* MPinfo = NULL;
+struct MPstats* MPstats = NULL;
 
 static void cleanup(int sig); // Runs when program terminates
 static int packet_stats(int sd, struct packet_stat *stat); // function for collecting statistics
+int local_mode(sigset_t* sigmask, sem_t* semaphore, const struct filter* filter, const char* filename);
+int ma_mode(sigset_t* sigmask, sem_t* semaphore);
 
 static void info(int sd);// function for presentating statistics
 
 static short int iflag=0;  // number of capture interfaces
 static short int tdflag=0; // Number of T_delta definitions.
-
-static sem_t semaphore;
 
 static int local = 0;       /* run in local-mode, don't try to contact MArCd */
 static int port = 0;
@@ -86,16 +86,11 @@ static const char* capfile = NULL;
 static struct CI CI[CI_NIC];
 struct CI* _CI = CI;
 
-static pthread_t child[CI_NIC];           // array of capture threads
-static pthread_t senderPID;               // thread id for the sender thread
-static pthread_t controlPID;              // thread id for the control thread
+static sem_t semaphore;
+pthread_t controlPID;              // thread id for the control thread
 
 /* Globals */
 int volatile terminateThreads = 0;		     //used for signaling thread to terminate
-int recvPkts = 0;
-int matchPkts = 0;
-int sentPkts = 0;
-int writtenPkts = 0; // counters for captured ans sent packets
 int noCI = 0;
 int ENCRYPT = 0;
 int globalDropcount = 0;
@@ -224,7 +219,7 @@ static void show_configuration(){
   }
 
   logmsg(verbose, "  MA Interface\n");
-  logmsg(verbose, "    MAnic: %s   MTU: %d   hwaddr: %s\n", MPinfo->iface, MPinfo->MTU, ether_ntoa(&MPinfo->hwaddr));
+  logmsg(verbose, "    MAnic: %s   MTU: %zd   hwaddr: %s\n", MPinfo->iface, MPinfo->MTU, ether_ntoa(&MPinfo->hwaddr));
   logmsg(verbose, "\n");
 }
 
@@ -294,18 +289,6 @@ static int parse_argv(int argc, char** argv){
   return 0;
 }
 
-static int setup_sender(send_proc_t* proc, sem_t* sem){
-  proc->nics = iflag;
-  proc->semaphore = sem;
-  
-  if ( local ){
-    proc->filename = capfile;
-    return pthread_create(&senderPID, NULL, sender_capfile, proc);
-  } else {
-    return pthread_create(&senderPID, NULL, sender_caputils, proc);
-  }
-}
-
 static int init_capture(){
   for (int i=0; i < CI_NIC; i++) {
     CI[i].id = i;
@@ -324,7 +307,7 @@ static int init_capture(){
 }
 
 // Create childprocess for each Nic
-static int setup_capture(){
+int setup_capture(){
   int ret = 0;
   void* (*func)(void*) = NULL;
   logmsg(verbose, "Creating capture_threads.\n");
@@ -348,7 +331,7 @@ static int setup_capture(){
 
       func = pcap_capture;
 #else /* HAVE_DRIVER_PCAP */
-	fprintf(stderr, "This MP lacks support for libpcap (rebuild with --with-pcap)\n");
+	logmsg(stderr, "This MP lacks support for libpcap (rebuild with --with-pcap)\n");
 	return EINVAL;
 #endif /* HAVE_DRIVER_PCAP */
 
@@ -358,7 +341,7 @@ static int setup_capture(){
 #ifdef HAVE_DRIVER_RAW
       func = capture;
 #else /* HAVE_DRIVER_RAW */
-	fprintf(stderr, "This MP lacks support for raw packet capture (use libpcap or DAG instead or rebuild with --with-raw)\n");
+	logmsg(stderr, "This MP lacks support for raw packet capture (use libpcap or DAG instead or rebuild with --with-raw)\n");
 	return EINVAL;
 #endif /* HAVE_DRIVER_RAW */
 
@@ -373,13 +356,13 @@ static int setup_capture(){
 	CI[i].sd = dag_open(dev);
 	if ( CI[i].sd < 0) {
 	  int e = errno;
-	  fprintf(stderr, "dag_open() on interface %s returned %d: %s\n", dev, e, strerror(e));
+	  logmsg(stderr, "dag_open() on interface %s returned %d: %s\n", dev, e, strerror(e));
 	  return e;
 	}
 
 	if ( dag_configure(CI[i].sd, "") < 0 ) {
 	  int e = errno;
-	  fprintf(stderr, "dag_configure() on interface %s returned %d: %s\n", dev, e, strerror(e));
+	  logmsg(stderr, "dag_configure() on interface %s returned %d: %s\n", dev, e, strerror(e));
 	  return e;
 	}
       }
@@ -391,7 +374,7 @@ static int setup_capture(){
 #endif
 
 #else /* HAVE_DAG */
-	fprintf(stderr, "This MP lacks support for Endace DAG (rebuild with --with-dag)\n");
+	logmsg(stderr, "This MP lacks support for Endace DAG (rebuild with --with-dag)\n");
 	return EINVAL;
 #endif
       break;
@@ -401,7 +384,7 @@ static int setup_capture(){
       break;
     }
 
-    if ( (ret=pthread_create( &child[i], NULL, func, &CI[i])) != 0 ) {
+    if ( (ret=pthread_create( &CI[i].thread, NULL, func, &CI[i])) != 0 ) {
       fprintf(stderr,"Error creating capture thread.");
       return ret;
     }
@@ -410,30 +393,7 @@ static int setup_capture(){
   return 0;
 }
 
-void join_threads(){
-  logmsg(verbose, "Main thread goes to sleep; waiting for threads to die.\n");
-  logmsg(verbose, "[MAIN] - Waiting for sender thread\n");
-  pthread_join( senderPID, NULL);
-
-  for ( int i = 0; i < noCI; i++ )  {
-    logmsg(verbose, "[MAIN] - Waiting for CI[%d] thread\n", i);
-    pthread_join(child[i], NULL);
-  }
-  
-  if ( controlPID ){
-    logmsg(verbose, "[MAIN] - Waiting for control thread\n");
-    pthread_join(controlPID, NULL);
-  }
-
-  logmsg(stderr, "Main thread awakens, all threads terminated. Stopping\n");
-}
-
-int main (int argc, char **argv)
-{
-  int ret = 0;
-
-  send_proc_t sender;
-
+int main (int argc, char **argv){
   fprintf(stderr, "Measurement Point " VERSION " (caputils-" CAPUTILS_VERSION ")\n");
   fprintf(stderr, "----------------------------------------\n");
 
@@ -447,7 +407,9 @@ int main (int argc, char **argv)
   /* Initialize MP{info,stats} */
   memset(&MPinfoI,  0, sizeof(struct MPinfo));
   memset(&MPstatsI, 0, sizeof(struct MPstats));
-  ((struct MPinfo*)&MPinfo)->comment = strdup("MP " VERSION);
+  MPinfoI.comment = strdup("MP " VERSION);
+  MPinfo = &MPinfoI;
+  MPstats = &MPstatsI;
 
   /* activating signal*/
   signal(SIGINT, cleanup);
@@ -479,42 +441,20 @@ int main (int argc, char **argv)
   show_configuration();
   consumer_init_all();
 
-  if ( !MPinfo->iface ){
-    logmsg(stderr, "No MA interface specifed!\n");
-    logmsg(stderr, "See --help for usage.\n");
-    exit(1);
-  }
-
-  /* initialize sender */
-  if ( (ret=setup_sender(&sender, &semaphore)) != 0 ){
-    logmsg(stderr, "setup_sender() returned %d: %s\n", ret, strerror(ret));
-    return 1;
-  }
-
-  /* initialize capture */
-  if ( (ret=setup_capture()) != 0 ){
-    fprintf(stderr, "setup_capture() returned %d: %s\n", ret, strerror(ret));
-    return 1;
-  }
-  
+  int ret;
   if ( !local ){
-    printf("Waiting 1s befor starting controler thread.\n");
-    sleep(1);
-    
-    /* Initialize MA-controller */
-    if(pthread_create(&controlPID, NULL, control, NULL) ) {
-      fprintf(stderr,"Error creating Control Thread. \n");
-      abort();
-    }
+    ret = ma_mode(&sigmask, &semaphore);
+  } else {
+    ret = local_mode(&sigmask, &semaphore, NULL, capfile);
   }
-  
-  pthread_sigmask(SIG_SETMASK, &sigmask, NULL);
 
-  /* wait until all threads has finished */
-  join_threads();
+  /* only show stats on clean exit */
+  if ( ret != 0 ){
+    return ret;
+  }
 
-  logmsg(stderr,"\n----------TERMINATING---------------\n\n");
-  logmsg(stderr,"Captured %d pkts\nSent %d pkts\n", recvPkts, sentPkts);
+  logmsg(stderr,"----------TERMINATING---------------\n");
+  logmsg(stderr,"Captured %ld pkts   Sent %ld pkts\n", MPstats->packet_count, MPstats->sent_count);
   
 //Print out statistics on screen  
   printf("Socket stats.\n");

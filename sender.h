@@ -1,6 +1,8 @@
 #ifndef _MP_SENDER_H
 #define _MP_SENDER_H
 
+#include <semaphore.h>
+
 struct send_proc {
   int nics;                         /* How many nics/capture processes will be present*/
   sem_t* semaphore;                 /* Semaphore */

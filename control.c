@@ -350,8 +350,8 @@ static void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
   logmsg(stderr, "Status report for %s\n"
 	 "\t%zd Filters present\n"
 	 "\t%d Capture Interfaces.\n"
-	 "\t%d Packets received.\n"
-	 "\t%d Packets matched filters.\n",
+	 "\t%ld Packets received.\n"
+	 "\t%ld Packets matched filters.\n",
 	 mampid_get(MPinfo->id), mprules_count(), noCI, MPstats->packet_count, MPstats->matched_count);
   for( int i=0; i < noCI; i++){
     fprintf(verbose, "\tCI[%d]=%s  PKT[%d]=%ld  MCH[%d]=%ld  BU[%d]=%d\n",

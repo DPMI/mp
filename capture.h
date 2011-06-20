@@ -90,6 +90,7 @@ struct CI {
   int writepos;
   u_char* datamem;
   sem_t* semaphore;
+  pthread_t thread;
 
   /* Statistics */
   long packet_count;

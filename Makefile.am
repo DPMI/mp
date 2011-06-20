@@ -26,6 +26,8 @@ mp_SOURCES = \
 	control.c \
 	filter.c \
 	headers.h \
+	local.c \
 	log.c \
+	ma.c \
 	main.c \
 	sender.c

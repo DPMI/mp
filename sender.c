@@ -211,9 +211,11 @@ void* sender_capfile(void* ptr){
 
   if ( (ret=createstream(&con.stream, proc->filename, PROTOCOL_LOCAL_FILE, NULL, mampid_get(MPinfo->id), MPinfo->comment)) != 0 ){
     logmsg(stderr, "  createstream() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
+    sem_post(proc->semaphore); /* unlock main thread */
     return NULL;
   }
 
+  sem_post(proc->semaphore); /* unlock main thread */
   while( terminateThreads == 0 ){
     int oldest = oldest_packet(proc->nics, readPos, proc->semaphore);
     
@@ -239,12 +241,13 @@ void* sender_caputils(void *ptr){
     int readPos[CI_NIC] = {0,};        // array of memory positions
     int nextPDUlen=0;                  // The length of PDUs stored in the selected consumer.
 
+    logmsg(stderr, "Sender initializing. There are %d captures.\n", nics);
+
     /* Timestamp when the sender last sent a packet.  */
     struct timespec last_sent;
     clock_gettime(CLOCK_REALTIME, &last_sent);
 
-    logmsg(stderr, "Sender initializing. There are %d captures.\n", nics);
-
+    sem_post(proc->semaphore); /* unlock main thread */
     while( terminateThreads == 0 ){
       int oldest = oldest_packet(proc->nics, readPos, proc->semaphore);
       
