@@ -50,23 +50,6 @@ struct consumer {
   struct ethhdr* ethhead;            // pointer to ethernet header
 };
 
-void consumer_init(struct consumer* con, int index, unsigned char* buffer);
-void consumer_init_all();
-
-/* // Global variables. */
-int maSendsize;                     // number of packets to include in capture payload.
-struct consumer MAsd[CONSUMERS];
-
-extern int volatile terminateThreads;               //used for signaling thread to terminate
-extern int recvPkts;
-extern int matchPkts;
-extern int sentPkts;
-extern int writtenPkts; // counters for captured ans sent packets
-extern int noCI;                           // Number of Capture Interfaces
-extern int ENCRYPT;                        // If set to >0 then it will encrypt IP addresses...?
-extern int globalDropcount;               // Total amount of PDUs that were dropped by Interface.
-extern int memDropcount;                  // Total amount of PDUs that were dropped between CI and Sender.
-
 extern struct MAinfo {
   char* iface;
   mampid_t MAMPid; /* MP id */
@@ -75,21 +58,19 @@ extern struct MAinfo {
   struct ether_addr hwaddr;
 } MA;
 
-struct write_header //Used for marking a packet as read or written in the shared memory
-{
-  int free;
-  int consumer;
-};
-typedef struct write_header write_head;
-
-/* typedef struct captureProcess capProcess; */
-
 enum CIDriver {
   DRIVER_UNKNOWN,
   DRIVER_RAW,
   DRIVER_PCAP,
   DRIVER_DAG,
 };
+
+struct write_header //Used for marking a packet as read or written in the shared memory
+{
+  int free;
+  int consumer;
+};
+typedef struct write_header write_head;
 
 #define NICLEN 256
 struct CI {
@@ -108,6 +89,23 @@ struct CI {
   long matched_count;
   int buffer_usage;    /* How many bytes of the buffer is used? */
 };
+
+void consumer_init(struct consumer* con, int index, unsigned char* buffer);
+void consumer_init_all();
+
+/* // Global variables. */
+int maSendsize;                     // number of packets to include in capture payload.
+struct consumer MAsd[CONSUMERS];
+
+extern int volatile terminateThreads;               //used for signaling thread to terminate
+extern int recvPkts;
+extern int matchPkts;
+extern int sentPkts;
+extern int writtenPkts; // counters for captured ans sent packets
+extern int noCI;                           // Number of Capture Interfaces
+extern int ENCRYPT;                        // If set to >0 then it will encrypt IP addresses...?
+extern int globalDropcount;               // Total amount of PDUs that were dropped by Interface.
+extern int memDropcount;                  // Total amount of PDUs that were dropped between CI and Sender.
 
 extern struct CI* _CI; /* DO _*NOT*_ USE! For backwards compability ONLY! */
 

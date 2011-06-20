@@ -78,8 +78,6 @@ static short int tdflag=0; // Number of T_delta definitions.
 static sem_t semaphore;
 
 static int local = 0;       /* run in local-mode, don't try to contact MArCd */
-static int bufsize = 1000;
-static int capsize = 90;
 static int port = 0;
 static const char* capfile = NULL;
 static struct CI CI[CI_NIC];
