@@ -70,9 +70,9 @@ void send_packet(struct consumer* con){
   const size_t header_size = sizeof(struct ethhdr) + sizeof(struct sendhead);
   const size_t payload_size = con->sendpointer - con->sendptrref;
   const size_t packet_full_size = header_size + payload_size; /* includes ethernet, sendheader and payload */
+  const uint32_t seqnr = ntohl(con->shead->sequencenr);
 
   con->shead->nopkts = htons(con->sendcount); //maSendsize;
-
   /*con->shead->losscounter=htons((globalDropcount+memDropcount)-dropCount[whead->consumer]); */
   con->dropCount = globalDropcount + memDropcount;
 
@@ -88,8 +88,6 @@ void send_packet(struct consumer* con){
     con->stream->write(con->stream, data, data_size);
   }
 
-  uint32_t seqnr = ntohl(con->shead->sequencenr);
-
   fprintf(verbose, "SendThread %ld sending %zd bytes\n", pthread_self(), payload_size);
   fprintf(verbose, "\tcaputils-%d.%d\n", ntohs(con->shead->version.major), ntohs(con->shead->version.minor));
   fprintf(verbose, "\tdropCount[] = %d (g%d/m%d)\n", con->dropCount, globalDropcount, memDropcount);
@@ -97,12 +95,10 @@ void send_packet(struct consumer* con){
   fprintf(verbose, "\tSeqnr  = %04lx \t nopkts = %04x \t Losscount = %d\n", (unsigned long int)seqnr, ntohs(con->shead->nopkts), -1);
   
   //Update the sequence number.
-  con->shead->sequencenr = htonl(ntohl(con->shead->sequencenr)+1);
-  if ( ntohl(con->shead->sequencenr) > 0xFFFF ){
-    con->shead->sequencenr = htonl(0);
-  }
-  
-  MPstats->written_count += con->sendcount;// Update the total number of sent pkts. 
+  con->shead->sequencenr = htonl((seqnr+1) % 0xFFFF);
+
+  /* update stats */
+  MPstats->written_count += con->sendcount;
   MPstats->sent_count++;
 
   con->sendcount = 0;// Clear the number of packets in this sendbuffer
