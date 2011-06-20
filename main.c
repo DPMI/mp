@@ -182,6 +182,39 @@ static void set_td(const char* arg) {
   tdflag++;
 }
 
+static void show_usage(const char* program_name){
+  printf("(C) 2004 patrik.arlos@bth.se\n");
+  printf("(C) 2011 david.sveningsson@bth.se\n"),
+    printf("Usage: %s [OPTION]... -i INTERFACE... -s INTERFACE\n", program_name);
+  printf("  -h, --help                  help (this text)\n");
+  printf("  -s, --manic=INTERFACE       MA Interface. (REQUIRED)\n");
+  printf("  -p, --port=PORT             Control interface listen port (default 1500)\n");
+  printf("  -i, --interface=INTERFACE   Capture Interface (REQUIRED)\n");
+  printf("      --local                 LOCAL MODE, do not talk to MArC, capture\n"
+	 "                              everything and store to file.\n");
+  printf("      --capfile=FILE          Store all captured packets in this capfile (in\n"
+	 "                              addition to filter dst). Multiple filters are\n"
+	 "                              aggregated.\n");
+  printf("  -v, --verbose               Verbose output\n");
+  printf("      --quiet                 Less output (inverse of --verbose)\n");
+  printf("\n");
+  printf("Available drivers:\n");
+#ifdef HAVE_DRIVER_RAW
+  printf("  * RAW socket\n");
+#endif
+#ifdef HAVE_DRIVER_PCAP
+  printf("  * PCAP (prefix iface with pcap to use; e.g. \"pcapeth0\")\n");
+#endif
+#ifdef HAVE_DRIVER_DAG
+  printf("  * Endace DAG\n");
+#endif
+#ifdef HAVE_DRIVER_DAG_LEGACY
+  printf("  * Endace DAG (legacy API)\n");
+#endif
+  printf("\n");
+  filter_from_argv_usage();
+}
+
 static void show_configuration(){
   logmsg(verbose, "\n");
   logmsg(verbose, "MP Configuration:\n");
@@ -249,36 +282,7 @@ static int parse_argv(int argc, char** argv){
       break;
 
     case 'h': /*Help*/
-      printf("(C) 2004 patrik.arlos@bth.se\n");
-      printf("(C) 2011 david.sveningsson@bth.se\n"),
-      printf("Usage: %s [OPTION]... -i INTERFACE... -s INTERFACE\n", argv[0]);
-      printf("  -h, --help                  help (this text)\n");
-      printf("  -s, --manic=INTERFACE       MA Interface. (REQUIRED)\n");
-      printf("  -p, --port=PORT             Control interface listen port (default 1500)\n");
-      printf("  -i, --interface=INTERFACE   Capture Interface (REQUIRED)\n");
-      printf("      --local                 LOCAL MODE, do not talk to MArC, capture\n"
-             "                              everything and store to file.\n");
-      printf("      --capfile=FILE          Store all captured packets in this capfile (in\n"
-             "                              addition to filter dst). Multiple filters are\n"
-             "                              aggregated.\n");
-      printf("  -v, --verbose               Verbose output\n");
-      printf("      --quiet                 Less output (inverse of --verbose)\n");
-      printf("\n");
-      printf("Available drivers:\n");
-#ifdef HAVE_DRIVER_RAW
-      printf("  * RAW socket\n");
-#endif
-#ifdef HAVE_DRIVER_PCAP
-      printf("  * PCAP (prefix iface with pcap to use; e.g. \"pcapeth0\")\n");
-#endif
-#ifdef HAVE_DRIVER_DAG
-      printf("  * Endace DAG\n");
-#endif
-#ifdef HAVE_DRIVER_DAG_LEGACY
-      printf("  * Endace DAG (legacy API)\n");
-#endif
-      printf("\n");
-      filter_from_argv_usage();
+      show_usage(argv[0]);
       exit(0);
       break;
 
