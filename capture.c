@@ -140,8 +140,9 @@ int capture_loop(struct CI* CI, struct capture_context* cap){
   return 0;
 }
 
-void consumer_init(struct consumer* con, unsigned char* buffer){
+void consumer_init(struct consumer* con, int index, unsigned char* buffer){
   con->stream = NULL;
+  con->index = index;
   con->status = 0;
   
   con->dropCount=0;
@@ -167,6 +168,6 @@ void consumer_init(struct consumer* con, unsigned char* buffer){
 
 void consumer_init_all(){
   for( int i=0; i<CONSUMERS; i++) {
-    consumer_init(&MAsd[i], sendmem[i]);
+    consumer_init(&MAsd[i], i, sendmem[i]);
   }
 }

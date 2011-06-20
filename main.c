@@ -436,8 +436,6 @@ int main (int argc, char **argv)
   MA.MPcomment = strdup("MP " VERSION);
 
   // Configure rules.
-  noRules=0;
-  myRules=0;
   ENCRYPT=0;
   recvPkts=0;
   matchPkts=0;
@@ -546,12 +544,7 @@ int main (int argc, char **argv)
     fprintf(stderr, "%s: sem_destroy() returned %d: %s\n", argv[0], errno, strerror(errno));
   }
 
-  struct FPI* cur = myRules;
-  while ( cur ){
-    struct FPI* tmp = cur;
-    cur = cur->next;
-    free(tmp); /** @todo create a filter cleanup function */
-  }
+  mprules_clear();
 
   free(MA.iface);
   free(MA.MPcomment);

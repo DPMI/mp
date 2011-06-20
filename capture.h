@@ -46,6 +46,7 @@
 
 struct consumer {
   struct stream* stream;
+  int index;
 
   int status;                        // Status of consumer: 0 idle/free, 1 occupied/busy
   int want_sendhead;                 // 1 if consumer want the sendheader or 0 if just the payload
@@ -57,7 +58,7 @@ struct consumer {
   struct ethhdr* ethhead;            // pointer to ethernet header
 };
 
-void consumer_init(struct consumer* con, unsigned char* buffer);
+void consumer_init(struct consumer* con, int index, unsigned char* buffer);
 void consumer_init_all();
 
 /* // Global variables. */

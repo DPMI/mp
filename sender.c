@@ -208,7 +208,7 @@ void* sender_capfile(void* ptr){
   long int ret;
 
   struct consumer con;
-  consumer_init(&con, sendmem[0]); /* in local mode only 1 stream is created, so it is safe to "steal" memory from consumer 0 */
+  consumer_init(&con, 0, sendmem[0]); /* in local mode only 1 stream is created, so it is safe to "steal" memory from consumer 0 */
   con.want_sendhead = 0;
 
   if ( (ret=createstream(&con.stream, proc->filename, PROTOCOL_LOCAL_FILE, NULL, mampid_get(MA.MAMPid), MA.MPcomment)) != 0 ){

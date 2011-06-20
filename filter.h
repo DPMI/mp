@@ -5,10 +5,37 @@
 #include <caputils/filter.h>
 #include <stdio.h>
 
-int setFilter(struct FPI *newRule);
-int delFilter(int filter_id);
+/**
+ * Insert a filter to the rule chain.
+ *
+ * @param filter Filter to insert. A copy of the filter is made.
+ * @return Zero if successful or errno on error.
+ */
+int mprules_add(const struct filter* filter);
 
-struct FPI *myRules;
-unsigned int noRules;
+/**
+ * Delete filter from rule chain.
+ */
+int mprules_del(int filter_id);
+
+/**
+ * Delete all rules from the chain.
+ */
+int mprules_clear();
+
+struct rule {
+  struct filter filter;
+  struct rule* next;
+};
+
+/**
+ * Pointer to the first rule in the chain. Iterate by using rule->next
+ */
+struct rule* mprules();
+
+/**
+ * Tell how many rules exists in the chain.
+ */
+size_t mprules_count();
 
 #endif /* MP_FILTER_H */

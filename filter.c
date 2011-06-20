@@ -27,6 +27,8 @@
 
 #include <libmarc/filter.h>
 #include <stdlib.h>
+#include <limits.h>
+#include <errno.h>
 #include <arpa/inet.h>
 #include <netinet/ip.h>
 #include <netinet/udp.h>
@@ -35,14 +37,9 @@
 #include <netinet/ether.h>
 #include <string.h>
 //#include <linux/if.h>
-// 
-//#define STPBRIDGES 0x0026
-//#define CDPVTP 0x016E
-// 
-//#define TCP 4
-//#define UDP 3
-//#define IP 2
-//#define OTHER 1
+
+static struct rule* rules = NULL;
+static size_t rule_count = 0;
 
 static void stop_consumer(struct consumer* con);
 
@@ -58,7 +55,8 @@ static unsigned char* hexdump_address (const unsigned char address[IFHWADDRLEN])
 }
 
 int filter(const char* CI, const void *pkt, struct cap_header *head){
-  if ( noRules==0 ) {
+  /* fast path */
+  if ( mprules_count() == 0 ) {
     return -1;
   }
 
@@ -84,19 +82,17 @@ int filter(const char* CI, const void *pkt, struct cap_header *head){
 
   int destination = -1;
 
-  struct FPI* rule = myRules;
-  while ( rule ){
-    const struct filter* filter = &rule->filter;
-
-    if ( filter_match(filter, pkt, head) == 1 ){
-      /* packet matches */
-      destination = filter->consumer;
-      head->caplen = filter->caplen;
-      break;
+  struct rule* cur = mprules();
+  while ( cur ){
+    if ( !filter_match(&cur->filter, pkt, head) ){
+      cur = cur->next;
+      continue;
     }
 
-    /* try next rule */
-    rule = rule->next;
+    /* packet matches */
+    destination  = cur->filter.consumer;
+    head->caplen = cur->filter.caplen;
+    break;
   }
 
   if( ip_hdr !=0 && ENCRYPT>0){ // It is atleast a IP header.
@@ -108,124 +104,131 @@ int filter(const char* CI, const void *pkt, struct cap_header *head){
   return destination;  
 }
 
-/**
- * return index or -1 if no free.
- */
-static int next_free_consumer(){
+static struct consumer* next_free_consumer(){
   for ( int i = 0; i < CONSUMERS; i++ ){
     if ( MAsd[i].status == 0 ){
-      return i;
+      return &MAsd[i];
     }
   }
-  return -1;
+  return NULL;
 }
-/*
-  This function adds a filter to the end of the list. The comment is a lie.
-*/
-int setFilter(struct FPI *newRule){
+
+size_t mprules_count(){
+  return rule_count;
+}
+
+struct rule* mprules(){
+  return rules;
+}
+
+int mprules_add(const struct filter* filter){
   long ret = 0;
-  newRule->next=0; // Make sure that the rule does not point to some strange place.
 
-  int index = next_free_consumer();
-  if( index == -1 ){ // Problems, NO free consumers. Bail out! 
+  struct consumer* con = next_free_consumer();
+  if( !con ){ // Problems, NO free consumers. Bail out! 
     fprintf(stderr, "No free consumers! (max: %d)\n", CONSUMERS);
-    return 0;
+    return ENOBUFS;
   }
-  
-  newRule->filter.consumer = index;
 
-  struct consumer* con = &MAsd[index];
+  /* allocate rule */
+  struct rule* rule = malloc(sizeof(struct rule*));
+  rule->next = NULL;
+  memcpy(&rule->filter, filter, sizeof(struct filter));
+
+  /* setup consumer for this filter */
+  rule->filter.consumer = con->index;
   con->dropCount = globalDropcount + memDropcount;
-  con->want_sendhead = newRule->filter.type != 0; /* capfiles shouldn't contain sendheader */
+  con->want_sendhead = rule->filter.type != 0; /* capfiles shouldn't contain sendheader */
 
   /* mark consumer as used */
   con->status = 1;
 
-  const unsigned char* address = newRule->filter.destaddr;
-  if ( newRule->filter.type == 1 ){
+  const unsigned char* address = rule->filter.destaddr;
+  if ( rule->filter.type == 1 ){
     /* address is not passed as "01:00:00:00:00:00", but as actual memory with
      * bytes 01 00 00 ... createstream expects a string. */
     address = hexdump_address(address);
   }
 
-  /** @todo hardcoded stream comment */
-  if ( (ret=createstream(&con->stream, address, newRule->filter.type, MA.iface, mampid_get(MA.MAMPid), MA.MPcomment)) != 0 ){
+  /* Open libcap stream */
+  if ( (ret=createstream(&con->stream, address, rule->filter.type, MA.iface, mampid_get(MA.MAMPid), MA.MPcomment)) != 0 ){
     fprintf(stderr, "createstream() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
     exit(1);
   }
 
-  struct ethhdr *ethhead; // pointer to ethernet header
-  ethhead = (struct ethhdr*)sendmem[index];
-
-  switch(newRule->filter.type==1){
+  /* Setup headers */
+  switch(rule->filter.type==1){
   case 3:
   case 2:
     break;
   case 1:
-    memcpy(ethhead->h_dest, newRule->filter.destaddr, ETH_ALEN);
+    {
+      struct ethhdr *ethhead = (struct ethhdr*)sendmem[con->index];
+      memcpy(ethhead->h_dest, rule->filter.destaddr, ETH_ALEN);
+    }
     break;
   case 0:
     break;
   }
 
-  if( !myRules ){ // First rule
-    myRules=newRule;
-    noRules++;
-
+  /* First rule */
+  if( !rules ){
+    rules = rule;
+    rule_count++;
     return 1;
   }
 
   /* Find suitable spot in the linked list */
-  struct FPI* cur = myRules;
-  struct FPI* prev = NULL;
-  while ( cur->filter.filter_id < newRule->filter.filter_id && cur->next ){
+  struct rule* cur = rules;
+  struct rule* prev = NULL;
+  while ( cur->filter.filter_id < rule->filter.filter_id && cur->next ){
     prev = cur;
     cur = cur->next;
   };
 
   /* if the new rule should be placed last, the previous while-loop won't catch
    * it because it cannot dereference cur if it is the last (null) */
-  if ( cur->filter.filter_id < newRule->filter.filter_id ){
+  if ( cur->filter.filter_id < rule->filter.filter_id ){
     prev = cur;
     cur = NULL;
   }
 
   /* If the filter ids match assume the new filter is supposed to overwrite the previous.
    * By design, two filters cannot have the same filter_id even if it is currently possible to have it in the database */
-  if ( cur && cur->filter.filter_id == newRule->filter.filter_id ){
+  if ( cur && cur->filter.filter_id == rule->filter.filter_id ){
     /* close old consumer */
     struct consumer* oldcon = &MAsd[cur->filter.consumer];
     oldcon->status = 0;
     if ( (ret=closestream(con->stream)) != 0 ){
       fprintf(stderr, "closestream() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
-      exit(1);
     }
     
     /* Update existing filter */
-    memcpy(&cur->filter, &newRule->filter, sizeof(struct filter));
+    memcpy(&cur->filter, &rule->filter, sizeof(struct filter));
     return 1;
   }
 
   if ( !prev ) {
     /* add first */
-    newRule->next = cur;
-    myRules = newRule;
+    rule->next = cur;
+    rules = rule;
   } else {
     /* add link */
-    prev->next = newRule;
-    newRule->next = cur;
+    prev->next = rule;
+    rule->next = cur;
   }
 
-  noRules++;
+  rule_count++;
+
   return 1;
 }
 
 /*
  This function finds a filter that matched the filter_id, and removes it.
 */
-int delFilter(const int filter_id){
-  struct FPI* cur = myRules;
-  struct FPI* prev = NULL;
+int mprules_del(const int filter_id){
+  struct rule* cur = rules;
+  struct rule* prev = NULL;
   while ( cur ){
     if ( cur->filter.filter_id == filter_id ){ /* filter matches */
       logmsg(verbose, "Removing filter {%d}\n", filter_id);
@@ -239,11 +242,11 @@ int delFilter(const int filter_id){
       if ( prev ){
 	prev->next = cur->next;
       } else { /* first node */
-	myRules = cur->next;
+	rules = cur->next;
       }
 
       free(cur);
-      noRules--;
+      rule_count--;
       return 0;
     }
 
@@ -253,6 +256,16 @@ int delFilter(const int filter_id){
 
   logmsg(stderr, "Trying to delete non-existing filter {%d}\n", filter_id);
   return -1;
+}
+
+int mprules_clear(){
+  struct rule* cur = rules;
+  while ( cur ){
+    struct rule* tmp = cur;
+    cur = cur->next;
+    free(tmp); /** @todo create a filter cleanup function */
+  }
+  return 0;
 }
 
 /**
@@ -277,12 +290,12 @@ static void stop_consumer(struct consumer* con){
 }
 
 void printFilters(void){
-  if( !myRules ){
+  if( !rules ){
     printf("NO RULES\n");
     return;
   }
   
-  const struct FPI *pointer=myRules;
+  const struct rule* pointer = rules;
   while( pointer != 0 ){
     marc_filter_print(stdout, &pointer->filter, 0);
     pointer = pointer->next;

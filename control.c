@@ -59,18 +59,17 @@ static void mp_filter(struct MPFilter* event){
     return;
   }
 
-  struct FPI* rule = malloc(sizeof(struct FPI));
-  marc_filter_unpack(&event->filter, &rule->filter);
+  struct filter filter = {0,};
+  marc_filter_unpack(&event->filter, &filter);
 
   /* Make sure that the User doesnt request more information than we can give. */
-  if ( rule->filter.caplen > PKT_CAPSIZE ){
-    rule->filter.caplen = PKT_CAPSIZE;
-  }
+  filter.caplen = MIN(filter.caplen, PKT_CAPSIZE);
 
-  logmsg(stdout, "Updating filter {%d}\n", rule->filter.filter_id);
-  setFilter(rule);
+  logmsg(stdout, "Updating filter {%d}\n", filter.filter_id);
+  mprules_add(&filter);
+
   if ( verbose_flag ){
-    marc_filter_print(stdout, &rule->filter, 0);
+    marc_filter_print(stdout, &filter, 0);
   }
 }
 
@@ -80,13 +79,12 @@ static void mp_filter(struct MPFilter* event){
  */
 static void mp_filter_reload(int id){
   if ( id == -1 ){
-    struct FPI* cur = myRules;
+    struct rule* cur = mprules();
     while ( cur ){
-      logmsg(verbose, "Requesting filter {%02d} from MArCd.\n", id);
+      logmsg(verbose, "Requesting filter {%02d} from MArCd.\n", cur->filter.filter_id);
       marc_filter_request(client, MA.MAMPid, cur->filter.filter_id);
       cur = cur->next;
     }
-    return;
   } else {
     logmsg(verbose, "Requesting filter {%02d} from MArCd.\n", id);
     marc_filter_request(client, MA.MAMPid, id);
@@ -94,7 +92,7 @@ static void mp_filter_reload(int id){
 }
 
 static void mp_filter_del(int id){
-  delFilter(id);
+  mprules_del(id);
 }
 
 /**
@@ -290,9 +288,9 @@ static void CIstatus1(){
   memset(&stat, 0, sizeof(struct MPstatus));
   stat.type = MP_STATUS_EVENT;
   mampid_set(stat.MAMPid, MA.MAMPid);
-  stat.noFilters = ntohl(noRules);
-  stat.matched   = ntohl(matchPkts);
-  stat.noCI      = ntohl(noCI);
+  stat.noFilters = htonl(mprules_count());
+  stat.matched   = htonl(matchPkts);
+  stat.noCI      = htonl(noCI);
 
   char* dst = stat.CIstats;
   for( int i=0; i < noCI; i++){
@@ -320,8 +318,8 @@ static void CIstatus2(){
   stat->packet_count = htonl(recvPkts);
   stat->matched_count = htonl(matchPkts);
   stat->status = 0;
-  stat->noFilters = noRules;
-  stat->noCI = noCI;
+  stat->noFilters = htonl(mprules_count());
+  stat->noCI = htonl(noCI);
 
   for( int i=0; i < noCI; i++){
     strncpy(stat->CI[i].iface, _CI[i].iface, 8);
@@ -350,11 +348,11 @@ static void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
 
   /* Logging */
   logmsg(stderr, "Status report for %s\n"
-	 "\t%d Filters present\n"
+	 "\t%zd Filters present\n"
 	 "\t%d Capture Interfaces.\n"
 	 "\t%d Packets received.\n"
 	 "\t%d Packets matched filters.\n",
-	 mampid_get(MA.MAMPid), noRules, noCI, recvPkts, matchPkts);
+	 mampid_get(MA.MAMPid), mprules_count(), noCI, recvPkts, matchPkts);
   for( int i=0; i < noCI; i++){
     fprintf(verbose, "\tCI[%d]=%s  PKT[%d]=%ld  MCH[%d]=%ld  BU[%d]=%d\n",
 	   i, _CI[i].iface,
@@ -363,7 +361,7 @@ static void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
 	   i, _CI[i].buffer_usage);
   }
 
-  if ( noRules == 0 ){
+  if ( mprules_count() == 0 ){
     logmsg(stderr, "Warning: no filters present.\n");
   }
 
