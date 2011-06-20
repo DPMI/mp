@@ -8,6 +8,6 @@ extern FILE* verbose;    /* stdout if verbose is enabled, /dev/null otherwise */
 extern int verbose_flag; /* True if verbose output is requested */
 
 int vlogmsg(FILE* fp, const char* fmt, va_list ap);
-int logmsg(FILE* fp, const char* fmt, ...);
+int logmsg(FILE* fp, const char* fmt, ...) __attribute__ ((format (printf, 2, 3)));
 
 #endif /* LOG_H */
