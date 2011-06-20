@@ -30,19 +30,11 @@
 #include <stdio.h>
 #include <semaphore.h>
  
-#define PKT_BUFFER  10000          //size of capture buffer in packets
-#define PKT_CAPSIZE 1514
-#define CI_NIC 2                    // number of capture interfaces
- 
 #define MIN(A,B) ((A) < (B) ? (A):(B))
  
 #define minSENDSIZE 1                 // Number of packets for each send to tcpserver */
 #define maxSENDSIZE 70
-#define CONSUMERS 20                // Number of consumers, this also places a maximum on the number of filters.
 #define MYPROTO 0x0810              // Link Protocol.. Identifies a MP data frame.
-// 
-//#define MYPORT 2000                 // Default listen port for controller thread
-//#define MAPORT 1500                 // Default listen port for MArelayDaemon
 
 struct consumer {
   struct stream* stream;

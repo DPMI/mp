@@ -73,10 +73,34 @@ AS_IF([test "x$ax_dag" == "xyes" -a "x$ax_dag_legacy" == "xyes"], [
 ])
 AM_CONDITIONAL(HAVE_DAG, [test "x$ax_dag" == "xyes" -o "x$ax_dag_legacy" == "xyes"])
 
-AC_ARG_WITH([max-packet-age], [AS_HELP_STRING([--with-max-packet-age=MS], [set the maximum time (in ms) a packet can be kept in the sender buffers. @<:@default=800@:>@])])
-AS_IF([test "x$with_max_packet_age" != "x"],
-	[AC_DEFINE_UNQUOTED([MAX_PACKET_AGE], $with_max_packet_age, [Max packet age])],
-	[AC_DEFINE([MAX_PACKET_AGE], 800, [Max packet age])]
+AC_ARG_VAR([MAX_AGE], [set the maximum time (in ms) a packet can be kept in the sender buffers. @<:@default=800@:>@])
+AS_IF([test -z "$MAX_AGE"],
+	[AC_DEFINE([MAX_PACKET_AGE], 800, [Max packet age])],
+	[AC_DEFINE_UNQUOTED([MAX_PACKET_AGE], $MAX_AGE, [Max packet age])]
+)
+
+AC_ARG_VAR([PKT_BUFFER], [Size of the capture buffer in bytes. @<:@default=10000@:>@])
+AS_IF([test -z "$PKT_BUFFER"],
+	[AC_DEFINE([PKT_BUFFER], 10000, [Size of capture buffer])],
+	[AC_DEFINE_UNQUOTED([PKT_BUFFER], $PKT_BUFFER, [Size of capture buffer])]
+)
+
+AC_ARG_VAR([PKT_CAPSIZE], [Maximum size of a captured packet in bytes. @<:@default=1514@:>@])
+AS_IF([test -z "$PKT_CAPSIZE"],
+	[AC_DEFINE([PKT_CAPSIZE], 1514, [Maximum size of a captured packet])],
+	[AC_DEFINE_UNQUOTED([PKT_CAPSIZE], $PKT_CAPSIZE, [Maximum size of a captured packet])]
+)
+
+AC_ARG_VAR([CI_NO], [Number of parallel captures supported at runtime. @<:@default=2@:>@])
+AS_IF([test -z "$CI_NO"],
+	[AC_DEFINE([CI_NIC], 2, [Number of capture ifaces])],
+	[AC_DEFINE_UNQUOTED([CI_NIC], $CI_NO, [Number of capture ifaces])]
+)
+
+AC_ARG_VAR([FILTERS], [Max filters. @<:@default=20@:>@])
+AS_IF([test -z "$FILTERS"],
+	[AC_DEFINE([CONSUMERS], 2, [Max filters])],
+	[AC_DEFINE_UNQUOTED([CONSUMERS], $FILTERS, [Max filters])]
 )
 
 AC_OUTPUT
