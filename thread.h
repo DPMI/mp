@@ -24,4 +24,9 @@ void thread_init_finished(struct thread_data* td, int status);
  */
 int thread_create_sync(pthread_t* thread, const pthread_attr_t* attr, start_routine func, void* arg, char* tag, struct timespec* timeout, unsigned int seconds);
 
+/**
+ * Get current threads id. Thread must be created by thread_create_sync.
+ */
+unsigned int thread_id();
+
 #endif /* THREAD_H */

@@ -24,8 +24,11 @@ struct thread_data {
   char tag[0];
 };
 
+static __thread struct thread_data* self;
+
 /* wrapper */
 static void* thread_launcher(struct thread_data* td){
+  self = td;
   return td->func(td, td->data);
 }
 
@@ -106,4 +109,8 @@ void thread_init_finished(struct thread_data* td, int status){
 
   /* give parent thread a chance to continue */
   sched_yield();
+}
+
+unsigned int thread_id(){
+  return self->thread_id;
 }
