@@ -35,6 +35,7 @@
 #include "sender.h"
 #include "log.h"
 #include "configfile.h"
+#include "ma.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -72,8 +73,6 @@ struct MPstats* MPstats = NULL;
 
 static void cleanup(int sig); // Runs when program terminates
 static int packet_stats(int sd, struct packet_stat *stat); // function for collecting statistics
-int local_mode(sigset_t* sigmask, sem_t* semaphore, const struct filter* filter, const char* filename);
-int ma_mode(sigset_t* sigmask, sem_t* semaphore);
 
 static void info(int sd);// function for presentating statistics
 
@@ -310,10 +309,15 @@ static int init_capture(){
 int setup_capture(){
   int ret = 0;
   void* (*func)(void*) = NULL;
+  sem_t flag;
+
   logmsg(verbose, "Creating capture_threads.\n");
+
+  sem_init(&flag, 0, 0);
 
   for (int i=0; i < iflag; i++) {
     CI[i].semaphore = &semaphore;
+    CI[i].flag = &flag;
     func = NULL;
 
     if ( strncmp("pcap", CI[i].iface, 4) == 0 ){
@@ -383,12 +387,46 @@ int setup_capture(){
       abort(); /* cannot happen, defaults to RAW */
       break;
     }
+  }
 
+  /* launch all capture threads */
+  for (int i=0; i < iflag; i++) {
     if ( (ret=pthread_create( &CI[i].thread, NULL, func, &CI[i])) != 0 ) {
       fprintf(stderr,"Error creating capture thread.");
       return ret;
     }
   }
+
+  /* await completion
+   * not using flag_wait because it should wait a total of N secs and not N secs
+   * per thread. */
+  {
+    struct timespec ts;
+    if ( clock_gettime(CLOCK_REALTIME, &ts) != 0 ){
+      int saved = errno;
+      fprintf(stderr, "clock_gettime() returned %d: %s\n", saved, strerror(saved));
+      return saved;
+    }
+    ts.tv_sec += 20; /* 20s timeout */
+
+    for (int i=0; i < iflag; i++) {
+      if ( sem_timedwait(&flag, &ts) == 0 ){
+	continue;
+      }
+
+      int saved = errno;
+      switch ( saved ){
+      case ETIMEDOUT:
+      case EINTR:
+	break;
+      default:
+	fprintf(stderr, "sem_timedwait() returned %d: %s\n", saved, strerror(saved));
+      }
+      return saved;
+    }
+  }
+
+  sem_destroy(&flag);
 
   return 0;
 }

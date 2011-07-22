@@ -6,6 +6,7 @@
 #include "filter.h"
 #include "sender.h"
 #include "log.h"
+#include "ma.h"
 #include <caputils/filter.h>
 #include <string.h>
 #include <errno.h>
@@ -13,7 +14,6 @@
 #include <signal.h>
 
 int setup_capture();
-int sender_barrier(sem_t* semaphore, time_t timeout); /* ma.c */
 
 int local_mode(sigset_t* sigmask, sem_t* semaphore, const struct filter* filter, const char* filename){
   int ret;
@@ -43,7 +43,7 @@ int local_mode(sigset_t* sigmask, sem_t* semaphore, const struct filter* filter,
   }
 
   /* wait for sender to finish (raises semaphore when ready) */
-  if ( (ret=sender_barrier(&flag, SENDER_BARRIER_TIMEOUT)) != 0 ){
+  if ( (ret=flag_wait(&flag, SENDER_BARRIER_TIMEOUT)) != 0 ){
     logmsg(stderr, "sender_barrier() [local] returned %d: %s\n", ret, strerror(ret));
     return ret;
   }

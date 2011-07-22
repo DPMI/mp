@@ -16,7 +16,7 @@ int setup_capture();
 
 extern pthread_t controlPID;
 
-int sender_barrier(sem_t* semaphore, time_t timeout){
+int flag_wait(sem_t* semaphore, time_t timeout){
   struct timespec ts;
 
   if ( clock_gettime(CLOCK_REALTIME, &ts) != 0 ){
@@ -71,7 +71,7 @@ int ma_mode(sigset_t* sigmask, sem_t* semaphore){
   }
 
   /* wait for sender to finish (raises semaphore when ready) */
-  if ( (ret=sender_barrier(&flag, SENDER_BARRIER_TIMEOUT)) != 0 ){
+  if ( (ret=flag_wait(&flag, SENDER_BARRIER_TIMEOUT)) != 0 ){
     logmsg(stderr, "sender_barrier() [sender] returned %d: %s\n", ret, strerror(ret));
     return ret;
   }

@@ -89,6 +89,7 @@ struct CI {
   int sd;
   int writepos;
   u_char* datamem;
+  sem_t* flag;
   sem_t* semaphore;
   pthread_t thread;
 

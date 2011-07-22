@@ -105,6 +105,9 @@ static void wait_for_auth(){
 }
 
 int capture_loop(struct CI* CI, struct capture_context* cap){
+  /* flag that thread is ready for capture */
+  sem_post(CI->flag);
+
   /* wait until the MP is authorized until it starts capture */
   wait_for_auth();
 
