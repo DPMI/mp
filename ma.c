@@ -12,9 +12,37 @@
 #include <pthread.h>
 #include <signal.h>
 
+#define SENDER_BARRIER_TIMEOUT 20
+
 int setup_capture();
 
 extern pthread_t controlPID;
+
+static int sender_barrier(sem_t* semaphore, time_t timeout){
+  struct timespec ts;
+
+  if ( clock_gettime(CLOCK_REALTIME, &ts) != 0 ){
+    int saved = errno;
+    fprintf(stderr, "clock_gettime() returned %d: %s\n", saved, strerror(saved));
+    return saved;
+  }
+
+  ts.tv_sec += timeout;
+  
+  if ( sem_timedwait(semaphore, &ts) != 0 ){
+    int saved = errno;
+    switch ( saved ){
+    case ETIMEDOUT:
+    case EINTR:
+      break;
+    default:
+      fprintf(stderr, "sem_timedwait() returned %d: %s\n", saved, strerror(saved));
+    }
+    return saved;
+  }
+
+  return 0;
+}
 
 int ma_mode(sigset_t* sigmask, sem_t* semaphore){
   int ret;
@@ -34,7 +62,12 @@ int ma_mode(sigset_t* sigmask, sem_t* semaphore){
     logmsg(stderr, "pthread_create() [sender] returned %d: %s\n", ret, strerror(ret));
     return ret;
   }
-  sem_wait(semaphore); /* sender raises semaphore when ready */
+
+  /* wait for sender to finish (raises semaphore when ready) */
+  if ( (ret=sender_barrier(semaphore, SENDER_BARRIER_TIMEOUT)) != 0 ){
+    logmsg(stderr, "sender_barrier() [sender] returned %d: %s\n", ret, strerror(ret));
+    return ret;
+  }
 
   /* initialize capture */
   if ( (ret=setup_capture()) != 0 ){
