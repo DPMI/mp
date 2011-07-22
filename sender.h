@@ -6,6 +6,7 @@
 struct send_proc {
   int nics;                         /* How many nics/capture processes will be present*/
   sem_t* semaphore;                 /* Semaphore */
+  sem_t* flag;                      /* Flag used to mark that the thread has initialized */
   const char* filename;             /* In local mode it is the filename to store the result in */
 };
 typedef struct send_proc send_proc_t;

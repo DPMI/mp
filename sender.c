@@ -197,6 +197,17 @@ void copy_to_sendbuffer(struct consumer* dst, unsigned char* src, int* readPtr, 
   dst->sendcount += 1;
 }
 
+static void unlock_parent(send_proc_t* proc){
+  if ( sem_post(proc->flag) != 0 ){
+    int saved = errno;
+    logmsg(stderr, "sem_post() [sender] returned %d: %s\n", saved, strerror(saved));
+  }
+
+  /* give parent thread a chance to continue */
+  sched_yield();
+}
+
+
 void* sender_capfile(void* ptr){
   send_proc_t* proc = (send_proc_t*)ptr;
   int readPos[CI_NIC] = {0,};        /* read pointers */
@@ -215,7 +226,9 @@ void* sender_capfile(void* ptr){
     return NULL;
   }
 
-  sem_post(proc->semaphore); /* unlock main thread */
+  /* unlock main thread */
+  unlock_parent(proc);
+
   while( terminateThreads == 0 ){
     int oldest = oldest_packet(proc->nics, readPos, proc->semaphore);
     
@@ -247,7 +260,10 @@ void* sender_caputils(void *ptr){
     struct timespec last_sent;
     clock_gettime(CLOCK_REALTIME, &last_sent);
 
-    sem_post(proc->semaphore); /* unlock main thread */
+    /* unlock main thread */
+    unlock_parent(proc);
+
+    /* sender loop */
     while( terminateThreads == 0 ){
       int oldest = oldest_packet(proc->nics, readPos, proc->semaphore);
       

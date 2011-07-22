@@ -48,13 +48,22 @@ int ma_mode(sigset_t* sigmask, sem_t* semaphore){
   int ret;
   pthread_t senderPID;
   send_proc_t sender;
+  sem_t flag;
   sender.nics = noCI;
   sender.semaphore = semaphore;
+  sender.flag = &flag;
 
   if ( !MPinfo->iface ){
     logmsg(stderr, "No MA interface specifed!\n");
     logmsg(stderr, "See --help for usage.\n");
     return EINVAL;
+  }
+
+  /* initialize flag semaphore used to check thread initialization status */
+  if ( sem_init(&flag, 0, 0) != 0 ){
+    int saved = errno;
+    logmsg(stderr, "sem_init() [sender] returned %d: %s\n", saved, strerror(saved));
+    return saved;
   }
 
   /* initialize sender */
@@ -64,7 +73,7 @@ int ma_mode(sigset_t* sigmask, sem_t* semaphore){
   }
 
   /* wait for sender to finish (raises semaphore when ready) */
-  if ( (ret=sender_barrier(semaphore, SENDER_BARRIER_TIMEOUT)) != 0 ){
+  if ( (ret=sender_barrier(&flag, SENDER_BARRIER_TIMEOUT)) != 0 ){
     logmsg(stderr, "sender_barrier() [sender] returned %d: %s\n", ret, strerror(ret));
     return ret;
   }
