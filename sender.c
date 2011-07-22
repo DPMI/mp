@@ -46,7 +46,7 @@ int wait_for_capture(sem_t* sem){
   if ( clock_gettime(CLOCK_REALTIME, &ts) != 0 ){
     int saved = errno;
     fprintf(stderr, "clock_gettime() returned %d: %s\n", saved, strerror(saved));
-    return errno;
+    return saved;
   }
 
   ts.tv_sec += SEMAPHORE_TIMEOUT_SEC;
