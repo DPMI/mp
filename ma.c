@@ -12,13 +12,11 @@
 #include <pthread.h>
 #include <signal.h>
 
-#define SENDER_BARRIER_TIMEOUT 20
-
 int setup_capture();
 
 extern pthread_t controlPID;
 
-static int sender_barrier(sem_t* semaphore, time_t timeout){
+int sender_barrier(sem_t* semaphore, time_t timeout){
   struct timespec ts;
 
   if ( clock_gettime(CLOCK_REALTIME, &ts) != 0 ){
