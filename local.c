@@ -19,7 +19,6 @@ int local_mode(sigset_t* sigmask, sem_t* semaphore, const struct filter* filter,
   int ret;
   pthread_t senderPID;
   send_proc_t sender;
-  sem_t flag;
   sender.nics = noCI;
   sender.semaphore = semaphore;
   sender.filename = filename;
@@ -29,22 +28,9 @@ int local_mode(sigset_t* sigmask, sem_t* semaphore, const struct filter* filter,
     return EINVAL;
   }
 
-  /* initialize flag semaphore used to check thread initialization status */
-  if ( sem_init(&flag, 0, 0) != 0 ){
-    int saved = errno;
-    logmsg(stderr, "sem_init() [sender] returned %d: %s\n", saved, strerror(saved));
-    return saved;
-  }
-
   /* initialize sender */
-  if ( (ret=pthread_create(&senderPID, NULL, sender_capfile, &sender)) != 0 ){
-    logmsg(stderr, "setup_sender() returned %d: %s\n", ret, strerror(ret));
-    return 1;
-  }
-
-  /* wait for sender to finish (raises semaphore when ready) */
-  if ( (ret=flag_wait(&flag, SENDER_BARRIER_TIMEOUT)) != 0 ){
-    logmsg(stderr, "sender_barrier() [local] returned %d: %s\n", ret, strerror(ret));
+  if ( (ret=thread_create_sync(&senderPID, NULL, sender_caputils, &sender, "sender", NULL, SENDER_BARRIER_TIMEOUT)) != 0 ){
+    logmsg(stderr, "thread_create_sync() [sender] returned %d: %s\n", ret, strerror(ret));
     return ret;
   }
 

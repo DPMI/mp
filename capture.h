@@ -24,6 +24,7 @@
 #ifndef CAPT
 #define CAPT
 
+#include "thread.h"
 #include <caputils/caputils.h>
 #include <libmarc/libmarc.h>
 #include <stdint.h>
@@ -125,7 +126,7 @@ void* capture(void*); //capture thread
 void* pcap_capture(void*); //PCAP capture thread
 void* dag_capture(void*);
 void* dag_legacy_capture(void*);
-void* control(void*); // Control thread
+void* control(struct thread_data* td, void*); // Control thread
 
 /**
  * Match packet against available filter. Will fill in head->caplen.

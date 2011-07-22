@@ -30,4 +30,5 @@ mp_SOURCES = \
 	log.c \
 	ma.c \
 	main.c \
-	sender.c
+	sender.c \
+	thread.c

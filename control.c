@@ -136,7 +136,7 @@ static int is_authorized(){
   return MPinfo->id != NULL;
 }
 
-void* control(void* prt){
+void* control(struct thread_data* td, void* prt){
   int ret;
   sigset_t saved;
 
@@ -146,8 +146,7 @@ void* control(void* prt){
     sigfillset(&sigmask);
     sigdelset(&sigmask, SIGUSR1);
     pthread_sigmask(SIG_SETMASK, &sigmask, &saved);
-  }
-  
+  }  
 
   /* redirect output */
   marc_set_output_handler(logmsg, vlogmsg, stderr, verbose);
@@ -172,7 +171,8 @@ void* control(void* prt){
 
   if ( (ret=marc_init_client(&client, MPinfo->iface, &info)) != 0 ){
     fprintf(stderr, "marc_init_client() returned %d: %s\n", ret, strerror(ret));
-    exit(1);
+    thread_init_finished(td, ret);
+    return NULL;
   }
 
   /* restore sigmask */
@@ -193,6 +193,8 @@ void* control(void* prt){
 
   /* Catch SIGSEGV to send a distress signal to MArCd */
   signal(SIGSEGV, distress);
+
+  thread_init_finished(td, 0);
 
   /* process messages from MArCd */
   MPMessage event;
