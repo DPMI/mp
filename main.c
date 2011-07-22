@@ -415,15 +415,20 @@ int main (int argc, char **argv){
   signal(SIGINT, cleanup);
   signal(SIGTERM, cleanup);
 
-  sigset_t empty;
+  sigset_t all;
   sigset_t sigmask;
-  sigfillset(&empty);
-  sigprocmask(SIG_SETMASK, &empty, &sigmask);
+  sigfillset(&all);
+  sigdelset(&all, SIGINT); /* always trap SIGINT */
+  sigprocmask(SIG_SETMASK, &all, &sigmask);
 
   init_capture();
 
   /* parse_config prints errors, never fatal */
   parse_config("mp.conf", &argc, &argv, long_options);
+
+  /* parse filter */
+  struct filter filter;
+  filter_from_argv(&argc, argv, &filter);
 
   /* parse CLI arguments */
   if ( parse_argv(argc, argv) != 0 ){
@@ -445,7 +450,7 @@ int main (int argc, char **argv){
   if ( !local ){
     ret = ma_mode(&sigmask, &semaphore);
   } else {
-    ret = local_mode(&sigmask, &semaphore, NULL, capfile);
+    ret = local_mode(&sigmask, &semaphore, &filter, capfile);
   }
 
   /* only show stats on clean exit */
