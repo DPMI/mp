@@ -91,8 +91,13 @@ int ma_mode(sigset_t* sigmask, sem_t* semaphore){
     return ret;
   }
 
+  /* destroy flag semaphore */
+  sem_destroy(&flag);
+  
+  /* restore to default signal mask */
   pthread_sigmask(SIG_SETMASK, sigmask, NULL);
 
+  /* wait for capture to end */
   logmsg(verbose, "Main thread goes to sleep; waiting for threads to die.\n");
   logmsg(verbose, "[MAIN] - Waiting for sender thread\n");
   pthread_join( senderPID, NULL);
