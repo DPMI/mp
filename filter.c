@@ -131,7 +131,7 @@ int mprules_add(const struct filter* filter){
   }
 
   /* allocate rule */
-  struct rule* rule = malloc(sizeof(struct rule*));
+  struct rule* rule = malloc(sizeof(struct rule));
   rule->next = NULL;
   memcpy(&rule->filter, filter, sizeof(struct filter));
 
