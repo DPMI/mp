@@ -178,12 +178,13 @@ void copy_to_sendbuffer(struct consumer* dst, unsigned char* src, int* readPtr, 
   assert(dst);
   assert(readPtr);
   assert(CI);
-  assert(CI->buffer_usage > 0);
 
   pthread_mutex_lock(&CI->mutex);
   {
-    /* mark as free */
     assert(whead->free > 0);
+    assert(CI->buffer_usage > 0);
+
+    /* mark as free */
     whead->free = 0;
     CI->buffer_usage--;
     
