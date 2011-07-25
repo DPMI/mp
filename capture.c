@@ -59,22 +59,18 @@ static int push_packet(struct CI* CI, write_head* whead, cap_head* head, const u
     mampid_set(head->mampid, MPinfo->id);
     whead->free++; //marks the post that it has been written
     whead->consumer = recipient;
+    CI->buffer_usage++;
+  
+    if ( whead->free>1 ){ //Control buffer overrun
+      logmsg(stderr, "CI[%d] OVERWRITING: %ld @ %d for the %d time \n", CI->id, pthread_self(), CI->writepos, whead->free);
+      logmsg(stderr, "CI[%d] bufferUsage=%d\n", CI->id, CI->buffer_usage);
+    }
   }
   pthread_mutex_unlock( &mutex2 );
-  
-  if ( whead->free>1 ){ //Control buffer overrun
-    logmsg(stderr, "CI[%d] OVERWRITING: %ld @ %d for the %d time \n", CI->id, pthread_self(), CI->writepos, whead->free);
-    logmsg(stderr, "CI[%d] bufferUsage=%d\n", CI->id, CI->buffer_usage);
-  }
 
-  CI->writepos++;
-  CI->buffer_usage++;
-
-  /* wrap buffer if needed */
-  if( CI->writepos >= PKT_BUFFER ){
-    CI->writepos = 0;
-  }
-
+  /* increment write position */
+  CI->writepos = (CI->writepos+1) % PKT_BUFFER;
+      
   /* flag that another packet is ready */
   if ( sem_post(CI->semaphore) != 0 ){
     logmsg(stderr, "sem_post() returned %d: %s\n", errno, strerror(errno));
