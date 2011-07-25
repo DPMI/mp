@@ -93,6 +93,7 @@ struct CI {
   sem_t* flag;
   sem_t* semaphore;
   pthread_t thread;
+  pthread_mutex_t mutex;
 
   /* Statistics */
   long packet_count;

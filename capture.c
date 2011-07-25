@@ -44,8 +44,6 @@
 
 #include <pthread.h>
 
-pthread_mutex_t mutex2 = PTHREAD_MUTEX_INITIALIZER;
-
 static int push_packet(struct CI* CI, write_head* whead, cap_head* head, const unsigned char* packet_buffer){
   const int recipient = filter(CI->iface, packet_buffer, head);
   if ( recipient == -1 ){ /* no match */
@@ -53,7 +51,7 @@ static int push_packet(struct CI* CI, write_head* whead, cap_head* head, const u
   }
   
   // prevent the reader from operating on the same chunk of memory.
-  pthread_mutex_lock( &mutex2 );
+  pthread_mutex_lock(&CI->mutex);
   {
     strncpy(head->nic, CI->iface, 4);
     mampid_set(head->mampid, MPinfo->id);
@@ -66,7 +64,7 @@ static int push_packet(struct CI* CI, write_head* whead, cap_head* head, const u
       logmsg(stderr, "CI[%d] bufferUsage=%d\n", CI->id, CI->buffer_usage);
     }
   }
-  pthread_mutex_unlock( &mutex2 );
+  pthread_mutex_unlock(&CI->mutex);
 
   /* increment write position */
   CI->writepos = (CI->writepos+1) % PKT_BUFFER;

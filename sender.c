@@ -89,7 +89,7 @@ void send_packet(struct consumer* con){
     con->stream->write(con->stream, data, data_size);
   }
 
-  fprintf(verbose, "SendThread [id:%ld] sending %zd bytes\n", thread_id(), payload_size);
+  fprintf(verbose, "SendThread [id:%u] sending %zd bytes\n", thread_id(), payload_size);
   fprintf(verbose, "\tcaputils-%d.%d\n", ntohs(con->shead->version.major), ntohs(con->shead->version.minor));
   fprintf(verbose, "\tdropCount[] = %d (g%d/m%d)\n", con->dropCount, globalDropcount, memDropcount);
   fprintf(verbose, "\tPacket length = %zd bytes, Eth %zd, Send %zd, Cap %zd bytes\n", packet_full_size, sizeof(struct ethhdr), sizeof(struct sendhead), sizeof(struct cap_header));
@@ -169,29 +169,32 @@ static int oldest_packet(int nics, int readPos[], sem_t* semaphore){
 }
 
 void copy_to_sendbuffer(struct consumer* dst, unsigned char* src, int* readPtr, struct CI* CI){
-  assert(dst);
-  assert(readPtr);
-  assert(CI);
-  assert(CI->buffer_usage > 0);
-
   int readPos = *readPtr;
 
   write_head* whead   = (write_head*)src;
   cap_head* head      = (cap_head*)(src + sizeof(write_head));
   const size_t packet_size = sizeof(cap_head)+head->caplen;
 
-  assert(whead->free != 0);
-  
-  /* mark as free */
-  whead->free = 0;
-  CI->buffer_usage--;
+  assert(dst);
+  assert(readPtr);
+  assert(CI);
+  assert(CI->buffer_usage > 0);
+
+  pthread_mutex_lock(&CI->mutex);
+  {
+    /* mark as free */
+    assert(whead->free > 0);
+    whead->free = 0;
+    CI->buffer_usage--;
+    
+    /* copy packet */
+    memcpy(dst->sendpointer, head, packet_size);
+    memset(head, 0, sizeof(cap_head) + PKT_CAPSIZE);
+  }
+  pthread_mutex_unlock(&CI->mutex);
 
   /* increment read position */
   *readPtr = (readPos+1) % PKT_BUFFER ;
-  
-  /* copy packet */
-  memcpy(dst->sendpointer, head, packet_size);
-  memset(head, 0, sizeof(cap_head) + PKT_CAPSIZE);
   
   /* update sendpointer */
   dst->sendpointer += packet_size;

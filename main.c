@@ -300,6 +300,7 @@ static int init_capture(){
     CI[i].buffer_usage = 0;
     CI[i].iface[0] = 0;
     CI[i].accuracy = 0;
+    pthread_mutex_init(&CI[i].mutex, NULL);
   }
 
   return 0;
