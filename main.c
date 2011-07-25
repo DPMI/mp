@@ -111,7 +111,7 @@ static void ma_nic(const char* arg) {
   local = 0;
 
   if ( MPinfoI.iface ) {
-    logmsg(stderr, "Warning: overriding previous MAnic %s with %s.\n", MPinfo->iface, optarg);
+    logmsg(stderr, MAIN, "Warning: overriding previous MAnic %s with %s.\n", MPinfo->iface, optarg);
     free(MPinfoI.iface);
   }
 
@@ -120,7 +120,7 @@ static void ma_nic(const char* arg) {
 
   int s = socket(AF_PACKET, SOCK_RAW, htons(MYPROTO));
   if ( s == -1 ){
-    logmsg(stderr, "Failed to open SOCK_RAW socket for MA nic.\n");
+    logmsg(stderr, MAIN, "Failed to open SOCK_RAW socket for MA nic.\n");
     exit(1);
   }
 
@@ -156,7 +156,7 @@ static void ma_nic(const char* arg) {
 
 static void set_ci(const char* iface) {
   if ( iflag == CI_NIC ){
-    logmsg(stderr, "Cannot specify more than %d capture interface(s)\n", CI_NIC);
+    logmsg(stderr, MAIN, "Cannot specify more than %d capture interface(s)\n", CI_NIC);
     exit(1);
   }
 
@@ -210,16 +210,16 @@ static void show_usage(const char* program_name){
 }
 
 static void show_configuration(){
-  logmsg(verbose, "\n");
-  logmsg(verbose, "MP Configuration:\n");
-  logmsg(verbose, "  Capture Interfaces \n");
+  logmsg(verbose, MAIN, "\n");
+  logmsg(verbose, MAIN, "MP Configuration:\n");
+  logmsg(verbose, MAIN, "  Capture Interfaces \n");
   for ( int i = 0; i < noCI; i++) {
-    logmsg(verbose, "    CI[%d]: %s   T_delta: %d digits\n", i, CI[i].iface, CI[i].accuracy);
+    logmsg(verbose, MAIN, "    CI[%d]: %s   T_delta: %d digits\n", i, CI[i].iface, CI[i].accuracy);
   }
 
-  logmsg(verbose, "  MA Interface\n");
-  logmsg(verbose, "    MAnic: %s   MTU: %zd   hwaddr: %s\n", MPinfo->iface, MPinfo->MTU, ether_ntoa(&MPinfo->hwaddr));
-  logmsg(verbose, "\n");
+  logmsg(verbose, MAIN, "  MA Interface\n");
+  logmsg(verbose, MAIN, "    MAnic: %s   MTU: %zd   hwaddr: %s\n", MPinfo->iface, MPinfo->MTU, ether_ntoa(&MPinfo->hwaddr));
+  logmsg(verbose, MAIN, "\n");
 }
 
 enum Options {
@@ -312,7 +312,7 @@ int setup_capture(){
   void* (*func)(void*) = NULL;
   sem_t flag;
 
-  logmsg(verbose, "Creating capture_threads.\n");
+  logmsg(verbose, MAIN, "Creating capture_threads.\n");
 
   sem_init(&flag, 0, 0);
 
@@ -336,7 +336,7 @@ int setup_capture(){
 
       func = pcap_capture;
 #else /* HAVE_DRIVER_PCAP */
-	logmsg(stderr, "This MP lacks support for libpcap (rebuild with --with-pcap)\n");
+	logmsg(stderr, MAIN, "This MP lacks support for libpcap (rebuild with --with-pcap)\n");
 	return EINVAL;
 #endif /* HAVE_DRIVER_PCAP */
 
@@ -346,7 +346,7 @@ int setup_capture(){
 #ifdef HAVE_DRIVER_RAW
       func = capture;
 #else /* HAVE_DRIVER_RAW */
-	logmsg(stderr, "This MP lacks support for raw packet capture (use libpcap or DAG instead or rebuild with --with-raw)\n");
+	logmsg(stderr, MAIN, "This MP lacks support for raw packet capture (use libpcap or DAG instead or rebuild with --with-raw)\n");
 	return EINVAL;
 #endif /* HAVE_DRIVER_RAW */
 
@@ -361,13 +361,13 @@ int setup_capture(){
 	CI[i].sd = dag_open(dev);
 	if ( CI[i].sd < 0) {
 	  int e = errno;
-	  logmsg(stderr, "dag_open() on interface %s returned %d: %s\n", dev, e, strerror(e));
+	  logmsg(stderr, MAIN, "dag_open() on interface %s returned %d: %s\n", dev, e, strerror(e));
 	  return e;
 	}
 
 	if ( dag_configure(CI[i].sd, "") < 0 ) {
 	  int e = errno;
-	  logmsg(stderr, "dag_configure() on interface %s returned %d: %s\n", dev, e, strerror(e));
+	  logmsg(stderr, MAIN, "dag_configure() on interface %s returned %d: %s\n", dev, e, strerror(e));
 	  return e;
 	}
       }
@@ -379,7 +379,7 @@ int setup_capture(){
 #endif
 
 #else /* HAVE_DAG */
-	logmsg(stderr, "This MP lacks support for Endace DAG (rebuild with --with-dag)\n");
+	logmsg(stderr, MAIN, "This MP lacks support for Endace DAG (rebuild with --with-dag)\n");
 	return EINVAL;
 #endif
       break;
@@ -497,8 +497,8 @@ int main (int argc, char **argv){
     return ret;
   }
 
-  logmsg(stderr,"----------TERMINATING---------------\n");
-  logmsg(stderr,"Captured %ld pkts   Sent %ld pkts\n", MPstats->packet_count, MPstats->sent_count);
+  logmsg(stderr, MAIN, "All threads finished, terminating MP.\n");
+  logmsg(stderr, MAIN, "Captured %ld pkts   Sent %ld pkts\n", MPstats->packet_count, MPstats->sent_count);
   
 //Print out statistics on screen  
   printf("Socket stats.\n");
@@ -545,12 +545,12 @@ int main (int argc, char **argv){
 static void cleanup(int sig) {
   pthread_t self=pthread_self();
   fputc('\r', stderr);
-  logmsg(stderr, "Thread %ld caught %s signal.\n", self, strsignal(sig));
+  logmsg(stderr, MAIN, "Thread %ld caught %s signal.\n", self, strsignal(sig));
   
   if ( terminateThreads++ == 0 ){
-    logmsg(stderr, "Received termination signal, stopping capture.\n");
+    logmsg(stderr, MAIN, "Received termination signal, stopping capture.\n");
   } else {
-    logmsg(stderr, "Recevied termination signal again, aborting.\n");
+    logmsg(stderr, MAIN, "Recevied termination signal again, aborting.\n");
     abort();
   }
 

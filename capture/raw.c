@@ -94,7 +94,7 @@ static int read_packet_raw(struct raw_context* ctx, unsigned char* dst, struct t
       return 0;
       
     default:
-      logmsg(stderr, "select() failed with code %d: %s\n", errno, strerror(errno));
+      logmsg(stderr, CAPTURE, "select() failed with code %d: %s\n", errno, strerror(errno));
       return -1;
     }
   }
@@ -108,7 +108,7 @@ static int read_packet_raw(struct raw_context* ctx, unsigned char* dst, struct t
       return 0;
     }
     int save = errno;
-    logmsg(stderr, "recvfrom() failed with code %d: %s\n", save, strerror(save));
+    logmsg(stderr, CAPTURE, "recvfrom() failed with code %d: %s\n", save, strerror(save));
     errno = save;
     return -1;
   }
@@ -125,7 +125,7 @@ void* capture(void* ptr){
   struct raw_context cap;
   
   /* initialize raw capture */
-  logmsg(verbose, "CI[%d] initializing capture on %s using RAW_SOCKET (memory at %p).\n", CI->id, CI->iface, &datamem[CI->id]);
+  logmsg(verbose, CAPTURE, "CI[%d] initializing capture on %s using RAW_SOCKET (memory at %p).\n", CI->id, CI->iface, &datamem[CI->id]);
 
   /* open socket */
   CI->sd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
@@ -143,7 +143,7 @@ void* capture(void* ptr){
   capture_loop(CI, (struct capture_context*)&cap);
 
   /* stop capture */
-  logmsg(verbose, "CI[%d] stopping capture on %s.\n", CI->id, CI->iface);
+  logmsg(verbose, CAPTURE, "CI[%d] stopping capture on %s.\n", CI->id, CI->iface);
 
   return NULL;
 }

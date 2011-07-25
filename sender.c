@@ -206,7 +206,7 @@ void* sender_capfile(struct thread_data* td, void* ptr){
   send_proc_t* proc = (send_proc_t*)ptr;
   int readPos[CI_NIC] = {0,};        /* read pointers */
 
-  logmsg(stderr, "[sender] initializing (local mode).\n");
+  logmsg(stderr, SENDER, "Initializing (local mode).\n");
  
   long int ret;
 
@@ -215,7 +215,7 @@ void* sender_capfile(struct thread_data* td, void* ptr){
   con.want_sendhead = 0;
 
   if ( (ret=createstream(&con.stream, proc->filename, PROTOCOL_LOCAL_FILE, NULL, mampid_get(MPinfo->id), MPinfo->comment)) != 0 ){
-    logmsg(stderr, "  createstream() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
+    logmsg(stderr, SENDER, "  createstream() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
     sem_post(proc->semaphore); /* unlock main thread */
     return NULL;
   }
@@ -237,7 +237,7 @@ void* sender_capfile(struct thread_data* td, void* ptr){
     send_packet(&con);
   }
 
-  logmsg(stderr, "[sender] finished (local).\n");
+  logmsg(stderr, SENDER, "Finished (local).\n");
   return NULL;
 }
 
@@ -248,7 +248,7 @@ void* sender_caputils(struct thread_data* td, void *ptr){
     int readPos[CI_NIC] = {0,};        // array of memory positions
     int nextPDUlen=0;                  // The length of PDUs stored in the selected consumer.
 
-    logmsg(stderr, "[sender] initializing. There are %d captures.\n", nics);
+    logmsg(stderr, SENDER, "Initializing. There are %d captures.\n", nics);
 
     /* Timestamp when the sender last sent a packet.  */
     struct timespec last_sent;
@@ -289,10 +289,10 @@ void* sender_caputils(struct thread_data* td, void *ptr){
       last_sent = now;
     }
 
-    logmsg(verbose, "[sender] Flushing sendbuffers.\n");
+    logmsg(verbose, SENDER, "Flushing sendbuffers.\n");
     flushAll();
 
-    logmsg(stderr, "[sender] finished.\n");
+    logmsg(stderr, SENDER, "Finished.\n");
     return(NULL) ;
 }
 
@@ -309,7 +309,7 @@ static void flushBuffer(int i){
     return;
   }
 
-  logmsg(stderr, "Consumer %d needs to be flushed, contains %d pkts\n", i, con->sendcount);
+  logmsg(stderr, SENDER, "Consumer %d needs to be flushed, contains %d pkts\n", i, con->sendcount);
 
   con->shead->flush=htons(1);
   send_packet(con);

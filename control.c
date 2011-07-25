@@ -36,6 +36,7 @@
 #include <ctype.h>
 //#//include <assert.h>
 #include <errno.h>
+#include <stdarg.h>
 
 #define STATUS_INTERVAL 60
 
@@ -47,15 +48,15 @@ static marc_context_t client = NULL;
 static void mp_auth(struct MPauth* event){
   if( strlen(event->MAMPid) > 0 ){
     mampid_set((char*)MPinfo->id, event->MAMPid);
-    logmsg(stdout, "MP has been authorized as \"%s\".\n", MPinfo->id);
+    logmsg(stdout, CONTROL, "MP has been authorized as \"%s\".\n", MPinfo->id);
   } else {
-    logmsg(stdout, "This is a unauthorized MP.\n");
+    logmsg(stdout, CONTROL, "This is a unauthorized MP.\n");
   }
 }
 
 static void mp_filter(struct MPFilter* event){
   if( strcmp(event->MAMPid, MPinfo->id) != 0){
-    fprintf(stderr, "This reply was intened for a different MP (%s).\n", event->MAMPid);
+    logmsg(verbose, CONTROL, "This reply was intened for a different MP (%s).\n", event->MAMPid);
     return;
   }
 
@@ -65,7 +66,7 @@ static void mp_filter(struct MPFilter* event){
   /* Make sure that the User doesnt request more information than we can give. */
   filter.caplen = MIN(filter.caplen, PKT_CAPSIZE);
 
-  logmsg(stdout, "Updating filter {%d}\n", filter.filter_id);
+  logmsg(stderr, CONTROL, "Updating filter {%d}\n", filter.filter_id);
   mprules_add(&filter);
 
   if ( verbose_flag ){
@@ -81,12 +82,12 @@ static void mp_filter_reload(int id){
   if ( id == -1 ){
     struct rule* cur = mprules();
     while ( cur ){
-      logmsg(verbose, "Requesting filter {%02d} from MArCd.\n", cur->filter.filter_id);
+      logmsg(verbose, CONTROL, "Requesting filter {%02d} from MArCd.\n", cur->filter.filter_id);
       marc_filter_request(client, MPinfo->id, cur->filter.filter_id);
       cur = cur->next;
     }
   } else {
-    logmsg(verbose, "Requesting filter {%02d} from MArCd.\n", id);
+    logmsg(verbose, CONTROL, "Requesting filter {%02d} from MArCd.\n", id);
     marc_filter_request(client, MPinfo->id, id);
   }
 }
@@ -138,6 +139,18 @@ static int is_authorized(){
   return MPinfo->id[0] != 0;
 }
 
+static int output_wrapper_n(FILE* fp, const char* fmt, ...){
+  va_list ap;
+  va_start(ap, fmt);
+  int ret = vlogmsg(fp, CONTROL, fmt, ap);
+  va_end(ap);
+  return ret;
+}
+
+static int output_wrapper_v(FILE* fp, const char* fmt, va_list ap){
+  return vlogmsg(fp, CONTROL, fmt, ap);
+}
+
 void* control(struct thread_data* td, void* prt){
   int ret;
   sigset_t saved;
@@ -151,7 +164,7 @@ void* control(struct thread_data* td, void* prt){
   }  
 
   /* redirect output */
-  marc_set_output_handler(logmsg, vlogmsg, stderr, verbose);
+  marc_set_output_handler(output_wrapper_n, output_wrapper_v, stderr, verbose);
 
   /* setup libmarc */
   struct marc_client_info info = {0,};
@@ -206,7 +219,7 @@ void* control(struct thread_data* td, void* prt){
     struct timeval timeout = {1, 0}; /* 1 sec timeout */
 
     if ( !is_authorized() && auth_retry >= 15 ){
-      logmsg(stderr, "No reply from MArCd (make sure MArCd is running). Resending request.\n");
+      logmsg(stderr, CONTROL, "No reply from MArCd (make sure MArCd is running). Resending request.\n");
       marc_client_init_request(client, &info);
       auth_retry = 0;
     }
@@ -228,7 +241,7 @@ void* control(struct thread_data* td, void* prt){
 
       /* only handle other events if authorized */
       if ( !is_authorized() ){
-	fprintf(stderr, "MP not authorized, ignoring message of type %d\n", event.type);
+	logmsg(verbose, CONTROL, "MP not authorized, ignoring message of type %d\n", event.type);
 	continue;
       }
 	
@@ -239,7 +252,7 @@ void* control(struct thread_data* td, void* prt){
       return NULL;
     }
 
-    logmsg(verbose, "Got message %d (%zd bytes) from MArCd.\n", event.type, size);
+    logmsg(verbose, CONTROL, "Got message %d (%zd bytes) from MArCd.\n", event.type, size);
 
     /* act */
     switch (event.type) { /* ntohl not needed, called by marc_poll_event */
@@ -249,7 +262,7 @@ void* control(struct thread_data* td, void* prt){
       break;
 
     case MP_CONTROL_AUTHORIZE_REQUEST:
-      logmsg(verbose, "Got an authorization request, asking MArCd for a new authorization message.\n");
+      logmsg(verbose, CONTROL, "Got an authorization request, asking MArCd for a new authorization message.\n");
       marc_client_init_request(client, &info);
       break;
 
@@ -270,13 +283,13 @@ void* control(struct thread_data* td, void* prt){
       break;
 
     case MP_FILTER_INVALID_ID:
-      logmsg(verbose, "Filter request failed: invalid id\n");
+      logmsg(verbose, CONTROL, "Filter request failed: invalid id\n");
       break;
 
     default:
-      printf("Control thread got unhandled event of type %d containing %zd bytes.\n", event.type, size);
-      printf("PAYLOAD:\n");
-      hexdump(stdout, event.payload, size);    
+      logmsg(verbose, CONTROL, "Got unhandled event of type %d containing %zd bytes.\n", event.type, size);
+      logmsg(verbose, CONTROL, "PAYLOAD:\n");
+      hexdump(verbose, event.payload, size);    
       break;
     }
   }
@@ -307,7 +320,7 @@ static void CIstatus1(){
   
   int ret;
   if ( (ret=marc_push_event(client, (MPMessage*)&stat, NULL)) != 0 ){
-    logmsg(stderr, "marc_push_event() returned %d: %s\n", ret, strerror(ret));
+    logmsg(stderr, CONTROL, "marc_push_event() returned %d: %s\n", ret, strerror(ret));
   }
 }
 
@@ -334,13 +347,13 @@ static void CIstatus2(){
 
   int ret;
   if ( (ret=marc_push_event(client, (MPMessage*)stat, NULL)) != 0 ){
-    logmsg(stderr, "marc_push_event() returned %d: %s\n", ret, strerror(ret));
+    logmsg(stderr, CONTROL, "marc_push_event() returned %d: %s\n", ret, strerror(ret));
   }
 }
 
 static void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
   if( !is_authorized() ){
-    logmsg(stderr, "Not authorized. No need to inform MArC about the status.\n");
+    logmsg(verbose, CONTROL, "Not authorized. No need to inform MArC about the status.\n");
     return;
   }
 
@@ -351,7 +364,7 @@ static void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
   CIstatus2();
 
   /* Logging */
-  logmsg(stderr, "Status report for %s\n"
+  logmsg(stderr, CONTROL, "Status report for %s\n"
 	 "\t%zd Filters present\n"
 	 "\t%d Capture Interfaces.\n"
 	 "\t%ld Packets received.\n"
@@ -366,9 +379,8 @@ static void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
   }
 
   if ( mprules_count() == 0 ){
-    logmsg(stderr, "Warning: no filters present.\n");
+    logmsg(stderr, CONTROL, "Warning: no filters present.\n");
   }
-
 }
 
 static volatile sig_atomic_t fatal_error_in_progress = 0;
@@ -382,13 +394,13 @@ static void distress(int sig){
   }
   fatal_error_in_progress = 1;
 
-  logmsg(stderr, "Catched SIGSEGV, sending distress signal to MArCd before dying.\n");
+  logmsg(stderr, CONTROL, "Catched SIGSEGV, sending distress signal to MArCd before dying.\n");
 
   event.type = MP_CONTROL_DISTRESS;
   mampid_set(event.MAMPid, MPinfo->id);
 
   if ( (ret=marc_push_event(client, (MPMessage*)&event, NULL)) != 0 ){
-    logmsg(stderr, "marc_push_event() returned %d: %s\n", ret, strerror(ret));
+    logmsg(stderr, CONTROL, "marc_push_event() returned %d: %s\n", ret, strerror(ret));
   }
 
   /* if distress is called, it is a fatal error so lets die here. */

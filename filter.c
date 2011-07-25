@@ -231,7 +231,7 @@ int mprules_del(const int filter_id){
   struct rule* prev = NULL;
   while ( cur ){
     if ( cur->filter.filter_id == filter_id ){ /* filter matches */
-      logmsg(verbose, "Removing filter {%d}\n", filter_id);
+      logmsg(verbose, FILTER, "Removing filter {%d}\n", filter_id);
 
       /* stop consumer */
       const int consumer = cur->filter.consumer;
@@ -254,7 +254,7 @@ int mprules_del(const int filter_id){
     cur = cur->next;
   }
 
-  logmsg(stderr, "Trying to delete non-existing filter {%d}\n", filter_id);
+  logmsg(stderr, FILTER, "Trying to delete non-existing filter {%d}\n", filter_id);
   return -1;
 }
 

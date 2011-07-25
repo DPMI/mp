@@ -24,15 +24,15 @@ static int read_packet_pcap(struct pcap_context* ctx, unsigned char* dst, struct
     break;
 
   case 0: /* timeout */
-    logmsg(stderr, "pcap_next() timeout\n");
+    logmsg(stderr, CAPTURE, "pcap_next() timeout\n");
     return 0;
     
   case -2: /* offline capture EOF */
-    logmsg(verbose, "pcap offline capture EOF\n");
+    logmsg(verbose, CAPTURE, "pcap offline capture EOF\n");
     return -1;
 
   case -1: /* error */
-    logmsg(stderr, "pcap_next(): %s\n", pcap_geterr(ctx->handle));
+    logmsg(stderr, CAPTURE, "pcap_next(): %s\n", pcap_geterr(ctx->handle));
     return -1;
   }
 
@@ -56,22 +56,22 @@ void* pcap_capture(void* ptr){
   struct CI* CI = (struct CI*)ptr;
   struct pcap_context cap;
 
-  logmsg(verbose, "CI[%d] initializing capture on %s using pcap (memory at %p).\n", CI->id, CI->iface, &datamem[CI->id]);
+  logmsg(verbose, CAPTURE, "CI[%d] initializing capture on %s using pcap (memory at %p).\n", CI->id, CI->iface, &datamem[CI->id]);
   const char* iface;
 
   /* initialize pcap capture */
   if ( CI->iface[0] != ':' ){ /* live capture */
-    logmsg(verbose, "  pcap live capture\n");    
+    logmsg(verbose, CAPTURE, "  pcap live capture\n");    
     iface = CI->iface;
     cap.handle = pcap_open_live (iface, BUFSIZ, 1, 0, cap.errbuf);   /* open device for reading */
   } else { /* offline capture */
-    logmsg(verbose, "  pcap offline capture\n");
+    logmsg(verbose, CAPTURE, "  pcap offline capture\n");
     iface = CI->iface+1; /* +1 to remove : */
     cap.handle = pcap_open_offline (iface, cap.errbuf);
   }
 
   if ( !cap.handle ) {
-    logmsg(stderr, "pcap_open: %s\n", cap.errbuf);
+    logmsg(stderr, CAPTURE, "pcap_open: %s\n", cap.errbuf);
     exit (1);
   }
 
@@ -82,7 +82,7 @@ void* pcap_capture(void* ptr){
   capture_loop(CI, (struct capture_context*)&cap);
 
   /* stop capture */
-  logmsg(verbose, "CI[%d] stopping capture on %s.\n", CI->id, iface);
+  logmsg(verbose, CAPTURE, "CI[%d] stopping capture on %s.\n", CI->id, iface);
   pcap_close(cap.handle);
 
   return NULL;

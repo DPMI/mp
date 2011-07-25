@@ -172,7 +172,7 @@ int parse_config(const char* default_filename, int* argc, char** argv[], struct 
     return saved;
   }
 
-  logmsg(stderr, "Reading configuration from \"%s\".\n", filename);
+  logmsg(stderr, MAIN, "Reading configuration from \"%s\".\n", filename);
 
   /* create a copy of argv since it is most likely not on the heap already */
   {

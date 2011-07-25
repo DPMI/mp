@@ -60,8 +60,8 @@ static int push_packet(struct CI* CI, write_head* whead, cap_head* head, const u
     CI->buffer_usage++;
   
     if ( whead->free>1 ){ //Control buffer overrun
-      logmsg(stderr, "CI[%d] OVERWRITING: %ld @ %d for the %d time \n", CI->id, pthread_self(), CI->writepos, whead->free);
-      logmsg(stderr, "CI[%d] bufferUsage=%d\n", CI->id, CI->buffer_usage);
+      logmsg(stderr, CAPTURE, "CI[%d] OVERWRITING: %ld @ %d for the %d time \n", CI->id, pthread_self(), CI->writepos, whead->free);
+      logmsg(stderr, CAPTURE, "CI[%d] bufferUsage=%d\n", CI->id, CI->buffer_usage);
     }
   }
   pthread_mutex_unlock(&CI->mutex);
@@ -71,7 +71,7 @@ static int push_packet(struct CI* CI, write_head* whead, cap_head* head, const u
       
   /* flag that another packet is ready */
   if ( sem_post(CI->semaphore) != 0 ){
-    logmsg(stderr, "sem_post() returned %d: %s\n", errno, strerror(errno));
+    logmsg(stderr, CAPTURE, "sem_post() returned %d: %s\n", errno, strerror(errno));
   }
 
   return recipient;

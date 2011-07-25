@@ -49,7 +49,7 @@ int thread_create_sync(pthread_t* thread, const pthread_attr_t* attr, start_rout
   /* initialize flag semaphore used to check thread initialization status */
   if ( sem_init(&td->flag, 0, 0) != 0 ){
     int saved = errno;
-    logmsg(stderr, "sem_init() [%s] returned %d: %s\n", tag, saved, strerror(saved));
+    logmsg(stderr, MAIN, "sem_init() [%s] returned %d: %s\n", tag, saved, strerror(saved));
     return saved;
   }
 
@@ -78,9 +78,9 @@ int thread_create_sync(pthread_t* thread, const pthread_attr_t* attr, start_rout
     switch ( saved ){
     case ETIMEDOUT:
       if ( pthread_kill(*thread, 0) == ESRCH ){
-	logmsg(stderr, "sem_timedwait(): [%s] child thread died before completing initialization\n", tag);
+	logmsg(stderr, MAIN, "sem_timedwait(): [%s] child thread died before completing initialization\n", tag);
       } else {
-	logmsg(stderr, "sem_timedwait(): [%s] timed out waiting for initialization to finish, but child is still alive\n", tag);
+	logmsg(stderr, MAIN, "sem_timedwait(): [%s] timed out waiting for initialization to finish, but child is still alive\n", tag);
       }
       /* fallthrough */
 
@@ -104,7 +104,7 @@ void thread_init_finished(struct thread_data* td, int status){
   td->status = status;
   if ( sem_post(&td->flag) != 0 ){
     int saved = errno;
-    logmsg(stderr, "sem_post() [%s] returned %d: %s\n", td->tag, saved, strerror(saved));
+    logmsg(stderr, MAIN, "sem_post() [%s] returned %d: %s\n", td->tag, saved, strerror(saved));
   }
 
   /* give parent thread a chance to continue */

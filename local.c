@@ -24,34 +24,34 @@ int local_mode(sigset_t* sigmask, sem_t* semaphore, const struct filter* filter,
   sender.filename = filename;
 
   if ( !filename ){
-    logmsg(stderr, "No filename selected, use --capfile.\n");
+    logmsg(stderr, MAIN, "No filename selected, use --capfile.\n");
     return EINVAL;
   }
 
   /* initialize sender */
   if ( (ret=thread_create_sync(&senderPID, NULL, sender_caputils, &sender, "sender", NULL, SENDER_BARRIER_TIMEOUT)) != 0 ){
-    logmsg(stderr, "thread_create_sync() [sender] returned %d: %s\n", ret, strerror(ret));
+    logmsg(stderr, MAIN, "thread_create_sync() [sender] returned %d: %s\n", ret, strerror(ret));
     return ret;
   }
 
   /* initialize capture */
   mprules_add(filter);
   if ( (ret=setup_capture()) != 0 ){
-    logmsg(stderr, "setup_capture() returned %d: %s\n", ret, strerror(ret));
+    logmsg(stderr, MAIN, "setup_capture() returned %d: %s\n", ret, strerror(ret));
     return 1;
   }
 
   pthread_sigmask(SIG_SETMASK, sigmask, NULL);
 
-  logmsg(verbose, "Main thread goes to sleep; waiting for threads to die.\n");
-  logmsg(verbose, "[MAIN] - Waiting for sender thread\n");
+  logmsg(verbose, MAIN, "Main thread goes to sleep; waiting for threads to die.\n");
+  logmsg(verbose, MAIN, "Waiting for sender thread\n");
   pthread_join( senderPID, NULL);
 
   for ( int i = 0; i < noCI; i++ )  {
-    logmsg(verbose, "[MAIN] - Waiting for CI[%d] thread\n", i);
+    logmsg(verbose, MAIN, "Waiting for CI[%d] thread\n", i);
     pthread_join(_CI[i].thread, NULL);
   }
 
-  logmsg(stderr, "Main thread awakens, all threads terminated. Stopping\n");
+  logmsg(stderr, MAIN, "Thread awakens, all threads terminated. Stopping\n");
   return 0;
 }
