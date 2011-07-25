@@ -133,7 +133,9 @@ static void hexdump(FILE* fp, const char* data, size_t size){
 }
 
 static int is_authorized(){
-  return MPinfo->id != NULL;
+  /* if the first character is a NULL-terminator (i.e strlen() is 0) it isn't
+   * authorized yet. */
+  return MPinfo->id[0] != 0;
 }
 
 void* control(struct thread_data* td, void* prt){
