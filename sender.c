@@ -206,7 +206,7 @@ void* sender_capfile(struct thread_data* td, void* ptr){
   send_proc_t* proc = (send_proc_t*)ptr;
   int readPos[CI_NIC] = {0,};        /* read pointers */
 
-  logmsg(stderr, "Sender initializing (local mode).\n");
+  logmsg(stderr, "[sender] initializing (local mode).\n");
  
   long int ret;
 
@@ -237,7 +237,7 @@ void* sender_capfile(struct thread_data* td, void* ptr){
     send_packet(&con);
   }
 
-  logmsg(stderr, "Sender finished (local).\n");
+  logmsg(stderr, "[sender] finished (local).\n");
   return NULL;
 }
 
@@ -248,7 +248,7 @@ void* sender_caputils(struct thread_data* td, void *ptr){
     int readPos[CI_NIC] = {0,};        // array of memory positions
     int nextPDUlen=0;                  // The length of PDUs stored in the selected consumer.
 
-    logmsg(stderr, "Sender initializing. There are %d captures.\n", nics);
+    logmsg(stderr, "[sender] initializing. There are %d captures.\n", nics);
 
     /* Timestamp when the sender last sent a packet.  */
     struct timespec last_sent;
@@ -289,10 +289,10 @@ void* sender_caputils(struct thread_data* td, void *ptr){
       last_sent = now;
     }
 
-    logmsg(verbose, "Flushing sendbuffers.\n");
+    logmsg(verbose, "[sender] Flushing sendbuffers.\n");
     flushAll();
 
-    printf("Sender Child %ld My work here is done .\n", pthread_self());
+    logmsg(stderr, "[sender] finished.\n");
     return(NULL) ;
 }
 

@@ -544,12 +544,13 @@ int main (int argc, char **argv){
  */
 static void cleanup(int sig) {
   pthread_t self=pthread_self();
-  printf("Thread %ld caught %s signal\n", self, strsignal(sig));
+  fputc('\r', stderr);
+  logmsg(stderr, "Thread %ld caught %s signal.\n", self, strsignal(sig));
   
   if ( terminateThreads++ == 0 ){
-    fprintf(stderr, "Received termination signal, stopping capture.\n");
+    logmsg(stderr, "Received termination signal, stopping capture.\n");
   } else {
-    fprintf(stderr, "Recevied termination signal again, aborting.\n");
+    logmsg(stderr, "Recevied termination signal again, aborting.\n");
     abort();
   }
 
