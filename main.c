@@ -120,7 +120,7 @@ static void ma_nic(const char* arg) {
 
   int s = socket(AF_PACKET, SOCK_RAW, htons(MYPROTO));
   if ( s == -1 ){
-    perror("MA iface - socket()");
+    logmsg(stderr, "Failed to open SOCK_RAW socket for MA nic.\n");
     exit(1);
   }
 
