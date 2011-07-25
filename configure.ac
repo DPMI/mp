@@ -67,6 +67,14 @@ AS_IF([test "x$with_pcap" == "xyes"], [
 AM_CONDITIONAL(HAVE_PCAP, [test "x$with_pcap" == "xyes"])
 AC_SUBST(PCAP_LIBS)
 
+dnl Check for setcap
+AC_PATH_PROG(SETCAP, setcap,,"/sbin:$PATH")
+AC_ARG_ENABLE(setcap-install, AS_HELP_STRING( [--enable-setcap-install], [install mp with cap_net_raw capability @<:@default=no@:>@]))
+AS_IF([test "x$enable_setcap_install" == "xyes"], [
+	AS_IF([test -z "$SETCAP"], [AC_MSG_ERROR([Could not find setcap, make sure it is installed or disable setcap install.])])
+])
+AM_CONDITIONAL(SETCAP, test x$enable_setcap_install = "xyes")
+
 dnl New and legacy DAG API is mutually exclusive.
 AS_IF([test "x$ax_dag" == "xyes" -a "x$ax_dag_legacy" == "xyes"], [
 	AC_MSG_ERROR([Cannot enable both new and legacy DAG API at the same time.])

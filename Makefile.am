@@ -32,3 +32,13 @@ mp_SOURCES = \
 	main.c \
 	sender.c \
 	thread.c
+
+if SETCAP
+setcap:
+	$(SETCAP) cap_net_raw+ep $(DESTDIR)$(bindir)/mp
+	chmod o-rws $(DESTDIR)$(bindir)/mp
+endif
+
+if SETCAP
+install-exec-hook: setcap
+endif
