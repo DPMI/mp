@@ -52,21 +52,21 @@ int ma_mode(sigset_t* sigmask, sem_t* semaphore){
   pthread_sigmask(SIG_SETMASK, sigmask, NULL);
 
   /* wait for capture to end */
-  logmsg(verbose, "Main thread goes to sleep; waiting for threads to die.\n");
-  logmsg(verbose, "[MAIN] - Waiting for sender thread\n");
+  logmsg(verbose, "[MAIN] goes to sleep; waiting for threads to finish.\n");
+  logmsg(verbose, "[MAIN] - Waiting for sender thread to finish\n");
   pthread_join( senderPID, NULL);
 
   for ( int i = 0; i < noCI; i++ )  {
-    logmsg(verbose, "[MAIN] - Waiting for CI[%d] thread\n", i);
+    logmsg(verbose, "[MAIN] - Waiting for CI[%d] thread to finish\n", i);
     pthread_join(_CI[i].thread, NULL);
   }
   
   if ( controlPID ){
-    logmsg(verbose, "[MAIN] - Waiting for control thread\n");
+    logmsg(verbose, "[MAIN] - Waiting for control thread to finish\n");
     pthread_join(controlPID, NULL);
   }
 
-  logmsg(stderr, "Main thread awakens, all threads terminated. Stopping\n");
+  logmsg(stderr, "[MAIN] thread awakens, all threads finished. Stopping\n");
 
   return 0;
 }
