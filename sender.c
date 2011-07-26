@@ -214,7 +214,10 @@ void* sender_capfile(struct thread_data* td, void* ptr){
   consumer_init(&con, 0, sendmem[0]); /* in local mode only 1 stream is created, so it is safe to "steal" memory from consumer 0 */
   con.want_sendhead = 0;
 
-  const destination_t dest = { .local_filename = proc->filename, .type = DEST_CAPFILE };
+  destination_t dest;
+  dest.local_filename = proc->filename;
+  dest.type = DEST_CAPFILE;
+
   if ( (ret=createstream(&con.stream, &dest, NULL, mampid_get(MPinfo->id), MPinfo->comment)) != 0 ){
     logmsg(stderr, SENDER, "  createstream() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
     sem_post(proc->semaphore); /* unlock main thread */
