@@ -43,17 +43,6 @@ static size_t rule_count = 0;
 
 static void stop_consumer(struct consumer* con);
 
-static char hex_string[IFHWADDRLEN * 3] = "00:00:00:00:00:00";
-static unsigned char* hexdump_address (const unsigned char address[IFHWADDRLEN]){
-  int i;
-
-  for (i = 0; i < IFHWADDRLEN - 1; i++) {
-    sprintf (hex_string + 3*i, "%2.2X:", address[i]);
-  }  
-  sprintf (hex_string + 15, "%2.2X", address[i]);
-  return (unsigned char*)hex_string;
-}
-
 int filter(const char* CI, const void *pkt, struct cap_header *head){
   /* fast path */
   if ( mprules_count() == 0 ) {
@@ -138,33 +127,26 @@ int mprules_add(const struct filter* filter){
   /* setup consumer for this filter */
   rule->filter.consumer = con->index;
   con->dropCount = globalDropcount + memDropcount;
-  con->want_sendhead = rule->filter.type != 0; /* capfiles shouldn't contain sendheader */
+  con->want_sendhead = rule->filter.dest.type != DEST_CAPFILE; /* capfiles shouldn't contain sendheader */
 
   /* mark consumer as used */
   con->status = 1;
 
-  const unsigned char* address = rule->filter.destaddr;
-  if ( rule->filter.type == 1 ){
-    /* address is not passed as "01:00:00:00:00:00", but as actual memory with
-     * bytes 01 00 00 ... createstream expects a string. */
-    address = hexdump_address(address);
-  }
-
   /* Open libcap stream */
-  if ( (ret=createstream(&con->stream, address, rule->filter.type, MPinfo->iface, mampid_get(MPinfo->id), MPinfo->comment)) != 0 ){
+  if ( (ret=createstream(&con->stream, &rule->filter.dest, MPinfo->iface, mampid_get(MPinfo->id), MPinfo->comment)) != 0 ){
     fprintf(stderr, "createstream() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
     exit(1);
   }
 
   /* Setup headers */
-  switch(rule->filter.type==1){
+  switch(rule->filter.dest.type==1){
   case 3:
   case 2:
     break;
   case 1:
     {
       struct ethhdr *ethhead = (struct ethhdr*)sendmem[con->index];
-      memcpy(ethhead->h_dest, rule->filter.destaddr, ETH_ALEN);
+      memcpy(ethhead->h_dest, &rule->filter.dest.ether_addr, ETH_ALEN);
     }
     break;
   case 0:
