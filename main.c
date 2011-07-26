@@ -94,6 +94,7 @@ int noCI = 0;
 int ENCRYPT = 0;
 int globalDropcount = 0;
 int memDropcount = 0;
+int dag_mode = 0; /* 0: rxtx 1: wiretap */
 
 /* really worstcase implementation of clamp =) */
 static int clamp(int v, int min, int max){
@@ -179,7 +180,7 @@ static void set_td(const char* arg) {
 static void show_usage(const char* program_name){
   printf("(C) 2004 patrik.arlos@bth.se\n");
   printf("(C) 2011 david.sveningsson@bth.se\n"),
-    printf("Usage: %s [OPTION]... -i INTERFACE... -s INTERFACE\n", program_name);
+  printf("Usage: %s [OPTION]... -i INTERFACE... -s INTERFACE\n", program_name);
   printf("  -h, --help                  help (this text)\n");
   printf("  -s, --manic=INTERFACE       MA Interface. (REQUIRED)\n");
   printf("  -p, --port=PORT             Control interface listen port (default 1500)\n");
@@ -191,6 +192,15 @@ static void show_usage(const char* program_name){
 	 "                              aggregated.\n");
   printf("  -v, --verbose               Verbose output\n");
   printf("      --quiet                 Less output (inverse of --verbose)\n");
+
+#ifdef HAVE_DRIVER_DAG
+  printf("\n");
+  printf("DAG specific options:\n");
+  printf("  -w, --dag.wiretap           Wiretap mode (forwards traffic).\n");
+  printf("  -m  --dag.rxtx              Port A as RX and port B as TX [default].\n");
+  printf("      --forward               Alias for --dag.wiretap\n");
+#endif
+
   printf("\n");
   printf("Available drivers:\n");
 #ifdef HAVE_DRIVER_RAW
@@ -237,6 +247,9 @@ static struct option long_options[]= {
   {"verbose", 0, &verbose_flag, 1},
   {"quiet", 0, &verbose_flag, 0},
   {"config", 1, NULL, OPTION_IGNORE},
+  {"dag.wiretap", 0, NULL, 'w'},
+  {"dag.rxtx", 0, NULL, 'm'},
+  {"forward", 0, NULL, 'w'},
   {0, 0, 0, 0}
 };
 
@@ -245,7 +258,7 @@ static int parse_argv(int argc, char** argv){
   int option_index = 0;
   int op;
 
-  while ( (op = getopt_long(argc, argv, "hvd:i:s:p:", long_options, &option_index)) != -1 )
+  while ( (op = getopt_long(argc, argv, "hwmvd:i:s:p:", long_options, &option_index)) != -1 )
     switch (op){
     case 0: /* longopt with flag set */
     case OPTION_IGNORE:
@@ -278,6 +291,14 @@ static int parse_argv(int argc, char** argv){
     case 'h': /*Help*/
       show_usage(argv[0]);
       exit(0);
+      break;
+
+    case 'w': /* --dag.wiretap */
+      dag_mode = 1;
+      break;
+
+    case 'm': /* --dag.rxtx */
+      dag_mode = 0;
       break;
 
     default:
