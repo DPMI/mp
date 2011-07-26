@@ -51,21 +51,21 @@ static int process_packet(dag_record_t* dr, unsigned char* dst, struct cap_heade
   }
 
   if (dr->flags.trunc) {
-    logmsg(stderr, "Truncated record\n");
+    logmsg(stderr, CAPTURE, "Truncated record\n");
     // ++ trunc_errs;
     if ( 1 /*skipflag*/ )
       return 0;
   }
 
   if (dr->flags.rxerror) {
-    logmsg(stderr, "RX error\n");
+    logmsg(stderr, CAPTURE, "RX error\n");
     //  ++ rx_errs;
     if ( 1 /* skipflag */ )
       return 0;
   }
 
   if (dr->flags.dserror) {
-    logmsg(stderr,"Internal error\n");
+    logmsg(stderr, CAPTURE, "Internal error\n");
     //  ++ ds_errs;
     if ( 1 /*skipflag*/ )
       return 0;
@@ -122,7 +122,7 @@ void* dag_capture(void* ptr){
   struct CI* CI = (struct CI*)ptr;
   struct dag_context cap;
 
-  logmsg(verbose, "CI[%d] initializing capture on %s using DAGv2 (memory at %p).\n", CI->id, CI->iface, &datamem[CI->id]);
+  logmsg(verbose, CAPTURE, "CI[%d] initializing capture on %s using DAGv2 (memory at %p).\n", CI->id, CI->iface, &datamem[CI->id]);
 
   const int stream = 0;
   const int extra_window_size = 4*1024*1024; /* manual recommends 4MB */
@@ -135,18 +135,18 @@ void* dag_capture(void* ptr){
 
   int result;
   if ( (result=dag_attach_stream(CI->sd, stream, 0, extra_window_size)) != 0 ){
-    logmsg(stderr,  "dag_attach_stream() failed with code 0x%02x: %s\n", errno, strerror(errno));
-    logmsg(verbose, "         FD: %d\n", CI->sd);
-    logmsg(verbose, "     stream: %d\n", stream);
-    logmsg(verbose, "      flags: %d\n", 0);
-    logmsg(verbose, "   wnd size: %d bytes\n", extra_window_size);
+    logmsg(stderr,  CAPTURE, "dag_attach_stream() failed with code 0x%02x: %s\n", errno, strerror(errno));
+    logmsg(verbose, CAPTURE, "         FD: %d\n", CI->sd);
+    logmsg(verbose, CAPTURE, "     stream: %d\n", stream);
+    logmsg(verbose, CAPTURE, "      flags: %d\n", 0);
+    logmsg(verbose, CAPTURE, "   wnd size: %d bytes\n", extra_window_size);
     return NULL;
   }
 
   if ( (result=dag_start_stream(CI->sd, stream)) != 0 ){
-    logmsg(stderr,  "dag_start_stream() failed with code 0x%02x: %s\n", errno, strerror(errno));
-    logmsg(verbose, "      FD: %d\n", CI->sd);
-    logmsg(verbose, "  stream: %d\n", stream);
+    logmsg(stderr,  CAPTURE, "dag_start_stream() failed with code 0x%02x: %s\n", errno, strerror(errno));
+    logmsg(verbose, CAPTURE, "      FD: %d\n", CI->sd);
+    logmsg(verbose, CAPTURE, "  stream: %d\n", stream);
     return NULL;
   }
 
@@ -172,7 +172,7 @@ void* dag_capture(void* ptr){
   capture_loop(CI, (struct capture_context*)&cap);
 
   /* stop capture */
-  logmsg(verbose, "CI[%d] stopping capture on %s.\n", CI->id, CI->iface);
+  logmsg(verbose, CAPTURE, "CI[%d] stopping capture on %s.\n", CI->id, CI->iface);
   dag_stop_stream(CI->sd, stream);
   dag_detach_stream(CI->sd, stream);
   dag_close(CI->sd);
@@ -211,7 +211,7 @@ void* dag_legacy_capture(void* ptr){
   struct CI* CI = (struct CI*)ptr;
   struct dag_context cap;
 
-  logmsg(verbose, "CI[%d] initializing capture on %s using DAGv1 (memory at %p).\n", CI->id, CI->iface, &datamem[CI->id]);
+  logmsg(verbose, CAPTURE, "CI[%d] initializing capture on %s using DAGv1 (memory at %p).\n", CI->id, CI->iface, &datamem[CI->id]);
 
   cap.fd = CI->sd;
   cap.buffer = dag_mmap(CI->sd);
@@ -220,12 +220,12 @@ void* dag_legacy_capture(void* ptr){
   cap.bottom = 0;
 
   if ( cap.buffer == MAP_FAILED ){
-    logmsg(stderr, "dag_mmap() returned %d: %s\n", errno, strerror(errno));
+    logmsg(stderr, CAPTURE, "dag_mmap() returned %d: %s\n", errno, strerror(errno));
     return NULL;
   }
 
   if ( dag_start(CI->sd) != 0 ){
-    logmsg(stderr, "dag_start() returned %d: %s\n", errno, strerror(errno));
+    logmsg(stderr, CAPTURE, "dag_start() returned %d: %s\n", errno, strerror(errno));
     return NULL;
   }
 
@@ -236,7 +236,7 @@ void* dag_legacy_capture(void* ptr){
   capture_loop(CI, (struct capture_context*)&cap);
 
   /* stop capture */
-  logmsg(verbose, "CI[%d] stopping capture on %s.\n", CI->id, CI->iface);
+  logmsg(verbose, CAPTURE, "CI[%d] stopping capture on %s.\n", CI->id, CI->iface);
   dag_stop(CI->sd);
 
   return NULL;
