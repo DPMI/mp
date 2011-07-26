@@ -167,7 +167,7 @@ int parse_config(const char* default_filename, int* argc, char** argv[], struct 
     int saved = errno;
     /* only show this error if the user has manually overridden the file */
     if ( overridden ){
-      logmsg(stderr, "Failed to open configuration file \"%s\": %s\n", filename, strerror(errno));
+      logmsg(stderr, MAIN, "Failed to open configuration file \"%s\": %s\n", filename, strerror(errno));
     }
     return saved;
   }
@@ -225,7 +225,7 @@ int parse_config(const char* default_filename, int* argc, char** argv[], struct 
 
     /* no matching argument */
     if ( !cur->name ){
-      logmsg(stderr, "  %s:%d: Unrecognized configuration option '%s`.\n", filename, linenum, opt);
+      logmsg(stderr, MAIN, "  %s:%d: Unrecognized configuration option '%s`.\n", filename, linenum, opt);
       continue;
     }
 
