@@ -80,7 +80,7 @@ int filter(const char* CI, const void *pkt, struct cap_header *head){
 
     /* packet matches */
     destination  = cur->filter.consumer;
-    head->caplen = cur->filter.caplen;
+    head->caplen = MIN(head->caplen, cur->filter.caplen);
     break;
   }
 
