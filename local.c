@@ -15,7 +15,7 @@
 
 int setup_capture();
 
-int local_mode(sigset_t* sigmask, sem_t* semaphore, const struct filter* filter, const char* filename){
+int local_mode(sigset_t* sigmask, sem_t* semaphore, struct filter* filter, const char* filename){
   int ret;
   pthread_t senderPID;
   send_proc_t sender;
@@ -34,8 +34,13 @@ int local_mode(sigset_t* sigmask, sem_t* semaphore, const struct filter* filter,
     return ret;
   }
 
-  /* initialize capture */
+  /* setup destination */
+  filter->dest.local_filename = filename;
+  filter->dest.type = DEST_CAPFILE;
+  filter->dest.flags = DEST_LOCAL;
   mprules_add(filter);
+
+  /* initialize capture */
   if ( (ret=setup_capture()) != 0 ){
     logmsg(stderr, MAIN, "setup_capture() returned %d: %s\n", ret, strerror(ret));
     return 1;
