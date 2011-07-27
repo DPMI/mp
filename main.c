@@ -375,24 +375,6 @@ int setup_capture(){
 
     case DRIVER_DAG:
 #ifdef HAVE_DAG
-      {
-	char dev[256];
-	snprintf(dev, 256, "/dev/%s", CI[i].iface);
-
-	CI[i].sd = dag_open(dev);
-	if ( CI[i].sd < 0) {
-	  int e = errno;
-	  logmsg(stderr, MAIN, "dag_open() on interface %s returned %d: %s\n", dev, e, strerror(e));
-	  return e;
-	}
-
-	if ( dag_configure(CI[i].sd, "") < 0 ) {
-	  int e = errno;
-	  logmsg(stderr, MAIN, "dag_configure() on interface %s returned %d: %s\n", dev, e, strerror(e));
-	  return e;
-	}
-      }
-
 #ifdef HAVE_DRIVER_DAG
       func = dag_capture;
 #else /* HAVE_DRIVER_DAG */

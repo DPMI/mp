@@ -92,6 +92,29 @@ static int process_packet(dag_record_t* dr, unsigned char* dst, struct cap_heade
   return head->len;
 }
 
+static int setup_device(struct CI* CI, const char* config){
+  char dev[256];
+  snprintf(dev, 256, "/dev/%s", CI->iface);
+  
+  logmsg(verbose, CAPTURE, "\tdevice: %s\n", dev);
+  logmsg(verbose, CAPTURE, "\tconfig: %s\n", config);
+
+  CI->sd = dag_open(dev);
+  if ( CI->sd < 0 ) {
+    int e = errno;
+    logmsg(stderr, CAPTURE, "dag_open() on interface %s returned %d: %s\n", dev, e, strerror(e));
+    return 0;
+  }
+
+  if ( dag_configure(CI->sd, (char*)config) < 0 ) {
+    int e = errno;
+    logmsg(stderr, CAPTURE, "dag_configure() on interface %s returned %d: %s\n", dev, e, strerror(e));
+    return 0;
+  }
+
+  return 1;
+}
+
 #ifdef HAVE_DRIVER_DAG
 static int read_packet(struct dag_context* cap, unsigned char* dst, struct cap_header* head){
   const ptrdiff_t diff = cap->top - cap->bottom;
@@ -126,6 +149,11 @@ void* dag_capture(void* ptr){
 
   const int stream = 0;
   const int extra_window_size = 4*1024*1024; /* manual recommends 4MB */
+
+  if ( !setup_device(CI, "") ){
+    /* error already show */
+    return NULL;
+  }
 
   cap.fd = CI->sd;
   cap.buffer = NULL; /* not used by this driver */
@@ -212,6 +240,11 @@ void* dag_legacy_capture(void* ptr){
   struct dag_context cap;
 
   logmsg(verbose, CAPTURE, "CI[%d] initializing capture on %s using DAGv1 (memory at %p).\n", CI->id, CI->iface, &datamem[CI->id]);
+
+  if ( !setup_device(CI, "") ){
+    /* error already show */
+    return NULL;
+  }
 
   cap.fd = CI->sd;
   cap.buffer = dag_mmap(CI->sd);
