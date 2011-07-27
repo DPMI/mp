@@ -26,6 +26,8 @@ struct dag_context {
 #endif /* HAVE_DRIVER_DAG_LEGACY */
 };
 
+extern int dag_mode;
+
 static int process_packet(dag_record_t* dr, unsigned char* dst, struct cap_header* head){
   char* payload = ((char *) dr) + dag_record_size;
   const size_t rlen = ntohs(dr->rlen); /* DAG record length */
@@ -97,7 +99,8 @@ static int setup_device(struct CI* CI, const char* config){
   snprintf(dev, 256, "/dev/%s", CI->iface);
   
   logmsg(verbose, CAPTURE, "\tdevice: %s\n", dev);
-  logmsg(verbose, CAPTURE, "\tconfig: %s\n", config);
+  logmsg(verbose, CAPTURE, "\tconfig: \"%s\"\n", config);
+  logmsg(verbose, CAPTURE, "\t  mode: %s\n", dag_mode == 0 ? "RXTX" : "wiretap");
 
   CI->sd = dag_open(dev);
   if ( CI->sd < 0 ) {
