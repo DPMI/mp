@@ -154,6 +154,25 @@ static int read_packet_rxtx(struct dag_context* cap, unsigned char* dst, struct 
   return ret;
 }
 
+static int read_packet_wiretap(struct dag_context* cap, unsigned char* dst, struct cap_header* head){
+  dag_record_t * dr = (dag_record_t *) dag_rx_stream_next_inline(cap->fd, RX_STREAM, TX_STREAM);
+
+  /* no packet in buffer */
+  if ( !dr ){
+    return 0;
+  }
+
+  const size_t rlen = ntohs(dr->rlen);
+
+  /* process packet */
+  int ret = process_packet(dr, dst, head);
+
+  dr->flags.iface = 1 - dr->flags.iface;
+  dag_tx_stream_commit_bytes(cap->fd, TX_STREAM, rlen);
+
+  return ret;
+}
+
 /**
  * @see dag_get_stream_poll(3) for details.
  * @param mindata min amount of bytes to return
@@ -302,7 +321,7 @@ void* dag_capture(void* ptr){
   } else if ( dag_mode == 1 ){
     cap.base.init = (init_callback)dagcapture_init_wiretap;
     cap.base.destroy = (destroy_callback)dagcapture_destroy_wiretap;
-    cap.base.read_packet = 0;
+    cap.base.read_packet = (read_packet_callback)read_packet_wiretap;
   } else {
     logmsg(stderr, CAPTURE, "Unsupported mode: %d\n", dag_mode);
     abort();
