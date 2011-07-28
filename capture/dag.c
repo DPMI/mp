@@ -153,6 +153,24 @@ static int read_packet_rxtx(struct dag_context* cap, unsigned char* dst, struct 
   return ret;
 }
 
+/**
+ * @see dag_get_stream_poll(3) for details.
+ * @param mindata min amount of bytes to return
+ * @param maxwait max time to wait (set to 0 to block indefinitely)
+ * @param poll time to wait between tries.
+ */
+static void dagcapture_set_poll(size_t mindata, unsigned int maxwait, unsigned int poll){
+  struct timeval m;
+  struct timeval p;
+  timerclear(&m);
+  timerclear(&p);
+
+  m.tv_usec = maxwait * 1000;
+  p.tv_usec = poll * 1000;
+  
+  dag_set_stream_poll(cap->fd, RX_STREAM, mindata, &m, &p);
+}
+
 static int dagcapture_init_rxtx(struct dag_context* cap){
   static const int extra_window_size = 4*1024*1024; /* manual recommends 4MB */
 
@@ -176,21 +194,13 @@ static int dagcapture_init_rxtx(struct dag_context* cap){
     return save;
   }
 
-  /* Initialise DAG polling parameters. (from DAG manual) */
-  {
-    struct timeval maxwait;
-    timerclear(&maxwait);
-    maxwait.tv_usec = 100 * 1000; /* 100ms timeout. */
-
-    struct timeval poll;
-    timerclear(&poll);
-    poll.tv_usec = 10 * 1000;     /* 10ms poll interval. */
-
-    const int mindata = 32*1024;  /* 32kB minimum data to return. */
-
-    dag_set_stream_poll(cap->fd, RX_STREAM, mindata, &maxwait, &poll);
-  }
-
+  /* setup polling */
+  dagcapture_set_poll(
+    32*1024, /* 32kb min data */
+    100,     /* 100ms timeout */
+    10,      /* 10ms poll interval */
+  );
+ 
   return 0;
 }
 
