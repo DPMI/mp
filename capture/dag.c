@@ -187,7 +187,7 @@ static int dagcapture_init_rxtx(struct dag_context* cap){
   return 0;
 }
 
-int dagcapture_destroy_rxtx(struct dag_context* cap){
+static int dagcapture_destroy_rxtx(struct dag_context* cap){
   dag_stop_stream(cap->fd, RX_STREAM);
   dag_detach_stream(cap->fd, RX_STREAM);
   dag_close(cap->fd);
@@ -248,7 +248,7 @@ static int legacy_read_packet(struct dag_context* cap, unsigned char* dst, struc
   return ret;
 }
 
-int dagcapture_init(struct dag_context* cap){
+static int dagcapture_init(struct dag_context* cap){
   int saved;
   if ( cap->buffer == MAP_FAILED ){
     saved = errno;
@@ -265,7 +265,7 @@ int dagcapture_init(struct dag_context* cap){
   return 0;
 }
 
-int dagcapture_destroy(struct dag_context* cap){
+static int dagcapture_destroy(struct dag_context* cap){
   dag_close(cap->fd);
   return 0;
 } 
