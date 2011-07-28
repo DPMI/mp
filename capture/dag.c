@@ -268,6 +268,15 @@ static int dagcapture_destroy_rxtx(struct dag_context* cap){
   return 0;
 }
 
+static int dagcapture_destroy_wiretap(struct dag_context* cap){
+  dag_stop_stream(cap->fd, RX_STREAM);
+  dag_stop_stream(cap->fd, TX_STREAM);
+  dag_detach_stream(cap->fd, RX_STREAM);
+  dag_detach_stream(cap->fd, TX_STREAM);
+  dag_close(cap->fd);
+  return 0;
+}
+
 void* dag_capture(void* ptr){
   struct CI* CI = (struct CI*)ptr;
   struct dag_context cap;
@@ -292,7 +301,7 @@ void* dag_capture(void* ptr){
     cap.base.read_packet = (read_packet_callback)read_packet_rxtx;
   } else if ( dag_mode == 1 ){
     cap.base.init = (init_callback)dagcapture_init_wiretap;
-    cap.base.destroy = 0;
+    cap.base.destroy = (destroy_callback)dagcapture_destroy_wiretap;
     cap.base.read_packet = 0;
   } else {
     logmsg(stderr, CAPTURE, "Unsupported mode: %d\n", dag_mode);
