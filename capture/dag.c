@@ -144,41 +144,28 @@ static int read_packet(struct dag_context* cap, unsigned char* dst, struct cap_h
   return ret;
 }
 
-void* dag_capture(void* ptr){
-  struct CI* CI = (struct CI*)ptr;
-  struct dag_context cap;
-
-  logmsg(verbose, CAPTURE, "CI[%d] initializing capture on %s using DAGv2 (memory at %p).\n", CI->id, CI->iface, &datamem[CI->id]);
-
-  const int stream = 0;
-  const int extra_window_size = 4*1024*1024; /* manual recommends 4MB */
-
-  if ( !setup_device(CI, "") ){
-    /* error already show */
-    return NULL;
-  }
-
-  cap.fd = CI->sd;
-  cap.buffer = NULL; /* not used by this driver */
-  cap.stream = stream;
-  cap.top = NULL;
-  cap.bottom = NULL;
+int dagcapture_init(struct dag_context* cap){
+  static const int stream = 0;
+  static const int extra_window_size = 4*1024*1024; /* manual recommends 4MB */
 
   int result;
-  if ( (result=dag_attach_stream(CI->sd, stream, 0, extra_window_size)) != 0 ){
-    logmsg(stderr,  CAPTURE, "dag_attach_stream() failed with code 0x%02x: %s\n", errno, strerror(errno));
-    logmsg(verbose, CAPTURE, "         FD: %d\n", CI->sd);
+  int save;
+  if ( (result=dag_attach_stream(cap->fd, cap->stream, 0, extra_window_size)) != 0 ){
+    save = errno;
+    logmsg(stderr,  CAPTURE, "dag_attach_stream() failed with code 0x%02x: %s\n", save, strerror(save));
+    logmsg(verbose, CAPTURE, "         FD: %d\n", cap->fd);
     logmsg(verbose, CAPTURE, "     stream: %d\n", stream);
     logmsg(verbose, CAPTURE, "      flags: %d\n", 0);
     logmsg(verbose, CAPTURE, "   wnd size: %d bytes\n", extra_window_size);
-    return NULL;
+    return save;
   }
 
-  if ( (result=dag_start_stream(CI->sd, stream)) != 0 ){
-    logmsg(stderr,  CAPTURE, "dag_start_stream() failed with code 0x%02x: %s\n", errno, strerror(errno));
-    logmsg(verbose, CAPTURE, "      FD: %d\n", CI->sd);
+  if ( (result=dag_start_stream(cap->fd, cap->stream)) != 0 ){
+    save = errno;
+    logmsg(stderr,  CAPTURE, "dag_start_stream() failed with code 0x%02x: %s\n", save, strerror(save));
+    logmsg(verbose, CAPTURE, "      FD: %d\n", cap->fd);
     logmsg(verbose, CAPTURE, "  stream: %d\n", stream);
-    return NULL;
+    return save;
   }
 
   /* Initialise DAG polling parameters. (from DAG manual) */
@@ -193,22 +180,45 @@ void* dag_capture(void* ptr){
 
     const int mindata = 32*1024;  /* 32kB minimum data to return. */
 
-    dag_set_stream_poll(CI->sd, stream, mindata, &maxwait, &poll);
+    dag_set_stream_poll(cap->fd, cap->stream, mindata, &maxwait, &poll);
   }
 
+  return 0;
+}
+
+int dagcapture_destroy(struct dag_context* cap){
+  dag_stop_stream(cap->fd, cap->stream);
+  dag_detach_stream(cap->fd, cap->stream);
+  dag_close(cap->fd);
+  return 0;
+} 
+
+void* dag_capture(void* ptr){
+  struct CI* CI = (struct CI*)ptr;
+  struct dag_context cap;
+  memset(&cap, 0, sizeof(struct dag_context));
+
+  logmsg(verbose, CAPTURE, "CI[%d] initializing capture on %s using DAGv2 (memory at %p).\n", CI->id, CI->iface, &datamem[CI->id]);
+
+  if ( !setup_device(CI, "") ){
+    /* error already show */
+    return NULL;
+  }
+
+  cap.fd = CI->sd;
+  cap.buffer = NULL; /* not used by this driver */
+  cap.stream = 0;
+  cap.top = NULL;
+  cap.bottom = NULL;
+
   /* setup callbacks */
+  cap.base.init = (init_callback)dagcapture_init;
+  cap.base.destroy = (destroy_callback)dagcapture_destroy;
   cap.base.read_packet = (read_packet_callback)read_packet;
 
   /* start capture */
   capture_loop(CI, (struct capture_context*)&cap);
-
-  /* stop capture */
-  logmsg(verbose, CAPTURE, "CI[%d] stopping capture on %s.\n", CI->id, CI->iface);
-  dag_stop_stream(CI->sd, stream);
-  dag_detach_stream(CI->sd, stream);
-  dag_close(CI->sd);
-
-  return 0;
+  return NULL;
 }
 #endif /* HAVE_DRIVER_DAG */
 
@@ -238,6 +248,28 @@ static int legacy_read_packet(struct dag_context* cap, unsigned char* dst, struc
   return ret;
 }
 
+int dagcapture_init(struct dag_context* cap){
+  int saved;
+  if ( cap->buffer == MAP_FAILED ){
+    saved = errno;
+    logmsg(stderr, CAPTURE, "dag_mmap() returned %d: %s\n", saved, strerror(saved));
+    return saved;
+  }
+
+  if ( dag_start(cap->fd) != 0 ){
+    saved = errno;
+    logmsg(stderr, CAPTURE, "dag_start() returned %d: %s\n", saved, strerror(saved));
+    return saved;
+  }
+
+  return 0;
+}
+
+int dagcapture_destroy(struct dag_context* cap){
+  dag_close(cap->fd);
+  return 0;
+} 
+
 void* dag_legacy_capture(void* ptr){
   struct CI* CI = (struct CI*)ptr;
   struct dag_context cap;
@@ -255,26 +287,13 @@ void* dag_legacy_capture(void* ptr){
   cap.top = 0;
   cap.bottom = 0;
 
-  if ( cap.buffer == MAP_FAILED ){
-    logmsg(stderr, CAPTURE, "dag_mmap() returned %d: %s\n", errno, strerror(errno));
-    return NULL;
-  }
-
-  if ( dag_start(CI->sd) != 0 ){
-    logmsg(stderr, CAPTURE, "dag_start() returned %d: %s\n", errno, strerror(errno));
-    return NULL;
-  }
-
   /* setup callbacks */
+  cap.base.init = (init_callback)dagcapture_init;
+  cap.base.destroy = (destroy_callback)dagcapture_destroy;
   cap.base.read_packet = (read_packet_callback)legacy_read_packet;
 
   /* start capture */
   capture_loop(CI, (struct capture_context*)&cap);
-
-  /* stop capture */
-  logmsg(verbose, CAPTURE, "CI[%d] stopping capture on %s.\n", CI->id, CI->iface);
-  dag_stop(CI->sd);
-
   return NULL;
 }
 #endif /* HAVE_DRIVER_DAG_LEGACY */

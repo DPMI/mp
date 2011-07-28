@@ -8,9 +8,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pcap.h>
+#include <errno.h>
 
 struct pcap_context {
   struct capture_context base;
+  const char* iface; /* copied reference */
   pcap_t* handle;
   char errbuf[PCAP_ERRBUF_SIZE];
 };
@@ -51,39 +53,56 @@ static int read_packet_pcap(struct pcap_context* ctx, unsigned char* dst, struct
   return pcaphead->caplen;
 }
 
+static void init_live(struct pcap_context* cap){
+  logmsg(verbose, CAPTURE, "  pcap live capture\n");
+  cap->handle = pcap_open_live (cap->iface, BUFSIZ, 1, 0, cap->errbuf);   /* open device for reading */
+}
+
+static void init_offline(struct pcap_context* cap){
+  cap->iface = cap->iface + 1; /* +1 to remove : */
+  logmsg(verbose, CAPTURE, "  pcap offline capture\n");
+  cap->handle = pcap_open_offline (cap->iface, cap->errbuf);
+}
+
+static int init(struct pcap_context* cap){
+  if ( cap->iface[0] != ':' ){ /* live capture */
+    init_live(cap);
+  } else { /* offline capture */
+    init_offline(cap);
+  }
+
+  if ( !cap->handle ) {
+    logmsg(stderr, CAPTURE, "pcap_open: %s\n", cap->errbuf);
+    return EINVAL;
+  }
+
+  return 0;
+}
+
+static int destroy(struct pcap_context* cap){
+  pcap_close(cap->handle);
+  return 0;
+}
+
 /* This is the PCAP_SOCKET capturer..   */ 
 void* pcap_capture(void* ptr){
   struct CI* CI = (struct CI*)ptr;
   struct pcap_context cap;
+  cap.iface = CI->iface;
 
   logmsg(verbose, CAPTURE, "CI[%d] initializing capture on %s using pcap (memory at %p).\n", CI->id, CI->iface, &datamem[CI->id]);
-  const char* iface;
-
-  /* initialize pcap capture */
-  if ( CI->iface[0] != ':' ){ /* live capture */
-    logmsg(verbose, CAPTURE, "  pcap live capture\n");    
-    iface = CI->iface;
-    cap.handle = pcap_open_live (iface, BUFSIZ, 1, 0, cap.errbuf);   /* open device for reading */
-  } else { /* offline capture */
-    logmsg(verbose, CAPTURE, "  pcap offline capture\n");
-    iface = CI->iface+1; /* +1 to remove : */
-    cap.handle = pcap_open_offline (iface, cap.errbuf);
-  }
-
-  if ( !cap.handle ) {
-    logmsg(stderr, CAPTURE, "pcap_open: %s\n", cap.errbuf);
-    exit (1);
-  }
 
   /* setup callbacks */
+  cap.base.init = (init_callback)init;
+  cap.base.destroy = (destroy_callback)destroy;
   cap.base.read_packet = (read_packet_callback)read_packet_pcap;
 
   /* start capture */
   capture_loop(CI, (struct capture_context*)&cap);
 
   /* stop capture */
-  logmsg(verbose, CAPTURE, "CI[%d] stopping capture on %s.\n", CI->id, iface);
-  pcap_close(cap.handle);
+  logmsg(verbose, CAPTURE, "CI[%d] stopping capture on %s.\n", CI->id, cap.iface);
+
 
   return NULL;
 }

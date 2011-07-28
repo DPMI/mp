@@ -137,13 +137,11 @@ void* capture(void* ptr){
   setpromisc(CI->sd, CI->iface);
 
   /* setup callbacks */
+  cap.base.init = 0;
+  cap.base.destroy = 0;
   cap.base.read_packet = (read_packet_callback)read_packet_raw;
 
   /* start capture */
   capture_loop(CI, (struct capture_context*)&cap);
-
-  /* stop capture */
-  logmsg(verbose, CAPTURE, "CI[%d] stopping capture on %s.\n", CI->id, CI->iface);
-
   return NULL;
 }

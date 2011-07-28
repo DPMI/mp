@@ -99,6 +99,14 @@ static void wait_for_auth(){
 }
 
 int capture_loop(struct CI* CI, struct capture_context* cap){
+  int ret;
+
+  /* initialize driver */
+  if ( cap->init && (ret=cap->init(cap)) != 0 ){
+    sem_post(CI->flag); /* unlock parent */
+    return ret; /* return error */
+  }
+
   /* flag that thread is ready for capture */
   sem_post(CI->flag);
 
@@ -137,6 +145,14 @@ int capture_loop(struct CI* CI, struct capture_context* cap){
     /* stats */
     MPstats->matched_count++;
     CI->matched_count++;
+  }
+
+  /* stop capture */
+  logmsg(verbose, CAPTURE, "CI[%d] stopping capture on %s.\n", CI->id, CI->iface);
+
+  /* driver cleanup */
+  if ( cap->destroy && (ret=cap->destroy(cap)) != 0 ){
+    return ret; /* return error */
   }
 
   return 0;
