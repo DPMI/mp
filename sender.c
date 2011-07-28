@@ -86,7 +86,7 @@ void send_packet(struct consumer* con){
       data_size += header_size;
     }
     
-    con->stream->write(con->stream, data, data_size);
+    stream_write(con->stream, data, data_size);
   }
 
   fprintf(verbose, "SendThread [id:%u] sending %zd bytes\n", thread_id(), payload_size);
