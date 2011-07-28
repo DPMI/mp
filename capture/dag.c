@@ -11,11 +11,13 @@
 #include <string.h>
 #include <stddef.h>
 
+#define RX_STREAM 0
+#define TX_STREAM 1
+
 struct dag_context {
   struct capture_context base;
   int fd;
   void* buffer;
-  int stream;
 
 #ifdef HAVE_DRIVER_DAG_LEGACY
   int top;
@@ -124,7 +126,7 @@ static int read_packet(struct dag_context* cap, unsigned char* dst, struct cap_h
 
   /* no packet in buffer */
   if ( diff < dag_record_size ){
-    cap->top = dag_advance_stream(cap->fd, cap->stream, &cap->bottom);
+    cap->top = dag_advance_stream(cap->fd, RX_STREAM, &cap->bottom);
     return 0; /* process eventual packages in the next batch */
   }
 
@@ -133,7 +135,7 @@ static int read_packet(struct dag_context* cap, unsigned char* dst, struct cap_h
 
   /* not enough data in buffer */
   if ( diff < rlen ){
-    cap->top = dag_advance_stream(cap->fd, cap->stream, &cap->bottom);
+    cap->top = dag_advance_stream(cap->fd, RX_STREAM, &cap->bottom);
     return 0; /* process eventual packages in the next batch */
   }
 
@@ -144,27 +146,26 @@ static int read_packet(struct dag_context* cap, unsigned char* dst, struct cap_h
   return ret;
 }
 
-int dagcapture_init(struct dag_context* cap){
-  static const int stream = 0;
+static int dagcapture_init_rxtx(struct dag_context* cap){
   static const int extra_window_size = 4*1024*1024; /* manual recommends 4MB */
 
   int result;
   int save;
-  if ( (result=dag_attach_stream(cap->fd, cap->stream, 0, extra_window_size)) != 0 ){
+  if ( (result=dag_attach_stream(cap->fd, RX_STREAM, 0, extra_window_size)) != 0 ){
     save = errno;
     logmsg(stderr,  CAPTURE, "dag_attach_stream() failed with code 0x%02x: %s\n", save, strerror(save));
     logmsg(verbose, CAPTURE, "         FD: %d\n", cap->fd);
-    logmsg(verbose, CAPTURE, "     stream: %d\n", stream);
+    logmsg(verbose, CAPTURE, "     stream: %d\n", RX_STREAM);
     logmsg(verbose, CAPTURE, "      flags: %d\n", 0);
     logmsg(verbose, CAPTURE, "   wnd size: %d bytes\n", extra_window_size);
     return save;
   }
 
-  if ( (result=dag_start_stream(cap->fd, cap->stream)) != 0 ){
+  if ( (result=dag_start_stream(cap->fd, RX_STREAM)) != 0 ){
     save = errno;
     logmsg(stderr,  CAPTURE, "dag_start_stream() failed with code 0x%02x: %s\n", save, strerror(save));
     logmsg(verbose, CAPTURE, "      FD: %d\n", cap->fd);
-    logmsg(verbose, CAPTURE, "  stream: %d\n", stream);
+    logmsg(verbose, CAPTURE, "  stream: %d\n", RX_STREAM);
     return save;
   }
 
@@ -180,18 +181,18 @@ int dagcapture_init(struct dag_context* cap){
 
     const int mindata = 32*1024;  /* 32kB minimum data to return. */
 
-    dag_set_stream_poll(cap->fd, cap->stream, mindata, &maxwait, &poll);
+    dag_set_stream_poll(cap->fd, RX_STREAM, mindata, &maxwait, &poll);
   }
 
   return 0;
 }
 
-int dagcapture_destroy(struct dag_context* cap){
-  dag_stop_stream(cap->fd, cap->stream);
-  dag_detach_stream(cap->fd, cap->stream);
+int dagcapture_destroy_rxtx(struct dag_context* cap){
+  dag_stop_stream(cap->fd, RX_STREAM);
+  dag_detach_stream(cap->fd, RX_STREAM);
   dag_close(cap->fd);
   return 0;
-} 
+}
 
 void* dag_capture(void* ptr){
   struct CI* CI = (struct CI*)ptr;
@@ -207,13 +208,12 @@ void* dag_capture(void* ptr){
 
   cap.fd = CI->sd;
   cap.buffer = NULL; /* not used by this driver */
-  cap.stream = 0;
   cap.top = NULL;
   cap.bottom = NULL;
 
   /* setup callbacks */
-  cap.base.init = (init_callback)dagcapture_init;
-  cap.base.destroy = (destroy_callback)dagcapture_destroy;
+  cap.base.init = (init_callback)dagcapture_init_rxtx;
+  cap.base.destroy = (destroy_callback)dagcapture_destroy_rxtx;
   cap.base.read_packet = (read_packet_callback)read_packet;
 
   /* start capture */
