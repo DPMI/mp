@@ -11,6 +11,7 @@
 #include <string.h>
 #include <stddef.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #define RX_STREAM 0
 #define TX_STREAM 1
@@ -159,7 +160,7 @@ static int read_packet_rxtx(struct dag_context* cap, unsigned char* dst, struct 
  * @param maxwait max time to wait (set to 0 to block indefinitely)
  * @param poll time to wait between tries.
  */
-static void dagcapture_set_poll(size_t mindata, unsigned int maxwait, unsigned int poll){
+static void dagcapture_set_poll(struct dag_context* cap, size_t mindata, unsigned int maxwait, unsigned int poll){
   struct timeval m;
   struct timeval p;
   timerclear(&m);
@@ -171,34 +172,88 @@ static void dagcapture_set_poll(size_t mindata, unsigned int maxwait, unsigned i
   dag_set_stream_poll(cap->fd, RX_STREAM, mindata, &m, &p);
 }
 
+static int dagcapture_error(const char* func, int code, const char* fmt, ...){
+  char* buf;
+  va_list ap;
+  va_start(ap, fmt);
+  vasprintf(&buf, fmt, ap);
+  va_end(ap);
+  logmsg(stderr, CAPTURE, "%s() failed with code 0x%02x: %s\n", func, code, buf);
+  free(buf);
+  return code;
+}
+
 static int dagcapture_init_rxtx(struct dag_context* cap){
   static const int extra_window_size = 4*1024*1024; /* manual recommends 4MB */
 
   int result;
-  int save;
   if ( (result=dag_attach_stream(cap->fd, RX_STREAM, 0, extra_window_size)) != 0 ){
-    save = errno;
-    logmsg(stderr,  CAPTURE, "dag_attach_stream() failed with code 0x%02x: %s\n", save, strerror(save));
-    logmsg(verbose, CAPTURE, "         FD: %d\n", cap->fd);
-    logmsg(verbose, CAPTURE, "     stream: %d\n", RX_STREAM);
-    logmsg(verbose, CAPTURE, "      flags: %d\n", 0);
-    logmsg(verbose, CAPTURE, "   wnd size: %d bytes\n", extra_window_size);
-    return save;
+    return dagcapture_error("dag_attach_stream", errno, "%s", strerror(errno));
   }
 
   if ( (result=dag_start_stream(cap->fd, RX_STREAM)) != 0 ){
-    save = errno;
-    logmsg(stderr,  CAPTURE, "dag_start_stream() failed with code 0x%02x: %s\n", save, strerror(save));
-    logmsg(verbose, CAPTURE, "      FD: %d\n", cap->fd);
-    logmsg(verbose, CAPTURE, "  stream: %d\n", RX_STREAM);
-    return save;
+    return dagcapture_error("dag_start_stream", errno, "%s", strerror(errno));
   }
 
   /* setup polling */
-  dagcapture_set_poll(
+  dagcapture_set_poll(cap,
     32*1024, /* 32kb min data */
     100,     /* 100ms timeout */
-    10,      /* 10ms poll interval */
+    10       /* 10ms poll interval */
+  );
+ 
+  return 0;
+}
+
+static int dagcapture_init_wiretap(struct dag_context* cap){
+  static const int extra_window_size = 4*1024*1024; /* manual recommends 4MB */
+
+  int result;
+
+  /* Attach two streams */
+  {
+    if ( (result=dag_attach_stream(cap->fd, TX_STREAM, 0, extra_window_size)) != 0 ){
+      return dagcapture_error("dag_attach_stream", errno, "TX_STREAM %s", strerror(errno));
+    }
+    if ( (result=dag_attach_stream(cap->fd, RX_STREAM, 0, extra_window_size)) != 0 ){
+      return dagcapture_error("dag_attach_stream", errno, "RX_STREAM %s", strerror(errno));
+    }
+  }
+
+  /* Ensure buffer size is equal */
+  {
+    int rx_buffer = dag_get_stream_buffer_size(cap->fd, RX_STREAM);
+    int tx_buffer = dag_get_stream_buffer_size(cap->fd, TX_STREAM);
+    
+    if ( rx_buffer != tx_buffer ){
+      return dagcapture_error("dag_get_stream_buffer_size", EINVAL,
+			      "DAG card does not appear to be correctly configured for inline operation\n\n"
+			      "\t(receive buffer size = %u bytes, transmit buffer size = %u bytes).\n"
+			      "\tPlease run:\n"
+			      "\t    dagthree -d %s default overlap     (for DAG 3 cards)\n"
+			      "\t    dagfour -d %s default overlap      (for DAG 4 cards)\n"
+			      );
+    }
+  }
+
+  /* Start both streams */
+  {
+    if ( (result=dag_start_stream(cap->fd, TX_STREAM)) != 0 ){
+      return dagcapture_error("dag_start_stream", errno, "TX_STREAM %s", strerror(errno));
+    }
+    if ( (result=dag_attach_stream(cap->fd, RX_STREAM, 0, extra_window_size)) != 0 ){
+      return dagcapture_error("dag_attach_stream", errno, "RX_STREAM %s", strerror(errno));
+    }
+    if ( (result=dag_start_stream(cap->fd, RX_STREAM)) != 0 ){
+      return dagcapture_error("dag_start_stream", errno, "RX_STREAM %s", strerror(errno));
+    }
+  }
+
+  /* setup polling */
+  dagcapture_set_poll(cap,
+    32*1024, /* 32kb min data */
+    100,     /* 100ms timeout */
+    10       /* 10ms poll interval */
   );
  
   return 0;
@@ -234,7 +289,9 @@ void* dag_capture(void* ptr){
     cap.base.destroy = (destroy_callback)dagcapture_destroy_rxtx;
     cap.base.read_packet = (read_packet_callback)read_packet_rxtx;
   } else if ( dag_mode == 1 ){
-    
+    cap.base.init = (init_callback)dagcapture_init_wiretap;
+    cap.base.destroy = 0;
+    cap.base.read_packet = 0;
   } else {
     logmsg(stderr, CAPTURE, "Unsupported mode: %d\n", dag_mode);
     abort();
