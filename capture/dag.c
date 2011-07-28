@@ -176,7 +176,9 @@ static int dagcapture_error(const char* func, int code, const char* fmt, ...){
   char* buf;
   va_list ap;
   va_start(ap, fmt);
-  vasprintf(&buf, fmt, ap);
+  if ( vasprintf(&buf, fmt, ap) == -1 ){
+    buf = "<null>";
+  }
   va_end(ap);
   logmsg(stderr, CAPTURE, "%s() failed with code 0x%02x: %s\n", func, code, buf);
   free(buf);
