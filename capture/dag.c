@@ -10,6 +10,7 @@
 #include <errno.h>
 #include <string.h>
 #include <stddef.h>
+#include <stdlib.h>
 
 #define RX_STREAM 0
 #define TX_STREAM 1
@@ -102,7 +103,13 @@ static int setup_device(struct CI* CI, const char* config){
   
   logmsg(verbose, CAPTURE, "\tdevice: %s\n", dev);
   logmsg(verbose, CAPTURE, "\tconfig: \"%s\"\n", config);
-  logmsg(verbose, CAPTURE, "\t  mode: %s\n", dag_mode == 0 ? "RXTX" : "wiretap");
+  if ( dag_mode == 0 ){
+    logmsg(verbose, CAPTURE, "\tPort A: RX\n");
+    logmsg(verbose, CAPTURE, "\tPort B: TX\n");
+  } else {
+    logmsg(verbose, CAPTURE, "\tPort A: RX -> B [wiretap]\n");
+    logmsg(verbose, CAPTURE, "\tPort B: TX -> A [wiretap]\n");
+  }
 
   CI->sd = dag_open(dev);
   if ( CI->sd < 0 ) {
@@ -121,7 +128,7 @@ static int setup_device(struct CI* CI, const char* config){
 }
 
 #ifdef HAVE_DRIVER_DAG
-static int read_packet(struct dag_context* cap, unsigned char* dst, struct cap_header* head){
+static int read_packet_rxtx(struct dag_context* cap, unsigned char* dst, struct cap_header* head){
   const ptrdiff_t diff = cap->top - cap->bottom;
 
   /* no packet in buffer */
@@ -212,9 +219,16 @@ void* dag_capture(void* ptr){
   cap.bottom = NULL;
 
   /* setup callbacks */
-  cap.base.init = (init_callback)dagcapture_init_rxtx;
-  cap.base.destroy = (destroy_callback)dagcapture_destroy_rxtx;
-  cap.base.read_packet = (read_packet_callback)read_packet;
+  if ( dag_mode == 0 ){
+    cap.base.init = (init_callback)dagcapture_init_rxtx;
+    cap.base.destroy = (destroy_callback)dagcapture_destroy_rxtx;
+    cap.base.read_packet = (read_packet_callback)read_packet_rxtx;
+  } else if ( dag_mode == 1 ){
+    
+  } else {
+    logmsg(stderr, CAPTURE, "Unsupported mode: %d\n", dag_mode);
+    abort();
+  }
 
   /* start capture */
   capture_loop(CI, (struct capture_context*)&cap);
