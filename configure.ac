@@ -29,8 +29,8 @@ AC_PROG_RANLIB
 AX_PTHREAD
 
 AC_SEARCH_LIBS([clock_gettime], [rt])
-PKG_CHECK_MODULES([CAP_UTILS], [cap_utils >= 0.7])
-PKG_CHECK_MODULES([LIBMARC], [libmarc >= 0.7])
+PKG_CHECK_MODULES([CAP_UTILS], [cap_utils >= 0.7.2])
+PKG_CHECK_MODULES([LIBMARC], [libmarc >= 0.7.0])
 
 ax_dag="no"
 ax_dag_legacy="no"
