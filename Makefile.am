@@ -24,14 +24,14 @@ mp_LDADD = libcapture.a ${CAP_UTILS_LIBS} ${LIBMARC_LIBS} ${PTHREAD_LIBS} ${PCAP
 mp_SOURCES = \
 	configfile.c configfile.h \
 	control.c \
-	filter.c \
+	filter.c filter.h \
 	headers.h \
 	local.c \
-	log.c \
-	ma.c \
+	log.c log.h \
+	ma.c ma.h \
 	main.c \
-	sender.c \
-	thread.c
+	sender.c sender.h \
+	thread.c thread.h
 
 if SETCAP
 setcap:
