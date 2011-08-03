@@ -522,8 +522,8 @@ int main (int argc, char **argv){
     }
 
     int ret = 0;
-    if ( (ret=closestream(MAsd[i].stream)) != 0 ){
-      fprintf(stderr, "closestream() returned %d: %s\n", ret, caputils_error_string(ret));
+    if ( (ret=stream_close(MAsd[i].stream)) != 0 ){
+      fprintf(stderr, "stream_close() returned %d: %s\n", ret, caputils_error_string(ret));
     }
     MAsd[i].stream = NULL;
   }

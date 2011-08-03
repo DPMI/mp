@@ -127,14 +127,14 @@ int mprules_add(const struct filter* filter){
   /* setup consumer for this filter */
   rule->filter.consumer = con->index;
   con->dropCount = globalDropcount + memDropcount;
-  con->want_sendhead = rule->filter.dest.type != DEST_CAPFILE; /* capfiles shouldn't contain sendheader */
+  con->want_sendhead = rule->filter.dest.type != STREAM_ADDR_CAPFILE; /* capfiles shouldn't contain sendheader */
 
   /* mark consumer as used */
   con->status = 1;
 
   /* Open libcap stream */
-  if ( (ret=createstream(&con->stream, &rule->filter.dest, MPinfo->iface, mampid_get(MPinfo->id), MPinfo->comment)) != 0 ){
-    fprintf(stderr, "createstream() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
+  if ( (ret=stream_create(&con->stream, &rule->filter.dest, MPinfo->iface, mampid_get(MPinfo->id), MPinfo->comment)) != 0 ){
+    fprintf(stderr, "stream_create() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
     exit(1);
   }
 
@@ -181,8 +181,8 @@ int mprules_add(const struct filter* filter){
     /* close old consumer */
     struct consumer* oldcon = &MAsd[cur->filter.consumer];
     oldcon->status = 0;
-    if ( (ret=closestream(con->stream)) != 0 ){
-      fprintf(stderr, "closestream() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
+    if ( (ret=stream_close(con->stream)) != 0 ){
+      fprintf(stderr, "stream_close() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
     }
     
     /* Update existing filter */
@@ -262,8 +262,8 @@ static void stop_consumer(struct consumer* con){
   /* no need to flush, it will be handled by the sender eventually */
 
   long ret = 0;
-  if ( (ret=closestream(con->stream)) != 0 ){
-    fprintf(stderr, "closestream() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
+  if ( (ret=stream_close(con->stream)) != 0 ){
+    fprintf(stderr, "stream_close() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
   }
   con->stream = NULL;
   con->status=0;

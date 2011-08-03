@@ -36,8 +36,8 @@ int local_mode(sigset_t* sigmask, sem_t* semaphore, struct filter* filter, const
 
   /* setup destination */
   filter->dest.local_filename = filename;
-  filter->dest.type = DEST_CAPFILE;
-  filter->dest.flags = DEST_LOCAL;
+  filter->dest.type = STREAM_ADDR_CAPFILE;
+  filter->dest.flags = STREAM_ADDR_LOCAL;
   mprules_add(filter);
 
   /* initialize capture */
