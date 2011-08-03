@@ -4,7 +4,7 @@ bin_PROGRAMS = mp
 
 noinst_LIBRARIES = libcapture.a
 
-libcapture_a_CFLAGS = -Wall ${caputils_CFLAGS} ${PTHREAD_CFLAGS}  ${DAG_CFLAGS}
+libcapture_a_CFLAGS = -Wall ${libcap_stream_CFLAGS} ${PTHREAD_CFLAGS}  ${DAG_CFLAGS}
 libcapture_a_SOURCES = capture.c capture.h
 
 if HAVE_PCAP
@@ -19,8 +19,8 @@ if HAVE_DAG
 libcapture_a_SOURCES += capture/dag.c
 endif
 
-mp_CFLAGS = -Wall ${caputils_CFLAGS} ${libmarc_CFLAGS} ${PTHREAD_CFLAGS} ${DAG_CFLAGS}
-mp_LDADD = libcapture.a ${caputils_LIBS} ${libmarc_LIBS} ${PTHREAD_LIBS} ${PCAP_LIBS} ${DAG_LIBS}
+mp_CFLAGS = -Wall ${libcap_stream_CFLAGS} ${libmarc_CFLAGS} ${PTHREAD_CFLAGS} ${DAG_CFLAGS}
+mp_LDADD = libcapture.a ${libcap_stream_LIBS} ${libmarc_LIBS} ${PTHREAD_LIBS} ${PCAP_LIBS} ${DAG_LIBS}
 mp_SOURCES = \
 	configfile.c configfile.h \
 	control.c \
