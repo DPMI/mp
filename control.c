@@ -60,6 +60,11 @@ static void mp_filter(struct MPFilter* event){
     return;
   }
 
+  if ( debug_flag ){
+    logmsg(verbose, CONTROL, "Got MPFilter from MArCd.\n");
+    hexdump(verbose, (char*)event, sizeof(struct MPFilter));
+  }
+
   struct filter filter = {0,};
   marc_filter_unpack(&event->filter, &filter);
 
@@ -67,11 +72,13 @@ static void mp_filter(struct MPFilter* event){
   filter.caplen = MIN(filter.caplen, PKT_CAPSIZE);
 
   logmsg(stderr, CONTROL, "Updating filter {%d}\n", filter.filter_id);
-  mprules_add(&filter);
 
   if ( verbose_flag ){
     filter_print(&filter, stdout, 0);
   }
+
+  mprules_add(&filter);
+
 }
 
 /**

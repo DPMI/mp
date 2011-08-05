@@ -5,6 +5,7 @@
 
 extern FILE* verbose;    /* stdout if verbose is enabled, /dev/null otherwise */
 extern int verbose_flag; /* True if verbose output is requested */
+extern int debug_flag;   /* True if debug output is requested */
 
 extern const char* MAIN;
 extern const char* SENDER;

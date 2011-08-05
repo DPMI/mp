@@ -86,6 +86,7 @@ static struct CI CI[CI_NIC];
 struct CI* _CI = CI;
 
 int verbose_flag = 0;
+int debug_flag = 0;
 FILE* verbose = NULL; 
 
 const char* MAIN = "main";
@@ -254,6 +255,7 @@ static struct option long_options[]= {
   {"port", 1, NULL, 'p'},
   {"capfile", 1, NULL, 'c'},
   {"verbose", 0, &verbose_flag, 1},
+  {"debug", 0, &debug_flag, 1},
   {"quiet", 0, &verbose_flag, 0},
   {"config", 1, NULL, OPTION_IGNORE},
   {"dag.wiretap", 0, NULL, 'w'},
@@ -487,6 +489,9 @@ int main (int argc, char **argv){
     exit(1);
   }
   noCI = iflag;
+
+  /* force verbose if debug is enabled */
+  verbose_flag |= debug_flag;
 
   /* setup vfp to stdout or /dev/null depending on verbose flag */
   verbose = stdout;

@@ -127,7 +127,7 @@ int mprules_add(const struct filter* filter){
   /* setup consumer for this filter */
   rule->filter.consumer = con->index;
   con->dropCount = globalDropcount + memDropcount;
-  con->want_sendhead = rule->filter.dest.type != STREAM_ADDR_CAPFILE; /* capfiles shouldn't contain sendheader */
+  con->want_sendhead = stream_addr_type(&rule->filter.dest) != STREAM_ADDR_CAPFILE; /* capfiles shouldn't contain sendheader */
 
   /* mark consumer as used */
   con->status = 1;
@@ -139,18 +139,20 @@ int mprules_add(const struct filter* filter){
   }
 
   /* Setup headers */
-  switch(rule->filter.dest.type==1){
-  case 3:
-  case 2:
+  switch( stream_addr_type(&rule->filter.dest) ){
+  case STREAM_ADDR_TCP:
+  case STREAM_ADDR_UDP:
     break;
-  case 1:
+  case STREAM_ADDR_ETHERNET:
     {
       struct ethhdr *ethhead = (struct ethhdr*)sendmem[con->index];
       memcpy(ethhead->h_dest, &rule->filter.dest.ether_addr, ETH_ALEN);
     }
     break;
-  case 0:
+  case STREAM_ADDR_CAPFILE:
     break;
+  case STREAM_ADDR_GUESS:
+    abort();
   }
 
   /* First rule */
