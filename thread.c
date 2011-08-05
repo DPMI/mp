@@ -59,7 +59,7 @@ int thread_create_sync(pthread_t* thread, const pthread_attr_t* attr, start_rout
   } else {
     if ( clock_gettime(CLOCK_REALTIME, &ts) != 0 ){
       int saved = errno;
-      fprintf(stderr, "clock_gettime() [%s] returned %d: %s\n", tag, saved, strerror(saved));
+      logmsg(stderr, MAIN, "clock_gettime() [%s] returned %d: %s\n", tag, saved, strerror(saved));
       return saved;
     }
 
@@ -68,7 +68,7 @@ int thread_create_sync(pthread_t* thread, const pthread_attr_t* attr, start_rout
 
   /* create thread */
   if ( (ret=pthread_create(thread, attr, (void*(*)(void*))thread_launcher, td)) != 0 ) {
-    fprintf(stderr,"pthread_create() [%s] returned %d: %s\n", tag, ret, strerror(ret));
+    logmsg(stderr, MAIN, "pthread_create() [%s] returned %d: %s\n", tag, ret, strerror(ret));
     return ret;
   }
   
@@ -88,7 +88,7 @@ int thread_create_sync(pthread_t* thread, const pthread_attr_t* attr, start_rout
       break;
 
     default:
-      fprintf(stderr, "sem_timedwait() [%s] returned %d: %s\n", tag, saved, strerror(saved));
+      logmsg(stderr, MAIN, "sem_timedwait() [%s] returned %d: %s\n", tag, saved, strerror(saved));
     }
     return saved;
   }

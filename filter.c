@@ -115,7 +115,7 @@ int mprules_add(const struct filter* filter){
 
   struct consumer* con = next_free_consumer();
   if( !con ){ // Problems, NO free consumers. Bail out! 
-    fprintf(stderr, "No free consumers! (max: %d)\n", CONSUMERS);
+    logmsg(stderr, FILTER, "No free consumers! (max: %d)\n", CONSUMERS);
     return ENOBUFS;
   }
 
@@ -134,7 +134,7 @@ int mprules_add(const struct filter* filter){
 
   /* Open libcap stream */
   if ( (ret=stream_create(&con->stream, &rule->filter.dest, MPinfo->iface, mampid_get(MPinfo->id), MPinfo->comment)) != 0 ){
-    fprintf(stderr, "stream_create() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
+    logmsg(stderr, FILTER, "stream_create() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
     exit(1);
   }
 
@@ -182,7 +182,7 @@ int mprules_add(const struct filter* filter){
     struct consumer* oldcon = &MAsd[cur->filter.consumer];
     oldcon->status = 0;
     if ( (ret=stream_close(con->stream)) != 0 ){
-      fprintf(stderr, "stream_close() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
+      logmsg(stderr, FILTER, "stream_close() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
     }
     
     /* Update existing filter */
@@ -263,7 +263,7 @@ static void stop_consumer(struct consumer* con){
 
   long ret = 0;
   if ( (ret=stream_close(con->stream)) != 0 ){
-    fprintf(stderr, "stream_close() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
+    logmsg(stderr, FILTER, "stream_close() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
   }
   con->stream = NULL;
   con->status=0;

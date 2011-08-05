@@ -46,7 +46,7 @@ int wait_for_capture(sem_t* sem){
 
   if ( clock_gettime(CLOCK_REALTIME, &ts) != 0 ){
     int saved = errno;
-    fprintf(stderr, "clock_gettime() returned %d: %s\n", saved, strerror(saved));
+    logmsg(stderr, SENDER, "clock_gettime() returned %d: %s\n", saved, strerror(saved));
     return saved;
   }
 
@@ -59,7 +59,7 @@ int wait_for_capture(sem_t* sem){
     case EINTR:
       break;
     default:
-      fprintf(stderr, "sem_timedwait() returned %d: %s\n", saved, strerror(saved));
+      logmsg(stderr, SENDER, "sem_timedwait() returned %d: %s\n", saved, strerror(saved));
     }
     return saved;
   }
@@ -89,11 +89,11 @@ void send_packet(struct consumer* con){
     stream_write(con->stream, data, data_size);
   }
 
-  fprintf(verbose, "SendThread [id:%u] sending %zd bytes\n", thread_id(), payload_size);
-  fprintf(verbose, "\tcaputils-%d.%d\n", ntohs(con->shead->version.major), ntohs(con->shead->version.minor));
-  fprintf(verbose, "\tdropCount[] = %d (g%d/m%d)\n", con->dropCount, globalDropcount, memDropcount);
-  fprintf(verbose, "\tPacket length = %zd bytes, Eth %zd, Send %zd, Cap %zd bytes\n", packet_full_size, sizeof(struct ethhdr), sizeof(struct sendhead), sizeof(struct cap_header));
-  fprintf(verbose, "\tSeqnr  = %04lx \t nopkts = %04x \t Losscount = %d\n", (unsigned long int)seqnr, ntohs(con->shead->nopkts), -1);
+  logmsg(verbose, SENDER, "SendThread [id:%u] sending %zd bytes\n", thread_id(), payload_size);
+  logmsg(verbose, SENDER, "\tcaputils-%d.%d\n", ntohs(con->shead->version.major), ntohs(con->shead->version.minor));
+  logmsg(verbose, SENDER, "\tdropCount[] = %d (g%d/m%d)\n", con->dropCount, globalDropcount, memDropcount);
+  logmsg(verbose, SENDER, "\tPacket length = %zd bytes, Eth %zd, Send %zd, Cap %zd bytes\n", packet_full_size, sizeof(struct ethhdr), sizeof(struct sendhead), sizeof(struct cap_header));
+  logmsg(verbose, SENDER, "\tSeqnr  = %04lx \t nopkts = %04x \t Losscount = %d\n", (unsigned long int)seqnr, ntohs(con->shead->nopkts), -1);
   
   //Update the sequence number.
   con->shead->sequencenr = htonl((seqnr+1) % 0xFFFF);

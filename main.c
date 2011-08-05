@@ -396,7 +396,7 @@ int setup_capture(){
   /* launch all capture threads */
   for (int i=0; i < iflag; i++) {
     if ( (ret=pthread_create( &CI[i].thread, NULL, func, &CI[i])) != 0 ) {
-      fprintf(stderr,"Error creating capture thread.");
+      logmsg(stderr, MAIN, "Error creating capture thread.");
       return ret;
     }
   }
@@ -408,7 +408,7 @@ int setup_capture(){
     struct timespec ts;
     if ( clock_gettime(CLOCK_REALTIME, &ts) != 0 ){
       int saved = errno;
-      fprintf(stderr, "clock_gettime() returned %d: %s\n", saved, strerror(saved));
+      logmsg(stderr, MAIN, "clock_gettime() returned %d: %s\n", saved, strerror(saved));
       return saved;
     }
     ts.tv_sec += 20; /* 20s timeout */
@@ -424,7 +424,7 @@ int setup_capture(){
       case EINTR:
 	break;
       default:
-	fprintf(stderr, "sem_timedwait() returned %d: %s\n", saved, strerror(saved));
+	logmsg(stderr, MAIN, "sem_timedwait() returned %d: %s\n", saved, strerror(saved));
       }
       return saved;
     }
@@ -523,7 +523,7 @@ int main (int argc, char **argv){
 
     int ret = 0;
     if ( (ret=stream_close(MAsd[i].stream)) != 0 ){
-      fprintf(stderr, "stream_close() returned %d: %s\n", ret, caputils_error_string(ret));
+      logmsg(stderr, MAIN, "stream_close() returned %d: %s\n", ret, caputils_error_string(ret));
     }
     MAsd[i].stream = NULL;
   }
@@ -531,7 +531,7 @@ int main (int argc, char **argv){
   printf("OK.\nIt's terrible to out live your own children, so I die to.\n");
   
   if ( sem_destroy(&semaphore) != 0 ){
-    fprintf(stderr, "%s: sem_destroy() returned %d: %s\n", argv[0], errno, strerror(errno));
+    logmsg(stderr, MAIN, "%s: sem_destroy() returned %d: %s\n", argv[0], errno, strerror(errno));
   }
 
   mprules_clear();
