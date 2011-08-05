@@ -6,16 +6,11 @@
 
 #include <semaphore.h>
 #include <time.h>
+#include <errno.h>
 
 /* workaround for broken LinuxThreads sem_timedwait implementation. */
 int __sem_timedwait(sem_t* sem, const struct timespec* abs_timeout){
-  int ret;
-  switch ( (ret=sem_timedwait(sem, abs_timeout)) ){
-  case EOK:
-    errno = EOK;
-    return 0;
-  default:
-    errno = ret;
-    return -1;
-  }
+  int ret = sem_timedwait(sem, abs_timeout);
+  errno = ret;
+  return ret != 0 ? -1 : 0;
 }
