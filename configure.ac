@@ -27,6 +27,8 @@ AC_PROG_CC_C_O
 AC_PROG_CC_C99
 AC_PROG_RANLIB
 AX_PTHREAD
+AX_BROKEN_SEM_TIMEDWAIT
+AM_CONDITIONAL(BUILD_SEM_TIMEDWAIT, [test "x$build_sem_timedwait" == "xyes"])
 
 AC_SEARCH_LIBS([clock_gettime], [rt])
 PKG_CHECK_MODULES([libcap_stream], [cap_stream >= 0.7.3])

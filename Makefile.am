@@ -33,6 +33,10 @@ mp_SOURCES = \
 	sender.c sender.h \
 	thread.c thread.h
 
+if BUILD_SEM_TIMEDWAIT
+mp_SOURCES += lib/sem_timedwait.c
+endif
+
 if SETCAP
 setcap:
 	$(SETCAP) cap_net_raw+ep $(DESTDIR)$(bindir)/mp
