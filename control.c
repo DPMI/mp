@@ -96,43 +96,6 @@ static void mp_filter_del(int id){
   mprules_del(id);
 }
 
-/**
- * Dump the content of data as hexadecimal (and its ascii repr.)
- */
-static void hexdump(FILE* fp, const char* data, size_t size){
-  const size_t align = size + (size % 16);
-  fputs("[0000]  ", fp);
-  for( int i=0; i < align; i++){
-    if ( i < size ){
-      fprintf(fp, "%02X ", data[i] & 0xff);
-    } else {
-      fputs("   ", fp);
-    }
-    if ( i % 4 == 3 ){
-      fputs("   ", fp);
-    }
-    if ( i % 16 == 15 ){
-      fputs("    |", fp);
-      for ( int j = i-15; j<=i; j++ ){
-	char ch = data[j];
-
-	if ( j >= size ){
-	  ch = ' ';
-	} else if ( !isprint(data[j]) ){
-	  ch = '.';
-	}
-
-	fputc(ch, fp);
-      }
-      fputs("|", fp);
-      if ( (i+1) < align){
-	fprintf(fp, "\n[%04X]  ", i+1);
-      }
-    }
-  }
-  printf("\n");
-}
-
 static int is_authorized(){
   /* if the first character is a NULL-terminator (i.e strlen() is 0) it isn't
    * authorized yet. */

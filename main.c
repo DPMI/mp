@@ -85,6 +85,15 @@ static const char* capfile = NULL;
 static struct CI CI[CI_NIC];
 struct CI* _CI = CI;
 
+int verbose_flag = 0;
+FILE* verbose = NULL; 
+
+const char* MAIN = "main";
+const char* SENDER = "sender";
+const char* CAPTURE = "capture";
+const char* CONTROL = "control";
+const char* FILTER = "filter";
+
 static sem_t semaphore;
 pthread_t controlPID;              // thread id for the control thread
 
