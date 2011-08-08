@@ -45,4 +45,7 @@ endif
 
 if SETCAP
 install-exec-hook: setcap
+else
+install-exec-hook:
+	@echo "ignoring setcap, use \`--enable-setcap-install' to enable."
 endif
