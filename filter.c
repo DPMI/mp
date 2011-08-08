@@ -124,35 +124,44 @@ int mprules_add(const struct filter* filter){
   rule->next = NULL;
   memcpy(&rule->filter, filter, sizeof(struct filter));
 
-  /* setup consumer for this filter */
-  rule->filter.consumer = con->index;
-  con->dropCount = globalDropcount + memDropcount;
-  con->want_sendhead = stream_addr_type(&rule->filter.dest) != STREAM_ADDR_CAPFILE; /* capfiles shouldn't contain sendheader */
+  /* if the destination is /dev/null this triggers a fast-path where the packet is discarded */
+  int discard_filter = \
+    stream_addr_type(&rule->filter.dest) == STREAM_ADDR_CAPFILE &&
+    strcmp(rule->filter.dest.filename, "/dev/null") == 0;
 
-  /* mark consumer as used */
-  con->status = 1;
-
-  /* Open libcap stream */
-  if ( (ret=stream_create(&con->stream, &rule->filter.dest, MPinfo->iface, mampid_get(MPinfo->id), MPinfo->comment)) != 0 ){
-    logmsg(stderr, FILTER, "stream_create() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
-    exit(1);
-  }
-
-  /* Setup headers */
-  switch( stream_addr_type(&rule->filter.dest) ){
-  case STREAM_ADDR_TCP:
-  case STREAM_ADDR_UDP:
-    break;
-  case STREAM_ADDR_ETHERNET:
-    {
-      struct ethhdr *ethhead = (struct ethhdr*)sendmem[con->index];
-      memcpy(ethhead->h_dest, &rule->filter.dest.ether_addr, ETH_ALEN);
+  if ( !discard_filter ){
+    /* setup consumer for this filter */
+    rule->filter.consumer = con->index;
+    con->dropCount = globalDropcount + memDropcount;
+    con->want_sendhead = stream_addr_type(&rule->filter.dest) != STREAM_ADDR_CAPFILE; /* capfiles shouldn't contain sendheader */
+    
+    /* mark consumer as used */
+    con->status = 1;
+    
+    /* Open libcap stream */
+    if ( (ret=stream_create(&con->stream, &rule->filter.dest, MPinfo->iface, mampid_get(MPinfo->id), MPinfo->comment)) != 0 ){
+      logmsg(stderr, FILTER, "stream_create() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
+      exit(1);
     }
-    break;
-  case STREAM_ADDR_CAPFILE:
-    break;
-  case STREAM_ADDR_GUESS:
-    abort();
+    
+    /* Setup headers */
+    switch( stream_addr_type(&rule->filter.dest) ){
+    case STREAM_ADDR_TCP:
+    case STREAM_ADDR_UDP:
+      break;
+    case STREAM_ADDR_ETHERNET:
+      {
+	struct ethhdr *ethhead = (struct ethhdr*)sendmem[con->index];
+	memcpy(ethhead->h_dest, &rule->filter.dest.ether_addr, ETH_ALEN);
+      }
+      break;
+    case STREAM_ADDR_CAPFILE:
+      break;
+    case STREAM_ADDR_GUESS:
+      abort();
+    }
+  } else {
+    rule->filter.consumer = -1; /* will give a no-match when filtering */
   }
 
   /* First rule */
