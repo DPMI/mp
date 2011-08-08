@@ -2,7 +2,7 @@ m4_define([__VERSION_MAJOR__], [0])
 m4_define([__VERSION_MINOR__], [7])
 m4_define([__VERSION_MICRO__], [1])
 
-AC_PREREQ([2.62])
+AC_PREREQ([2.61])
 AC_INIT([mp],[__VERSION_MAJOR__.__VERSION_MINOR__.__VERSION_MICRO__], [dsv@bth.se])
 
 VERSION_MAJOR=__VERSION_MAJOR__
