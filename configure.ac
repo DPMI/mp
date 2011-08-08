@@ -110,7 +110,7 @@ AS_IF([test -z "$CI_NO"],
 
 AC_ARG_VAR([FILTERS], [Max filters. @<:@default=20@:>@])
 AS_IF([test -z "$FILTERS"],
-	[AC_DEFINE([CONSUMERS], 2, [Max filters])],
+	[AC_DEFINE([CONSUMERS], 20, [Max filters])],
 	[AC_DEFINE_UNQUOTED([CONSUMERS], $FILTERS, [Max filters])]
 )
 
