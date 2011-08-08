@@ -79,6 +79,7 @@ static void info(int sd);// function for presentating statistics
 static short int iflag=0;  // number of capture interfaces
 static short int tdflag=0; // Number of T_delta definitions.
 
+static pthread_t main_thread;
 static int local = 0;       /* run in local-mode, don't try to contact MArCd */
 static int port = 0;
 static const char* capfile = NULL;
@@ -465,6 +466,7 @@ int main (int argc, char **argv){
   MPstats = &MPstatsI;
 
   /* activating signal*/
+  main_thread = pthread_self();
   signal(SIGINT, cleanup);
   signal(SIGTERM, cleanup);
 
@@ -561,6 +563,14 @@ int main (int argc, char **argv){
  */
 static void cleanup(int sig) {
   pthread_t self=pthread_self();
+
+  /* only main thread should handle cleanup */
+  /* this is needed on platforms with bad thread handling (LinuxThreads, I'm
+   * especially looking at you) where sigmasks appears to not work. */
+  if ( !pthread_equal(self, main_thread) ){
+    return;
+  }
+
   fputc('\r', stderr);
   logmsg(stderr, MAIN, "Thread %ld caught %s signal.\n", self, strsignal(sig));
   
