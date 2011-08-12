@@ -15,9 +15,12 @@
 #include <net/if.h>
 #include <linux/if_packet.h>
 
+#define BUFFER_SIZE 4096
+
 struct raw_context {
   struct capture_context base;
   int socket;
+  char buffer[BUFFER_SIZE];
 };
 
 //Sets Nic to promisc mode
@@ -78,7 +81,7 @@ static int iface_bind(int fd, int ifindex){
   return 0;
 }
 
-static int read_packet_raw(struct raw_context* ctx, unsigned char* dst, struct timeval* timestamp){
+static int read_packet_raw(struct raw_context* ctx, unsigned char* dst, struct cap_header* head){
   int sd = ctx->socket;
   struct timeval timeout = {1, 0};
   
@@ -100,7 +103,7 @@ static int read_packet_raw(struct raw_context* ctx, unsigned char* dst, struct t
   }
 
   /* read from socket */
-  const ssize_t bytes = recvfrom(sd, dst, PKT_CAPSIZE, MSG_TRUNC, NULL, NULL);
+  const ssize_t bytes = recvfrom(sd, ctx->buffer, BUFFER_SIZE, MSG_TRUNC, NULL, NULL);
 
   /* check errors */
   if ( bytes == -1 ){
@@ -114,9 +117,21 @@ static int read_packet_raw(struct raw_context* ctx, unsigned char* dst, struct t
   }
 
   /* grab timestamp */
-  ioctl(sd, SIOCGSTAMP, &timestamp );
+  struct timeval tv;
+  ioctl(sd, SIOCGSTAMP, &tv );
 
-  return bytes;
+  const size_t data_len = MIN(bytes, PKT_CAPSIZE);
+  const size_t padding = PKT_CAPSIZE - data_len;
+
+  memcpy(dst, ctx->buffer, data_len);
+  memset(dst + data_len, 0, padding);
+
+  head->ts.tv_sec   = tv.tv_sec;            // Store arrival time in seconds
+  head->ts.tv_psec  = tv.tv_usec * 1000000; // Write timestamp in picosec
+  head->len         = bytes;
+  head->caplen      = data_len;
+
+  return data_len;
 }
 
 /* This is the RAW_SOCKET capturer..   */ 
