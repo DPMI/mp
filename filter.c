@@ -38,6 +38,7 @@
 #include <string.h>
 //#include <linux/if.h>
 
+extern int flush_flag;
 static struct rule* rules = NULL;
 static size_t rule_count = 0;
 
@@ -128,6 +129,11 @@ int mprules_add(const struct filter* filter){
   int discard_filter = \
     stream_addr_type(&rule->filter.dest) == STREAM_ADDR_CAPFILE &&
     strcmp(rule->filter.dest.filename, "/dev/null") == 0;
+
+  /* toggle flush flag (can only be used at clients) */
+  if ( flush_flag ){
+    rule->filter.dest._flags |= htons(STREAM_ADDR_FLUSH);
+  }
 
   if ( !discard_filter ){
     /* setup consumer for this filter */
