@@ -13,6 +13,7 @@
 #include <pthread.h>
 #include <signal.h>
 
+extern int flush_flag;
 int setup_capture();
 
 int local_mode(sigset_t* sigmask, sem_t* semaphore, struct filter* filter, const char* filename){
@@ -35,7 +36,8 @@ int local_mode(sigset_t* sigmask, sem_t* semaphore, struct filter* filter, const
   }
 
   /* setup destination */
-  stream_addr_str(&filter->dest, filename);
+  int flags = flush_flag ? STREAM_ADDR_FLUSH : 0;
+  stream_addr_str(&filter->dest, filename, flags);
   mprules_add(filter);
 
   /* initialize capture */

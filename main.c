@@ -86,6 +86,7 @@ static const char* capfile = NULL;
 static struct CI CI[CI_NIC];
 struct CI* _CI = CI;
 
+int flush_flag = 0;
 int verbose_flag = 0;
 int debug_flag = 0;
 FILE* verbose = NULL; 
@@ -200,7 +201,10 @@ static void show_usage(const char* program_name){
 	 "                              everything and store to file.\n");
   printf("      --capfile=FILE          Store all captured packets in this capfile (in\n"
 	 "                              addition to filter dst). Multiple filters are\n"
-	 "                              aggregated.\n");
+	 "                              aggregated.\n"
+         "      --flush                 Force streams to be flushed (to disk or network)\n"
+	 "                              on every write. It incurs a small performance\n"
+	 "                              penalty but can be useful for low-traffic streams.\n");
   printf("  -v, --verbose               Verbose output\n");
   printf("      --quiet                 Less output (inverse of --verbose)\n");
 
@@ -255,6 +259,7 @@ static struct option long_options[]= {
   {"help", 0, NULL, 'h'},
   {"port", 1, NULL, 'p'},
   {"capfile", 1, NULL, 'c'},
+  {"flush", 0, &flush_flag, 1},
   {"verbose", 0, &verbose_flag, 1},
   {"debug", 0, &debug_flag, 1},
   {"quiet", 0, &verbose_flag, 0},
