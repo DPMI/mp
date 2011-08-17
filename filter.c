@@ -59,6 +59,11 @@ int filter(const char* CI, const void *pkt, struct cap_header *head){
     vlan = (struct ether_vlan_header*)(pkt);
   }
 
+  /* if listening on the same iface as capturing (i.e. -i and -s is the same), ignore mp packages */
+  if ( ntohs(ether->h_proto) == 0x0810 ){
+    return -1;
+  }
+
   /* setup IP header */
   if ( vlan == NULL ) {
     if(ntohs(ether->h_proto) == ETHERTYPE_IP){
