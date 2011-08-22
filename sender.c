@@ -99,6 +99,7 @@ void send_packet(struct consumer* con){
     logmsg(verbose, SENDER, "\tSeqnr  = %04lx \t nopkts = %04x \t Losscount = %d\n", (unsigned long int)seqnr, ntohs(con->shead->nopkts), -1);
   } else {
     logmsg(stderr,  SENDER, "\tstream_write() returned %d: %s\n", ret, strerror(ret));
+    logmsg(verbose, SENDER, "\tPacket length = %zd bytes, Eth %zd, Send %zd, Cap %zd bytes\n", packet_full_size, sizeof(struct ethhdr), sizeof(struct sendhead), sizeof(struct cap_header));
   }
 
   //Update the sequence number.
