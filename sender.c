@@ -114,7 +114,7 @@ void send_packet(struct consumer* con){
   con->sendpointer=con->sendptrref; // Restore the pointer to the first spot where the next packet will be placed.
 }
 
-static int can_defer_send(struct consumer* con, struct timespec* now, struct timespec* last_sent, int nextPDUlen){
+static int can_defer_send(struct consumer* con, struct timespec* now, struct timespec* last_sent, int caplen){
   /* calculate time since last send. If it was long ago (longer than
    * MAX_PACKET_AGE) the send buffer is flushed even if it doesn't contain
    * enough payload for a full packet. */
@@ -128,10 +128,9 @@ static int can_defer_send(struct consumer* con, struct timespec* now, struct tim
 
   const signed long int age = sec + msec;
   const size_t payload_size = con->sendpointer - con->sendptrref;
-  const size_t mtu_size = MPinfo->MTU -2*(sizeof(cap_head)+nextPDUlen); // This row accounts for the fact that the consumer buffers only need extra space for one PDU of of the capture size for that particular filter. 
+  const size_t header_size = sizeof(struct ethhdr) + sizeof(struct cap_header) + sizeof(struct sendhead);
 
-
-  const int larger_mtu = payload_size >= mtu_size;
+  const int larger_mtu = payload_size + caplen + header_size >= MPinfo->MTU;
   const int need_flush = con->status == 0 && payload_size > 0;
   const int old_age = age >= MAX_PACKET_AGE;
 
@@ -251,7 +250,6 @@ void* sender_caputils(struct thread_data* td, void *ptr){
     const int nics = proc->nics;             // The number of active CIs
 
     int readPos[CI_NIC] = {0,};        // array of memory positions
-    int nextPDUlen=0;                  // The length of PDUs stored in the selected consumer.
 
     logmsg(stderr, SENDER, "Initializing. There are %d captures.\n", nics);
 
@@ -276,22 +274,24 @@ void* sender_caputils(struct thread_data* td, void *ptr){
       cap_head* head      = (cap_head*)(raw_buffer + sizeof(write_head));
       struct consumer* con = &MAsd[whead->consumer];
 
-      copy_to_sendbuffer(con, raw_buffer, &readPos[oldest], &_CI[oldest]);
-      nextPDUlen = head->caplen;
-
       /* get current timestamp */
       struct timespec now;
       clock_gettime(CLOCK_REALTIME, &now);
 
-      if ( can_defer_send(con, &now, &last_sent, nextPDUlen) ){
+      if ( can_defer_send(con, &now, &last_sent, head->caplen) ){
+	/* defer ok, write current packet to buffer */
+	copy_to_sendbuffer(con, raw_buffer, &readPos[oldest], &_CI[oldest]);
 	continue;
       }
 
-      /* send packet */
+      /* send existing packets (but _not_ current packet) */
       send_packet(con);
 
       /* store timestamp (used to determine if sender must be flushed or not, due to old packages) */
       last_sent = now;
+
+      /* write current packet to buffer */
+      copy_to_sendbuffer(con, raw_buffer, &readPos[oldest], &_CI[oldest]);
     }
 
     logmsg(verbose, SENDER, "Flushing sendbuffers.\n");
