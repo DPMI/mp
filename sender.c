@@ -77,6 +77,8 @@ void send_packet(struct consumer* con){
   /*con->shead->losscounter=htons((globalDropcount+memDropcount)-dropCount[whead->consumer]); */
   con->dropCount = globalDropcount + memDropcount;
 
+  int ret;
+
   {
     const u_char* data = con->sendptrref;
     size_t data_size = payload_size;
@@ -85,16 +87,20 @@ void send_packet(struct consumer* con){
       data -= header_size;
       data_size += header_size;
     }
-    
-    stream_write(con->stream, data, data_size);
+
+    ret = stream_write(con->stream, data, data_size);
   }
 
-  logmsg(verbose, SENDER, "SendThread [id:%u] sending %zd bytes\n", thread_id(), payload_size);
-  logmsg(verbose, SENDER, "\tcaputils-%d.%d\n", ntohs(con->shead->version.major), ntohs(con->shead->version.minor));
-  logmsg(verbose, SENDER, "\tdropCount[] = %d (g%d/m%d)\n", con->dropCount, globalDropcount, memDropcount);
-  logmsg(verbose, SENDER, "\tPacket length = %zd bytes, Eth %zd, Send %zd, Cap %zd bytes\n", packet_full_size, sizeof(struct ethhdr), sizeof(struct sendhead), sizeof(struct cap_header));
-  logmsg(verbose, SENDER, "\tSeqnr  = %04lx \t nopkts = %04x \t Losscount = %d\n", (unsigned long int)seqnr, ntohs(con->shead->nopkts), -1);
-  
+  if ( ret == 0 ){
+    logmsg(verbose, SENDER, "SendThread [id:%u] sending %zd bytes\n", thread_id(), payload_size);
+    logmsg(verbose, SENDER, "\tcaputils-%d.%d\n", ntohs(con->shead->version.major), ntohs(con->shead->version.minor));
+    logmsg(verbose, SENDER, "\tdropCount[] = %d (g%d/m%d)\n", con->dropCount, globalDropcount, memDropcount);
+    logmsg(verbose, SENDER, "\tPacket length = %zd bytes, Eth %zd, Send %zd, Cap %zd bytes\n", packet_full_size, sizeof(struct ethhdr), sizeof(struct sendhead), sizeof(struct cap_header));
+    logmsg(verbose, SENDER, "\tSeqnr  = %04lx \t nopkts = %04x \t Losscount = %d\n", (unsigned long int)seqnr, ntohs(con->shead->nopkts), -1);
+  } else {
+    logmsg(stderr, SENDER, "stream_write() returned %d: %s\n", ret, strerror(ret));
+  }
+
   //Update the sequence number.
   con->shead->sequencenr = htonl((seqnr+1) % 0xFFFF);
 
