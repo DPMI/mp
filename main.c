@@ -89,6 +89,7 @@ struct CI* _CI = CI;
 int flush_flag = 0;
 int verbose_flag = 0;
 int debug_flag = 0;
+int show_packets = 0;
 FILE* verbose = NULL; 
 
 const char* MAIN = "main";
@@ -189,24 +190,53 @@ static void set_td(const char* arg) {
   tdflag++;
 }
 
+
+enum Options {
+  OPTION_IGNORE = 256
+};
+
+static struct option long_options[]= {
+  {"local", 0, &local, 1},
+  {"accuracy", 1, NULL, 'd'},
+  {"interface", 1, NULL, 'i'},
+  {"manic", 1, NULL, 's'},
+  {"help", 0, NULL, 'h'},
+  {"port", 1, NULL, 'p'},
+  {"capfile", 1, NULL, 'c'},
+  {"flush", 0, &flush_flag, 1},
+  {"verbose", 0, &verbose_flag, 1},
+  {"debug", 0, &debug_flag, 1},
+  {"quiet", 0, &verbose_flag, 0},
+  {"show-packets", 0 ,&show_packets, 1},
+  {"config", 1, NULL, OPTION_IGNORE},
+  {"dag.wiretap", 0, NULL, 'w'},
+  {"dag.rxtx", 0, NULL, 'm'},
+  {"forward", 0, NULL, 'w'},
+  {0, 0, 0, 0}
+};
+
 static void show_usage(const char* program_name){
   printf("(C) 2004 patrik.arlos@bth.se\n");
   printf("(C) 2011 david.sveningsson@bth.se\n"),
-  printf("Usage: %s [OPTION]... -i INTERFACE... -s INTERFACE\n", program_name);
+  printf("Usage: %s [OPTION]... -i INTERFACE... -s INTERFACE\n"
+	 "       %s [OPTION] --local --capfile FILENAME\n", program_name, program_name);
   printf("  -h, --help                  help (this text)\n");
-  printf("  -s, --manic=INTERFACE       MA Interface. (REQUIRED)\n");
-  printf("  -p, --port=PORT             Control interface listen port (default 1500)\n");
+  printf("  -s, --manic=INTERFACE       MA Interface.\n");
+  printf("  -p, --port=PORT             Control interface listen port [default: 1500]\n");
   printf("  -i, --interface=INTERFACE   Capture Interface (REQUIRED)\n");
+  printf("      --config=FILE           Read configuration from FILE [default: mp.conf]\n");
   printf("      --local                 LOCAL MODE, do not talk to MArC, capture\n"
-	 "                              everything and store to file.\n");
+         "                              everything and store to file.\n");
   printf("      --capfile=FILE          Store all captured packets in this capfile (in\n"
-	 "                              addition to filter dst). Multiple filters are\n"
-	 "                              aggregated.\n"
+         "                              addition to filter dst). Multiple filters are\n"
+         "                              aggregated.\n"
          "      --flush                 Force streams to be flushed (to disk or network)\n"
-	 "                              on every write. It incurs a small performance\n"
-	 "                              penalty but can be useful for low-traffic streams.\n");
-  printf("  -v, --verbose               Verbose output\n");
-  printf("      --quiet                 Less output (inverse of --verbose)\n");
+         "                              on every write. It incurs a small performance\n"
+         "                              penalty but can be useful for low-traffic streams.\n");
+  printf("  -v, --verbose               Verbose output.\n"
+         "  -d, --debug                 Hexdump of all messages (implies --verbose).\n"
+         "      --show-packets          Print short description of captured packets.\n"
+         "  -q, --quiet                 Less output (inverse of --verbose)\n");
 
 #ifdef HAVE_DRIVER_DAG
   printf("\n");
@@ -246,29 +276,6 @@ static void show_configuration(){
   logmsg(verbose, MAIN, "    MAnic: %s   MTU: %zd   hwaddr: %s\n", MPinfo->iface, MPinfo->MTU, ether_ntoa(&MPinfo->hwaddr));
   logmsg(verbose, MAIN, "\n");
 }
-
-enum Options {
-  OPTION_IGNORE = 256
-};
-
-static struct option long_options[]= {
-  {"local", 0, &local, 1},
-  {"accuracy", 1, NULL, 'd'},
-  {"interface", 1, NULL, 'i'},
-  {"manic", 1, NULL, 's'},
-  {"help", 0, NULL, 'h'},
-  {"port", 1, NULL, 'p'},
-  {"capfile", 1, NULL, 'c'},
-  {"flush", 0, &flush_flag, 1},
-  {"verbose", 0, &verbose_flag, 1},
-  {"debug", 0, &debug_flag, 1},
-  {"quiet", 0, &verbose_flag, 0},
-  {"config", 1, NULL, OPTION_IGNORE},
-  {"dag.wiretap", 0, NULL, 'w'},
-  {"dag.rxtx", 0, NULL, 'm'},
-  {"forward", 0, NULL, 'w'},
-  {0, 0, 0, 0}
-};
 
 static int parse_argv(int argc, char** argv){
  
