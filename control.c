@@ -264,6 +264,16 @@ void* control(struct thread_data* td, void* prt){
     }
   }
 
+  /* inform MArCd that MP is terminating (properly) */
+  {
+	  MPMessage ev;
+	  ev.type = MP_CONTROL_TERMINATE_EVENT;
+	  mampid_set(ev.MAMPid, MPinfo->id);
+	  if ( (ret=marc_push_event(client, &ev, NULL)) != 0 ){
+		  logmsg(stderr, CONTROL, "marc_push_event() returned %d: %s\n", ret, strerror(ret));
+	  }
+  }
+
   marc_cleanup(client);
   client = NULL;
 
