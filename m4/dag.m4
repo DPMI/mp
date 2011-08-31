@@ -17,7 +17,7 @@ AC_DEFUN([AX_DAG2], [
     ax_dag_libs=-ldag
 
     AS_IF([test "x$ax_dag_path" != "x"], [
-      ax_dag_cflags+="-I$ax_dag_path/include"
+      ax_dag_cflags="-I$ax_dag_path/include"
       ax_dag_libs="-L$ax_dag_path/lib $ax_dag_libs"
     ])
 
@@ -25,7 +25,8 @@ AC_DEFUN([AX_DAG2], [
       AC_MSG_CHECKING([for dagapi.o])
       AS_IF([test -e $ax_dag_path/tools/dagapi.o], [
         AC_MSG_RESULT([yes])
-	ax_dag_libs+="$ax_dag_path/tools/dagapi.o"
+	dnl assume dagopts.o exists if dagapi.o does
+	ax_dag_libs="$ax_dag_path/tools/dagapi.o $ax_dag_path/tools/dagopts.o ${ax_dag_libs}"
       ],[
         AC_MSG_RESULT([no])
 	AC_MSG_ERROR([
