@@ -256,6 +256,11 @@ void* control(struct thread_data* td, void* prt){
       logmsg(verbose, CONTROL, "Filter request failed: invalid id\n");
       break;
 
+    case MP_CONTROL_TERMINATE_EVENT:
+	    logmsg(stderr, CONTROL, "Got termination request\n");
+	    terminateThreads = 1;
+	    break;
+
     default:
       logmsg(verbose, CONTROL, "Got unhandled event of type %d containing %zd bytes.\n", event.type, size);
       logmsg(verbose, CONTROL, "PAYLOAD:\n");
