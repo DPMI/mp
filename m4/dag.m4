@@ -1,4 +1,4 @@
-AC_DEFUN([AX_DAG], [
+AC_DEFUN([AX_DAG2], [
   saved_CPPFLAGS="$CPPFLAGS"
 
   case $1 in
@@ -12,13 +12,31 @@ AC_DEFUN([AX_DAG], [
   esac
 
   AC_CHECK_HEADER([dagapi.h],[
+    dnl defaults
+    ax_dag_cflags=
+    ax_dag_libs=-ldag
+
     AS_IF([test "x$ax_dag_path" != "x"], [
-      AC_SUBST(DAG_CFLAGS, [-I$ax_dag_path/include])
-      AC_SUBST(DAG_LIBS, ["-L$ax_dag_path/lib -ldag"])
-    ], [
-      AC_SUBST(DAG_CFLAGS, [])
-      AC_SUBST(DAG_LIBS, [-ldag])
+      ax_dag_cflags+="-I$ax_dag_path/include"
+      ax_dag_libs="-L$ax_dag_path/lib $ax_dag_libs"
     ])
+
+    AS_IF([test "x$2" == "xlegacy"], [
+      AC_MSG_CHECKING([for dagapi.o])
+      AS_IF([test -e $ax_dag_path/tools/dagapi.o], [
+        AC_MSG_RESULT([yes])
+	ax_dag_libs+="$ax_dag_path/tools/dagapi.o"
+      ],[
+        AC_MSG_RESULT([no])
+	AC_MSG_ERROR([
+
+
+Legacy drivers require \$prefix/tools/dagapi.o to be present. Point the prefix to the source-tree instead of installed location.
+This is because nothing in dagapi.h is implemented in libdag.{s,so} library])
+      ])
+    ])
+    AC_SUBST(DAG_CFLAGS, [$ax_dag_cflags])
+    AC_SUBST(DAG_LIBS, [$ax_dag_libs])
     AC_DEFINE([HAVE_DAG], 1, [Define to 1 if you have Endace DAG])
   ], [
     AC_MSG_ERROR([Make sure the Endace DAG drivers are installed.])
