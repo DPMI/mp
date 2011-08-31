@@ -394,7 +394,6 @@ void* dag_legacy_capture(void* ptr){
 
   cap.fd = CI->sd;
   cap.buffer = dag_mmap(CI->sd);
-  cap.stream = 0; /* not used by this driver */
   cap.top = 0;
   cap.bottom = 0;
 
