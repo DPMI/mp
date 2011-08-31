@@ -1,0 +1,4 @@
+mp-0.7.1
+--------
+
+* --show-packets prints a simple description of all captured packages.
