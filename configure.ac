@@ -57,7 +57,7 @@ AS_IF([test "x$with_raw" != "xno"], [
 AM_CONDITIONAL(HAVE_RAW, [test "x$with_raw" != "xno"])
 
 AS_IF([test "x$with_pcap" == "xyes"], [
-	AC_CHECK_HEADER([pcap/pcap.h], [
+	AC_CHECK_HEADER([pcap.h], [
 		AC_CHECK_LIB([pcap], [pcap_close], [
 			AC_DEFINE([HAVE_DRIVER_PCAP], 1, [Define to 1 if you have libpcap])
  			PCAP_LIBS="-lpcap"
