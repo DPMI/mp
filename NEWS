@@ -1,4 +1,5 @@
 mp-0.7.1
 --------
 
+* Tweaked build system so --without-dag works
 * --show-packets prints a simple description of all captured packages.
