@@ -39,8 +39,8 @@ endif
 
 if SETCAP
 setcap:
-	$(SETCAP) cap_net_raw+ep $(DESTDIR)$(bindir)/mp
-	chmod o-rws $(DESTDIR)$(bindir)/mp
+	$(SETCAP) cap_net_raw+ep $(DESTDIR)$(bindir)/`echo mp | sed ${program_transform_name}`
+	chmod o-rws $(DESTDIR)$(bindir)/`echo mp | sed ${program_transform_name}`
 endif
 
 if SETCAP

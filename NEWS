@@ -1,5 +1,5 @@
 mp-0.7.1
 --------
 
-* Tweaked build system so --without-dag works
+* Tweaked build system so --without-dag works, applying transformed name when doing setcap
 * --show-packets prints a simple description of all captured packages.

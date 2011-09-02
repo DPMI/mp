@@ -30,6 +30,7 @@ AC_PROG_RANLIB
 AX_PTHREAD
 AX_BROKEN_SEM_TIMEDWAIT
 AM_CONDITIONAL(BUILD_SEM_TIMEDWAIT, [test "x$build_sem_timedwait" == "xyes"])
+AC_ARG_PROGRAM
 
 AC_SEARCH_LIBS([clock_gettime], [rt])
 PKG_CHECK_MODULES([libcap_stream], [libcap_stream-0.7 >= 0.7.3])
@@ -82,6 +83,7 @@ AS_IF([test "x$enable_setcap_install" == "xyes"], [
 	AS_IF([test -z "$SETCAP"], [AC_MSG_ERROR([Could not find setcap, make sure it is installed or disable setcap install.])])
 ])
 AM_CONDITIONAL(SETCAP, test x$enable_setcap_install = "xyes")
+AC_SUBST(program_transform_name)
 
 dnl New and legacy DAG API is mutually exclusive.
 AS_IF([test "x$ax_dag" == "xyes" -a "x$ax_dag_legacy" == "xyes"], [
