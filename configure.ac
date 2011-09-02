@@ -32,8 +32,8 @@ AX_BROKEN_SEM_TIMEDWAIT
 AM_CONDITIONAL(BUILD_SEM_TIMEDWAIT, [test "x$build_sem_timedwait" == "xyes"])
 
 AC_SEARCH_LIBS([clock_gettime], [rt])
-PKG_CHECK_MODULES([libcap_stream], [cap_stream >= 0.7.3])
-PKG_CHECK_MODULES([libmarc], [libmarc >= 0.7.0])
+PKG_CHECK_MODULES([libcap_stream], [libcap_stream-0.7 >= 0.7.3])
+PKG_CHECK_MODULES([libmarc], [libmarc-0.7 >= 0.7.0])
 
 ax_dag="no"
 ax_dag_legacy="no"
