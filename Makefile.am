@@ -49,3 +49,5 @@ else
 install-exec-hook:
 	@echo "ignoring setcap, use \`--enable-setcap-install' to enable."
 endif
+
+EXTRA_DIST = mp.conf.sample
