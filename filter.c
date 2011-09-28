@@ -25,7 +25,7 @@
 #include "filter.h"
 #include "log.h"
 
-#include <libmarc/filter.h>
+#include <caputils/filter.h>
 #include <stdlib.h>
 #include <limits.h>
 #include <errno.h>

@@ -27,7 +27,7 @@
 #include "filter.h"
 #include "log.h"
 
-#include <libmarc/libmarc.h>
+#include <caputils/marc.h>
 #include <stdlib.h>
 #include <string.h>
 //#//include <stdarg.h>
@@ -54,7 +54,7 @@ static void mp_auth(struct MPauth* event){
   }
 }
 
-static void mp_filter(struct MPFilter* event){
+static void mp_filter(struct MPFilter* event, size_t bytes){
   if( strcmp(event->MAMPid, MPinfo->id) != 0){
     logmsg(verbose, CONTROL, "This reply was intened for a different MP (%s).\n", event->MAMPid);
     return;
@@ -65,8 +65,13 @@ static void mp_filter(struct MPFilter* event){
     hexdump(verbose, (char*)event, sizeof(struct MPFilter));
   }
 
+  if ( bytes < 200 ){
+	  logmsg(verbose, CONTROL, "Legacy MPFilter detected\n");
+	  event->filter.version = 0;
+  }
+
   struct filter filter = {0,};
-  marc_filter_unpack(&event->filter, &filter);
+  filter_unpack(&event->filter, &filter);
 
   /* Make sure that the User doesnt request more information than we can give. */
   filter.caplen = MIN(filter.caplen, PKT_CAPSIZE);
@@ -237,7 +242,7 @@ void* control(struct thread_data* td, void* prt){
       break;
 
     case MP_FILTER_EVENT:
-      mp_filter(&event.filter);
+	    mp_filter(&event.filter, size);
       break;
 
     case MP_FILTER_RELOAD_EVENT:

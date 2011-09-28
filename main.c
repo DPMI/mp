@@ -47,7 +47,6 @@
 #include <assert.h>
 #include <caputils/caputils.h>
 #include <caputils/filter.h>
-#include <libmarc/filter.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/socket.h>

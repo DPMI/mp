@@ -1,7 +1,6 @@
 #ifndef MP_FILTER_H
 #define MP_FILTER_H
 
-#include <libmarc/filter.h>
 #include <caputils/filter.h>
 #include <stdio.h>
 

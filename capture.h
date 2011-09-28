@@ -26,7 +26,7 @@
 
 #include "thread.h"
 #include <caputils/caputils.h>
-#include <libmarc/libmarc.h>
+#include <caputils/marc.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <semaphore.h>

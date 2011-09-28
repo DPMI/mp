@@ -19,8 +19,8 @@ if HAVE_DAG
 libcapture_a_SOURCES += capture/dag.c
 endif
 
-mp_CFLAGS = -Wall ${libcap_stream_CFLAGS} ${libmarc_CFLAGS} ${PTHREAD_CFLAGS} ${DAG_CFLAGS}
-mp_LDADD = libcapture.a ${libcap_stream_LIBS} ${libmarc_LIBS} ${PTHREAD_LIBS} ${PCAP_LIBS} ${DAG_LIBS}
+mp_CFLAGS = -Wall ${libcap_stream_CFLAGS} ${libcap_marc_CFLAGS} ${PTHREAD_CFLAGS} ${DAG_CFLAGS}
+mp_LDADD = libcapture.a ${libcap_stream_LIBS} ${libcap_marc_LIBS} ${PTHREAD_LIBS} ${PCAP_LIBS} ${DAG_LIBS}
 mp_SOURCES = \
 	configfile.c configfile.h \
 	control.c \
