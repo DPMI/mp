@@ -311,14 +311,13 @@ void consumer_init(struct consumer* con, int index, unsigned char* buffer){
   con->stream = NULL;
   con->index = index;
   con->status = 0;
-  
   con->dropCount=0;
 
   con->ethhead=(struct ethhdr*)buffer; // pointer to ethernet header.
   con->ethhead->h_proto=htons(MYPROTO);    // Set the protocol field of the ethernet header.
-  
-  //memcpy(con->ethhead->h_dest, dest_mac, ETH_ALEN);
-  //memcpy(con->ethhead->h_source, my_mac, ETH_ALEN);
+
+  /* set the ethernet source address to adress used by the MA iface. */
+  memcpy(con->ethhead->h_source, &MPinfo->hwaddr, ETH_ALEN);
   
   con->shead=(struct sendhead*)(buffer+sizeof(struct ethhdr)); // Set pointer to the sendhead, i.e. mp transmission protocol 
   con->shead->sequencenr=htons(0x0000);    // Initialize the sequencenr to zero.
