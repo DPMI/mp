@@ -80,7 +80,7 @@ static short int tdflag=0; // Number of T_delta definitions.
 
 static pthread_t main_thread;
 static int local = 0;       /* run in local-mode, don't try to contact MArCd */
-static int port = 0;
+int port = 0; /* used by control.c */
 static const char* capfile = NULL;
 static struct CI CI[CI_NIC];
 struct CI* _CI = CI;

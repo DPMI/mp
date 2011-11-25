@@ -44,6 +44,7 @@ static void CIstatus(int sig); // Runs when ever a ALRM signal is received.
 static void distress(int sig); /* SIGSEGV, fatal */
 
 static marc_context_t client = NULL;
+extern int port;
 
 static void mp_auth(struct MPauth* event){
   if( strlen(event->MAMPid) > 0 ){
@@ -144,7 +145,7 @@ void* control(struct thread_data* td, void* prt){
   /* setup libmarc */
   struct marc_client_info info = {0,};
   info.client_ip = NULL;
-  info.client_port = 0;
+  info.client_port = port;
   info.max_filters = CONSUMERS;
   info.noCI = noCI;
   info.version.caputils.major = CAPUTILS_VERSION_MAJOR;
