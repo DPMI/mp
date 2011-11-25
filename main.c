@@ -218,7 +218,7 @@ static void show_usage(const char* program_name){
 	 "       %s [OPTION] --local --capfile FILENAME\n", program_name, program_name);
   printf("  -h, --help                  help (this text)\n");
   printf("  -s, --manic=INTERFACE       MA Interface.\n");
-  printf("  -p, --port=PORT             Control interface listen port [default: 1500]\n");
+  printf("  -p, --port=PORT             Control interface listen port [default: 2000]\n");
   printf("  -i, --interface=INTERFACE   Capture Interface (REQUIRED)\n");
   printf("      --config=FILE           Read configuration from FILE [default: mp.conf]\n");
   printf("      --local                 LOCAL MODE, do not talk to MArC, capture\n"
