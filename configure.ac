@@ -35,6 +35,7 @@ AC_ARG_PROGRAM
 AC_SEARCH_LIBS([clock_gettime], [rt])
 PKG_CHECK_MODULES([libcap_stream], [libcap_stream-0.7 >= 0.7.4])
 PKG_CHECK_MODULES([libcap_marc], [libcap_marc-0.7 >= 0.7.4])
+PKG_CHECK_MODULES([libcap_filter], [libcap_filter-0.7 >= 0.7.4])
 
 ax_dag="no"
 ax_dag_legacy="no"
