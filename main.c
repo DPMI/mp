@@ -144,14 +144,11 @@ static void ma_nic(const char* arg) {
   }
 
   /* Get my MAC */
-  if ( verbose_flag ){
-    if(ioctl(s, SIOCGIFHWADDR,&ifr) == -1) {
-      perror("SIOCGIFHWADDR");
-      exit(1);
-    }
-
-    memcpy(MPinfoI.hwaddr.ether_addr_octet, ifr.ifr_hwaddr.sa_data, ETH_ALEN);
+  if(ioctl(s, SIOCGIFHWADDR,&ifr) == -1) {
+	  perror("SIOCGIFHWADDR");
+	  exit(1);
   }
+  memcpy(MPinfoI.hwaddr.ether_addr_octet, ifr.ifr_hwaddr.sa_data, ETH_ALEN);
   
   /* Get my MTU */
   if(ioctl(s, SIOCGIFMTU,&ifr) == -1) {
