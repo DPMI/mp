@@ -190,6 +190,7 @@ static void set_td(const char* arg) {
 enum Options {
 	OPTION_IGNORE = 256,
 	OPTION_MAMPID,
+	OPTION_COMMENT,
 };
 
 static struct option long_options[]= {
@@ -198,6 +199,7 @@ static struct option long_options[]= {
   {"interface", 1, NULL, 'i'},
   {"manic", 1, NULL, 's'},
   {"id", 1, NULL, OPTION_MAMPID},
+  {"comment", 1, NULL, OPTION_COMMENT},
   {"help", 0, NULL, 'h'},
   {"port", 1, NULL, 'p'},
   {"capfile", 1, NULL, 'c'},
@@ -220,16 +222,11 @@ static void show_usage(const char* program_name){
 	 "       %s [OPTION] --local --capfile FILENAME\n", program_name, program_name);
   printf("  -h, --help                  help (this text)\n");
   printf("  -s, --manic=INTERFACE       MA Interface.\n");
-  printf("      --id=ID                 For local capture this sets the MAMPid, in MA\n"
-         "                              mode it is ignored. [default: hostname]\n");
   printf("  -p, --port=PORT             Control interface listen port [default: 2000]\n");
   printf("  -i, --interface=INTERFACE   Capture Interface (REQUIRED)\n");
   printf("      --config=FILE           Read configuration from FILE [default: mp.conf]\n");
   printf("      --local                 LOCAL MODE, do not talk to MArC, capture\n"
-         "                              everything and store to file.\n");
-  printf("      --capfile=FILE          Store all captured packets in this capfile (in\n"
-         "                              addition to filter dst). Multiple filters are\n"
-         "                              aggregated.\n"
+         "                              everything and store to file.\n"
          "      --flush                 Force streams to be flushed (to disk or network)\n"
          "                              on every write. It incurs a small performance\n"
          "                              penalty but can be useful for low-traffic streams.\n");
@@ -237,6 +234,12 @@ static void show_usage(const char* program_name){
          "  -d, --debug                 Hexdump of all messages (implies --verbose).\n"
          "      --show-packets          Print short description of captured packets.\n"
          "  -q, --quiet                 Less output (inverse of --verbose)\n");
+  printf("\nLocal mode:\n"
+         "      --capfile=FILE          Store all captured packets in this capfile (in\n"
+         "                              addition to filter dst). Multiple filters are\n"
+         "                              aggregated. (REQUIRED)\n"
+         "      --id=ID                 Set MAMPid [default: hostname]\n"
+         "      --comment=STRING        Set comment [default: MP " VERSION "]\n");
 
 #ifdef HAVE_DRIVER_DAG
   printf("\n");
@@ -270,6 +273,7 @@ static void show_configuration(){
   logmsg(verbose, MAIN, "  Mode: %s\n", local ? "Local" : "MA");
   if ( local ){
 	  logmsg(verbose, MAIN, "  MAMPid: %s\n", mampid_get(MPinfo->id));
+	  logmsg(verbose, MAIN, "  Comment: %s\n", MPinfo->comment);
   }
   logmsg(verbose, MAIN, "  Capture Interfaces \n");
   for ( int i = 0; i < noCI; i++) {
@@ -301,6 +305,11 @@ static int parse_argv(int argc, char** argv){
 	    if ( strlen(MPinfo->id) < strlen(optarg) ){
 		    fprintf(stderr, "Warning: MAMPid `%s' too long, truncating.\n", optarg);
 	    }
+	    break;
+
+    case OPTION_COMMENT:
+	    free(MPinfoI.comment);
+	    MPinfoI.comment = strdup(optarg);
 	    break;
 
     case 'd': // interface to listen on
