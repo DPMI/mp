@@ -202,8 +202,6 @@ static int push_packet(struct CI* CI, write_head* whead, cap_head* head, const u
   // prevent the reader from operating on the same chunk of memory.
   pthread_mutex_lock(&CI->mutex);
   {
-    strncpy(head->nic, CI->iface, 4);
-    strncpy(head->mampid, MPinfo->id, 8); /* MAMPid exists in two flavors, 8bytes and 16bytes. just truncate it */
     whead->free++; //marks the post that it has been written
     whead->consumer = recipient;
     CI->buffer_usage++;
