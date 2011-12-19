@@ -278,12 +278,14 @@ static void show_configuration(){
 }
 
 static int parse_argv(int argc, char** argv){
- 
   int option_index = 0;
   int op;
 
   while ( (op = getopt_long(argc, argv, "hwmvd:i:s:p:", long_options, &option_index)) != -1 )
     switch (op){
+    case '?': /* error */
+	    return 1;
+
     case 0: /* longopt with flag set */
     case OPTION_IGNORE:
       break;
@@ -499,7 +501,6 @@ int main (int argc, char **argv){
 
   /* parse CLI arguments */
   if ( parse_argv(argc, argv) != 0 ){
-    perror("parse_argv");
     exit(1);
   }
   noCI = iflag;
