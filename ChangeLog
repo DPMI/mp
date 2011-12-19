@@ -1,5 +1,7 @@
-mp-0.7.2
+mp-0.7.3
 --------
+	* new: set mampid and comment when using local mode.
+	* fix: iface indicates direction when using dag.
 	* fix: proper default port in documentation
 	* fix: ethernet source is not properly set in frame
 	* fix: use ntohl for nopkts
