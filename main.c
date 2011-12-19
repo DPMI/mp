@@ -263,6 +263,10 @@ static void show_usage(const char* program_name){
 static void show_configuration(){
   logmsg(verbose, MAIN, "\n");
   logmsg(verbose, MAIN, "MP Configuration:\n");
+  logmsg(verbose, MAIN, "  Mode: %s\n", local ? "Local" : "MA");
+  if ( local ){
+	  logmsg(verbose, MAIN, "  MAMPid: %s\n", MPinfo->id);
+  }
   logmsg(verbose, MAIN, "  Capture Interfaces \n");
   for ( int i = 0; i < noCI; i++) {
     logmsg(verbose, MAIN, "    CI[%d]: %s   T_delta: %d digits\n", i, CI[i].iface, CI[i].accuracy);
