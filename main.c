@@ -489,6 +489,8 @@ int main (int argc, char **argv){
   memset(&MPinfoI,  0, sizeof(struct MPinfo));
   memset(&MPstatsI, 0, sizeof(struct MPstats));
   MPinfoI.comment = strdup("MP " VERSION);
+  gethostname(MPinfoI.id, 16);
+  MPinfoI.id[15] = 0;
   MPinfo = &MPinfoI;
   MPstats = &MPstatsI;
 
