@@ -98,6 +98,7 @@ static int process_packet(dag_record_t* dr, unsigned char* dst, struct cap_heade
   /* rewrite iface to indicate direction (dag0 -> d0X where X is direction) */
   head->nic[1] = head->nic[3];
   head->nic[2] = dr->flags.iface + 48;
+  head->nic[3] = 0;
 
   return head->len;
 }
