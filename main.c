@@ -188,7 +188,8 @@ static void set_td(const char* arg) {
 
 
 enum Options {
-  OPTION_IGNORE = 256
+	OPTION_IGNORE = 256,
+	OPTION_MAMPID,
 };
 
 static struct option long_options[]= {
@@ -196,6 +197,7 @@ static struct option long_options[]= {
   {"accuracy", 1, NULL, 'd'},
   {"interface", 1, NULL, 'i'},
   {"manic", 1, NULL, 's'},
+  {"id", 1, NULL, OPTION_MAMPID},
   {"help", 0, NULL, 'h'},
   {"port", 1, NULL, 'p'},
   {"capfile", 1, NULL, 'c'},
@@ -218,6 +220,8 @@ static void show_usage(const char* program_name){
 	 "       %s [OPTION] --local --capfile FILENAME\n", program_name, program_name);
   printf("  -h, --help                  help (this text)\n");
   printf("  -s, --manic=INTERFACE       MA Interface.\n");
+  printf("      --id=ID                 For local capture this sets the MAMPid, in MA\n"
+         "                              mode it is ignored. [default: hostname]\n");
   printf("  -p, --port=PORT             Control interface listen port [default: 2000]\n");
   printf("  -i, --interface=INTERFACE   Capture Interface (REQUIRED)\n");
   printf("      --config=FILE           Read configuration from FILE [default: mp.conf]\n");
@@ -265,16 +269,18 @@ static void show_configuration(){
   logmsg(verbose, MAIN, "MP Configuration:\n");
   logmsg(verbose, MAIN, "  Mode: %s\n", local ? "Local" : "MA");
   if ( local ){
-	  logmsg(verbose, MAIN, "  MAMPid: %s\n", MPinfo->id);
+	  logmsg(verbose, MAIN, "  MAMPid: %s\n", mampid_get(MPinfo->id));
   }
   logmsg(verbose, MAIN, "  Capture Interfaces \n");
   for ( int i = 0; i < noCI; i++) {
     logmsg(verbose, MAIN, "    CI[%d]: %s   T_delta: %d digits\n", i, CI[i].iface, CI[i].accuracy);
   }
 
-  logmsg(verbose, MAIN, "  MA Interface\n");
-  logmsg(verbose, MAIN, "    MAnic: %s   MTU: %zd   hwaddr: %s\n", MPinfo->iface, MPinfo->MTU, ether_ntoa(&MPinfo->hwaddr));
-  logmsg(verbose, MAIN, "\n");
+  if ( !local ){
+	  logmsg(verbose, MAIN, "  MA Interface\n");
+	  logmsg(verbose, MAIN, "    MAnic: %s   MTU: %zd   hwaddr: %s\n", MPinfo->iface, MPinfo->MTU, ether_ntoa(&MPinfo->hwaddr));
+	  logmsg(verbose, MAIN, "\n");
+  }
 }
 
 static int parse_argv(int argc, char** argv){
@@ -289,6 +295,13 @@ static int parse_argv(int argc, char** argv){
     case 0: /* longopt with flag set */
     case OPTION_IGNORE:
       break;
+
+    case OPTION_MAMPID:
+	    mampid_set(MPinfoI.id, optarg);
+	    if ( strlen(MPinfo->id) < strlen(optarg) ){
+		    fprintf(stderr, "Warning: MAMPid `%s' too long, truncating.\n", optarg);
+	    }
+	    break;
 
     case 'd': // interface to listen on
       set_td(optarg);
