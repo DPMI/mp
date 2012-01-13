@@ -37,7 +37,12 @@ int local_mode(sigset_t* sigmask, sem_t* semaphore, struct filter* filter, const
 
   /* setup destination */
   int flags = flush_flag ? STREAM_ADDR_FLUSH : 0;
-  stream_addr_str(&filter->dest, filename, flags);
+  stream_addr_aton(&filter->dest, filename, STREAM_ADDR_GUESS, flags);
+  if ( stream_addr_type(&filter->dest) != STREAM_ADDR_CAPFILE && MPinfo->iface == NULL ){
+	  logmsg(stderr, MAIN, "stream requires MA interface to be set (-s IFACE or see --help)\n");
+	  return EINVAL;
+  }        
+	  
   mprules_add(filter);
 
   /* initialize capture */
