@@ -115,26 +115,26 @@ void send_packet(struct consumer* con){
 }
 
 static int can_defer_send(struct consumer* con, struct timespec* now, struct timespec* last_sent, int caplen){
-  /* calculate time since last send. If it was long ago (longer than
-   * MAX_PACKET_AGE) the send buffer is flushed even if it doesn't contain
-   * enough payload for a full packet. */
-  signed long int sec = (now->tv_sec - last_sent->tv_sec) * 1000;
-  signed long int msec = (now->tv_nsec - last_sent->tv_nsec);
-  msec /= 1000000; /* please keep this division a separate statement. It ensures
-		    * that the subtraction above is stored as a signed value. If
-		    * the division is put together the subtraction will be
-		    * calculated as unsigned (tv_psec is stored as unsigned),
-		    * then divided and only then  converted to signed int. */
-
-  const signed long int age = sec + msec;
-  const size_t payload_size = con->sendpointer - con->sendptrref;
-  const size_t header_size = sizeof(struct ethhdr) + sizeof(struct cap_header) + sizeof(struct sendhead);
-
-  const int larger_mtu = payload_size + caplen + header_size >= MPinfo->MTU;
-  const int need_flush = con->status == 0 && payload_size > 0;
-  const int old_age = age >= MAX_PACKET_AGE;
-
-  return  !( old_age || larger_mtu || need_flush );
+	/* calculate time since last send. If it was long ago (longer than
+	 * MAX_PACKET_AGE) the send buffer is flushed even if it doesn't contain
+	 * enough payload for a full packet. */
+	signed long int sec = (now->tv_sec - last_sent->tv_sec) * 1000;
+	signed long int msec = (now->tv_nsec - last_sent->tv_nsec);
+	msec /= 1000000; /* please keep this division a separate statement. It ensures
+	                  * that the subtraction above is stored as a signed value. If
+	                  * the division is put together the subtraction will be
+	                  * calculated as unsigned (tv_psec is stored as unsigned),
+	                  * then divided and only then  converted to signed int. */
+	
+	const signed long int age = sec + msec;
+	const size_t payload_size = con->sendpointer - con->sendptrref;
+	const size_t header_size = sizeof(struct ethhdr) + sizeof(struct cap_header) + sizeof(struct sendhead);
+	
+	const int larger_mtu = payload_size + caplen + header_size >= MPinfo->MTU;
+	const int need_flush = con->status == 0 && payload_size > 0;
+	const int old_age = age >= MAX_PACKET_AGE;
+	
+	return  !( old_age || larger_mtu || need_flush );
 }
 
 static int oldest_packet(int nics, int readPos[], sem_t* semaphore){
