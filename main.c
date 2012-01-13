@@ -71,10 +71,6 @@ const struct MPinfo* MPinfo = NULL;
 struct MPstats* MPstats = NULL;
 
 static void cleanup(int sig); // Runs when program terminates
-static int packet_stats(int sd, struct packet_stat *stat); // function for collecting statistics
-
-static void info(int sd);// function for presentating statistics
-
 static short int iflag=0;  // number of capture interfaces
 static short int tdflag=0; // Number of T_delta definitions.
 
@@ -563,19 +559,7 @@ int main (int argc, char **argv){
   logmsg(stderr, MAIN, "All threads finished, terminating MP.\n");
   logmsg(stderr, MAIN, "Captured %ld pkts   Sent %ld pkts in %ld messages\n", MPstats->packet_count, MPstats->written_count, MPstats->sent_count);
   
-//Print out statistics on screen  
-  printf("Socket stats.\n");
-  for ( int i = 0; i < noCI; i++ )  {
-    printf("%s\n", CI[i].iface);
-    if (!strncmp("dag", CI[i].iface, 3)) {
-
-    } else {
-      info(CI[i].sd);
-      close(CI[i].sd);
-    }
-  }
-  
-  printf("Closing MA connection....");
+  logmsg(verbose, MAIN, "Releasing resources\n");
   for( int i=0; i < CONSUMERS; i++ ){
     if ( !MAsd[i].stream ){
       continue;
@@ -627,56 +611,6 @@ static void cleanup(int sig) {
   if ( controlPID){
     pthread_kill(controlPID, SIGUSR1);
   }
-}
-
-//Function presenting dropped packets
-static void info(int sd)
-{
-  struct packet_stat stat;
-
-  if (packet_stats(sd, &stat) < 0)
-  {
-    (void)fprintf(stderr, "packet_stats failed\n");
-    return;
-  }
-    (void)fprintf(stderr, "\t%d packets received by filter\n", stat.pkg_recv);
-    (void)fprintf(stderr, "\t%d packets dropped by kernel\n", stat.pkg_drop);
-}
-
-//create statistics for Nic (pkgdrop)
-static int packet_stats(int sd, struct packet_stat *stats){
-#define HAVE_TPACKET_STATS
-#ifdef HAVE_TPACKET_STATS
-  struct tpacket_stats kstats;
-  socklen_t len = sizeof (struct tpacket_stats);
-
-  /*
-   * Try to get the packet counts from the kernel.
-   */
-  if (getsockopt(sd, SOL_PACKET, PACKET_STATISTICS,&kstats, &len) > -1)
-  {
-    stats->pkg_recv = kstats.tp_packets;
-    stats->pkg_drop = kstats.tp_drops;
-  }
-  else
-  {
-    /*
-     * If the error was EOPNOTSUPP, fall through, so that
-     * if you build the library on a system with
-     * "struct tpacket_stats" and run it on a system
-     * that doesn't, it works as it does if the library
-     * is built on a system without "struct tpacket_stats".
-     */
-    if (errno != EOPNOTSUPP)
-    {
-      printf("stats: %d\n", errno);
-      return -1;
-    }
-  }
-#else
-  printf("missing PACKET_STATISTICS\n");
-#endif
-  return 0;
 }
 
 /* // Function for connecting to tcpserver */

@@ -297,6 +297,11 @@ int capture_loop(struct CI* CI, struct capture_context* cap){
   /* stop capture */
   logmsg(verbose, CAPTURE, "CI[%d] stopping capture on %s.\n", CI->id, CI->iface);
 
+  /* show stats */
+  if ( cap->stats ){
+	  cap->stats(cap);
+  }
+
   /* driver cleanup */
   if ( cap->destroy && (ret=cap->destroy(cap)) != 0 ){
     return ret; /* return error */

@@ -84,6 +84,17 @@ static int destroy(struct pcap_context* cap){
   return 0;
 }
 
+static int stats(struct pcap_context* cap){
+	struct pcap_stat ps;
+	pcap_stats(cap->handle, &ps);
+
+	logmsg(stderr, CAPTURE, "  %d packets received by filter\n", ps.ps_recv);
+  logmsg(stderr, CAPTURE, "  %d packets dropped by pcap (full buffers)\n", ps.ps_drop);
+  logmsg(stderr, CAPTURE, "  %d packets dropped by kernel\n", ps.ps_ifdrop);
+
+	return 0;
+}
+
 /* This is the PCAP_SOCKET capturer..   */ 
 void* pcap_capture(void* ptr){
   struct CI* CI = (struct CI*)ptr;
@@ -96,13 +107,13 @@ void* pcap_capture(void* ptr){
   cap.base.init = (init_callback)init;
   cap.base.destroy = (destroy_callback)destroy;
   cap.base.read_packet = (read_packet_callback)read_packet_pcap;
+  cap.base.stats = (stats_callback)stats;
 
   /* start capture */
   capture_loop(CI, (struct capture_context*)&cap);
 
   /* stop capture */
   logmsg(verbose, CAPTURE, "CI[%d] stopping capture on %s.\n", CI->id, cap.iface);
-
 
   return NULL;
 }

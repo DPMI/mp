@@ -19,6 +19,7 @@
 
 struct raw_context {
   struct capture_context base;
+  const char* iface; /* copied reference */
   int socket;
   char buffer[BUFFER_SIZE];
 };
@@ -134,11 +135,26 @@ static int read_packet_raw(struct raw_context* ctx, unsigned char* dst, struct c
   return data_len;
 }
 
+int stats(struct raw_context* ctx){
+  struct tpacket_stats kstats;
+  socklen_t len = sizeof (struct tpacket_stats);
+  
+  if ( getsockopt(ctx->socket, SOL_PACKET, PACKET_STATISTICS, &kstats, &len) != 0 ) {
+	  logmsg(stderr, CAPTURE, "failed to read stats for %s: %s\n", ctx->iface, strerror(errno));
+	  return 1;
+  }
+
+  logmsg(stderr, CAPTURE, "  %d packets received by filter\n", kstats.tp_packets);
+  logmsg(stderr, CAPTURE, "  %d packets dropped by kernel\n", kstats.tp_drops);
+  return 0;
+}
+
 /* This is the RAW_SOCKET capturer..   */ 
 void* capture(void* ptr){
   struct CI* CI = (struct CI*)ptr;
   struct raw_context cap;
-  
+  cap.iface = CI->iface;
+
   /* initialize raw capture */
   logmsg(verbose, CAPTURE, "CI[%d] initializing capture on %s using RAW_SOCKET (memory at %p).\n", CI->id, CI->iface, &datamem[CI->id]);
 
@@ -155,6 +171,7 @@ void* capture(void* ptr){
   cap.base.init = 0;
   cap.base.destroy = 0;
   cap.base.read_packet = (read_packet_callback)read_packet_raw;
+  cap.base.stats = (stats_callback)stats;
 
   /* start capture */
   capture_loop(CI, (struct capture_context*)&cap);

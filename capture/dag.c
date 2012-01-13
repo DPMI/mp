@@ -323,10 +323,12 @@ void* dag_capture(void* ptr){
     cap.base.init = (init_callback)dagcapture_init_rxtx;
     cap.base.destroy = (destroy_callback)dagcapture_destroy_rxtx;
     cap.base.read_packet = (read_packet_callback)read_packet_rxtx;
+    cap.base.stats = NULL;
   } else if ( dag_mode == 1 ){
     cap.base.init = (init_callback)dagcapture_init_wiretap;
     cap.base.destroy = (destroy_callback)dagcapture_destroy_wiretap;
     cap.base.read_packet = (read_packet_callback)read_packet_wiretap;
+    cap.base.stats = NULL;
   } else {
     logmsg(stderr, CAPTURE, "Unsupported mode: %d\n", dag_mode);
     abort();

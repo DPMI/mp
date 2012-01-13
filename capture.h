@@ -141,11 +141,13 @@ int filter(const char* nic, const void* pkt, struct cap_header* head); //filteri
 typedef int (*init_callback)(void* context);
 typedef int (*destroy_callback)(void* context);
 typedef int (*read_packet_callback)(void* context, unsigned char* dst, struct cap_header* head);
+typedef int (*stats_callback)(void* context);
 
 struct capture_context {
   init_callback init;
   destroy_callback destroy;
   read_packet_callback read_packet;
+	stats_callback stats;
 };
 
 int capture_loop(struct CI* CI, struct capture_context* cap);
