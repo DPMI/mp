@@ -1,6 +1,7 @@
 mp-0.7.4
 --------
 
+	* add: support for local capture to stream to ethernet.
 	* change: building pcap-support by default.
 
 mp-0.7.3

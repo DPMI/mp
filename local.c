@@ -16,16 +16,16 @@
 extern int flush_flag;
 int setup_capture();
 
-int local_mode(sigset_t* sigmask, sem_t* semaphore, struct filter* filter, const char* filename){
+int local_mode(sigset_t* sigmask, sem_t* semaphore, struct filter* filter, const char* destination, int caplen){
   int ret;
   pthread_t senderPID;
   send_proc_t sender;
   sender.nics = noCI;
   sender.semaphore = semaphore;
-  sender.filename = filename;
+  sender.filename = destination;
 
-  if ( !filename ){
-    logmsg(stderr, MAIN, "No filename selected, use --capfile.\n");
+  if ( !destination ){
+    logmsg(stderr, MAIN, "No destination selected, use --output.\n");
     return EINVAL;
   }
 
@@ -37,11 +37,12 @@ int local_mode(sigset_t* sigmask, sem_t* semaphore, struct filter* filter, const
 
   /* setup destination */
   int flags = flush_flag ? STREAM_ADDR_FLUSH : 0;
-  stream_addr_aton(&filter->dest, filename, STREAM_ADDR_GUESS, flags);
+  stream_addr_aton(&filter->dest, destination, STREAM_ADDR_GUESS, flags);
   if ( stream_addr_type(&filter->dest) != STREAM_ADDR_CAPFILE && MPinfo->iface == NULL ){
 	  logmsg(stderr, MAIN, "stream requires MA interface to be set (-s IFACE or see --help)\n");
 	  return EINVAL;
-  }        
+  }
+  filter->caplen = caplen > 0 ? caplen : 65535;
 	  
   mprules_add(filter);
 

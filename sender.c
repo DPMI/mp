@@ -79,19 +79,17 @@ void send_packet(struct consumer* con){
 
   int ret;
 
-  {
-    const u_char* data = con->sendptrref;
-    size_t data_size = payload_size;
-    
-    if ( con->want_sendhead ){
-      data -= header_size;
-      data_size += header_size;
-    }
-
-    ret = stream_write(con->stream, data, data_size);
+  const u_char* data = con->sendptrref;
+  size_t data_size = payload_size;
+  
+  if ( con->want_sendhead ){
+	  data -= header_size;
+	  data_size += header_size;
   }
+  
+  ret = stream_write(con->stream, data, data_size);
 
-    logmsg(verbose, SENDER, "SendThread [id:%u] sending %zd bytes\n", thread_id(), payload_size);
+  logmsg(verbose, SENDER, "SendThread [id:%u] sending %zd bytes\n", thread_id(), data_size);
   if ( ret == 0 ){
     logmsg(verbose, SENDER, "\tcaputils-%d.%d\n", ntohs(con->shead->version.major), ntohs(con->shead->version.minor));
     logmsg(verbose, SENDER, "\tdropCount[] = %d (g%d/m%d)\n", con->dropCount, globalDropcount, memDropcount);
@@ -133,7 +131,7 @@ static int can_defer_send(struct consumer* con, struct timespec* now, struct tim
 	const int larger_mtu = payload_size + caplen + header_size >= MPinfo->MTU;
 	const int need_flush = con->status == 0 && payload_size > 0;
 	const int old_age = age >= MAX_PACKET_AGE;
-	
+
 	return  !( old_age || larger_mtu || need_flush );
 }
 

@@ -81,7 +81,8 @@ static short int tdflag=0; // Number of T_delta definitions.
 static pthread_t main_thread;
 static int local = 0;       /* run in local-mode, don't try to contact MArCd */
 int port = 0; /* used by control.c */
-static const char* capfile = NULL;
+static const char* destination = NULL;
+static int caplen = 96;
 static struct CI CI[CI_NIC];
 struct CI* _CI = CI;
 
@@ -121,7 +122,6 @@ static int clamp(int v, int min, int max){
 
 static void ma_nic(const char* arg) {
   struct ifreq ifr;
-  local = 0;
 
   if ( MPinfoI.iface ) {
     logmsg(stderr, MAIN, "Warning: overriding previous MAnic %s with %s.\n", MPinfo->iface, optarg);
@@ -202,7 +202,8 @@ static struct option long_options[]= {
   {"comment", 1, NULL, OPTION_COMMENT},
   {"help", 0, NULL, 'h'},
   {"port", 1, NULL, 'p'},
-  {"capfile", 1, NULL, 'c'},
+  {"output", required_argument, NULL, 'o'},
+  {"caplen", required_argument, NULL, 'l'},
   {"flush", 0, &flush_flag, 1},
   {"verbose", 0, &verbose_flag, 1},
   {"debug", 0, &debug_flag, 1},
@@ -235,11 +236,10 @@ static void show_usage(const char* program_name){
          "      --show-packets          Print short description of captured packets.\n"
          "  -q, --quiet                 Less output (inverse of --verbose)\n");
   printf("\nLocal mode:\n"
-         "      --capfile=FILE          Store all captured packets in this capfile (in\n"
-         "                              addition to filter dst). Multiple filters are\n"
-         "                              aggregated. (REQUIRED)\n"
+         "  -o, --output=FILE           Destination.\n"
+         "  -l, --caplen=SIZE           Capture length, -1 for full. [default: %d].\n"
          "      --id=ID                 Set MAMPid [default: hostname]\n"
-         "      --comment=STRING        Set comment [default: MP " VERSION "]\n");
+         "      --comment=STRING        Set comment [default: MP " VERSION "]\n", caplen);
 
 #ifdef HAVE_DRIVER_DAG
   printf("\n");
@@ -274,13 +274,14 @@ static void show_configuration(){
   if ( local ){
 	  logmsg(verbose, MAIN, "  MAMPid: %s\n", mampid_get(MPinfo->id));
 	  logmsg(verbose, MAIN, "  Comment: %s\n", MPinfo->comment);
+	  logmsg(verbose, MAIN, "  Destination: %s (caplen: %d)\n", destination, caplen);
   }
   logmsg(verbose, MAIN, "  Capture Interfaces \n");
   for ( int i = 0; i < noCI; i++) {
     logmsg(verbose, MAIN, "    CI[%d]: %s   T_delta: %d digits\n", i, CI[i].iface, CI[i].accuracy);
   }
 
-  if ( !local ){
+  if ( MPinfo->iface ){
 	  logmsg(verbose, MAIN, "  MA Interface\n");
 	  logmsg(verbose, MAIN, "    MAnic: %s   MTU: %zd   hwaddr: %s\n", MPinfo->iface, MPinfo->MTU, ether_ntoa(&MPinfo->hwaddr));
 	  logmsg(verbose, MAIN, "\n");
@@ -291,7 +292,7 @@ static int parse_argv(int argc, char** argv){
   int option_index = 0;
   int op;
 
-  while ( (op = getopt_long(argc, argv, "hwmvd:i:s:p:", long_options, &option_index)) != -1 )
+  while ( (op = getopt_long(argc, argv, "hwmvd:i:s:p:o:", long_options, &option_index)) != -1 )
     switch (op){
     case '?': /* error */
 	    return 1;
@@ -328,9 +329,13 @@ static int parse_argv(int argc, char** argv){
       port = atoi(optarg);
       break;
 
-    case 'c': /* --capfile */
-      capfile = optarg;
+    case 'o': /* --output */
+      destination = optarg;
       break;
+
+    case 'l': /* --caplen */
+	    caplen = atoi(optarg);
+	    break;
 
     case 'v':
       verbose_flag = 1;
@@ -545,7 +550,7 @@ int main (int argc, char **argv){
   if ( !local ){
     ret = ma_mode(&sigmask, &semaphore);
   } else {
-    ret = local_mode(&sigmask, &semaphore, &filter, capfile);
+	  ret = local_mode(&sigmask, &semaphore, &filter, destination, caplen);
   }
 
   /* only show stats on clean exit */
