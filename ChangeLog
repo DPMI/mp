@@ -1,3 +1,8 @@
+mp-0.7.4
+--------
+
+	* change: building pcap-support by default.
+
 mp-0.7.3
 --------
 	* new: set mampid and comment when using local mode.

@@ -41,7 +41,7 @@ ax_dag="no"
 ax_dag_legacy="no"
 
 AC_ARG_WITH([raw],  [AS_HELP_STRING([--with-raw], [raw packet capture @<:@default=enabled@:>@])])
-AC_ARG_WITH([pcap], [AS_HELP_STRING([--with-pcap], [support for pcap (tcpdump) @<:@default=disabled@:>@])])
+AC_ARG_WITH([pcap], [AS_HELP_STRING([--with-pcap], [support for pcap (tcpdump) @<:@default=enabled@:>@])])
 AC_ARG_WITH([dag],  [AS_HELP_STRING([--with-dag@<:@=PATH@:>@], [support for endace DAG-cards @<:@default=disabled@:>@])], [
   AS_IF([test "x$withval" != "xno"], [
     ax_dag="yes"
@@ -62,7 +62,7 @@ AS_IF([test "x$with_raw" != "xno"], [
 ])
 AM_CONDITIONAL(HAVE_RAW, [test "x$with_raw" != "xno"])
 
-AS_IF([test "x$with_pcap" == "xyes"], [
+AS_IF([test "x$with_pcap" != "xno"], [
 	AC_CHECK_HEADER([pcap.h], [
 		AC_CHECK_LIB([pcap], [pcap_close], [
 			AC_DEFINE([HAVE_DRIVER_PCAP], 1, [Define to 1 if you have libpcap])
@@ -74,7 +74,7 @@ AS_IF([test "x$with_pcap" == "xyes"], [
 		AC_MSG_ERROR([Make sure libpcap is available])       
 	])
 ])
-AM_CONDITIONAL(HAVE_PCAP, [test "x$with_pcap" == "xyes"])
+AM_CONDITIONAL(HAVE_PCAP, [test "x$with_pcap" != "xno"])
 AC_SUBST(PCAP_LIBS)
 
 dnl Check for setcap
