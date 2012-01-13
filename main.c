@@ -272,9 +272,11 @@ static void show_configuration(){
   logmsg(verbose, MAIN, "MP Configuration:\n");
   logmsg(verbose, MAIN, "  Mode: %s\n", local ? "Local" : "MA");
   if ( local ){
+	  stream_addr_t addr;
+	  stream_addr_aton(&addr, destination, STREAM_ADDR_GUESS, 0);
 	  logmsg(verbose, MAIN, "  MAMPid: %s\n", mampid_get(MPinfo->id));
 	  logmsg(verbose, MAIN, "  Comment: %s\n", MPinfo->comment);
-	  logmsg(verbose, MAIN, "  Destination: %s (caplen: %d)\n", destination, caplen);
+	  logmsg(verbose, MAIN, "  Destination: %s (caplen: %d)\n", stream_addr_ntoa(&addr), caplen);
   }
   logmsg(verbose, MAIN, "  Capture Interfaces \n");
   for ( int i = 0; i < noCI; i++) {
@@ -283,7 +285,7 @@ static void show_configuration(){
 
   if ( MPinfo->iface ){
 	  logmsg(verbose, MAIN, "  MA Interface\n");
-	  logmsg(verbose, MAIN, "    MAnic: %s   MTU: %zd   hwaddr: %s\n", MPinfo->iface, MPinfo->MTU, ether_ntoa(&MPinfo->hwaddr));
+	  logmsg(verbose, MAIN, "    MAnic: %s   MTU: %zd   hwaddr: %s\n", MPinfo->iface, MPinfo->MTU, hexdump_address(&MPinfo->hwaddr));
 	  logmsg(verbose, MAIN, "\n");
   }
 }
@@ -559,7 +561,7 @@ int main (int argc, char **argv){
   }
 
   logmsg(stderr, MAIN, "All threads finished, terminating MP.\n");
-  logmsg(stderr, MAIN, "Captured %ld pkts   Sent %ld pkts\n", MPstats->packet_count, MPstats->sent_count);
+  logmsg(stderr, MAIN, "Captured %ld pkts   Sent %ld pkts in %ld messages\n", MPstats->packet_count, MPstats->written_count, MPstats->sent_count);
   
 //Print out statistics on screen  
   printf("Socket stats.\n");
@@ -585,8 +587,6 @@ int main (int argc, char **argv){
     }
     MAsd[i].stream = NULL;
   }
-
-  printf("OK.\nIt's terrible to out live your own children, so I die to.\n");
   
   if ( sem_destroy(&semaphore) != 0 ){
     logmsg(stderr, MAIN, "%s: sem_destroy() returned %d: %s\n", argv[0], errno, strerror(errno));
@@ -669,7 +669,7 @@ static int packet_stats(int sd, struct packet_stat *stats){
      */
     if (errno != EOPNOTSUPP)
     {
-      printf("stats: %d", errno);
+      printf("stats: %d\n", errno);
       return -1;
     }
   }
