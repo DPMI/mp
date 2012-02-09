@@ -8,7 +8,7 @@
     email                : anders.ekberg@bth.se
                            patrik.arlos@bth.se
                            david.sveningsson@bth.se
-                         
+
  ***************************************************************************/
 
 /***************************************************************************
@@ -86,7 +86,7 @@ int flush_flag = 0;
 int verbose_flag = 0;
 int debug_flag = 0;
 int show_packets = 0;
-FILE* verbose = NULL; 
+FILE* verbose = NULL;
 
 const char* MAIN = "main";
 const char* SENDER = "sender";
@@ -145,13 +145,13 @@ static void ma_nic(const char* arg) {
 	  exit(1);
   }
   memcpy(MPinfoI.hwaddr.ether_addr_octet, ifr.ifr_hwaddr.sa_data, ETH_ALEN);
-  
+
   /* Get my MTU */
   if(ioctl(s, SIOCGIFMTU,&ifr) == -1) {
     perror("SIOCGIFMTU");
     exit(1);
   }
-  MPinfoI.MTU = ifr.ifr_mtu; // Store the MA network MTU. 
+  MPinfoI.MTU = ifr.ifr_mtu; // Store the MA network MTU.
 
   /* This variable should be dropped -- 2011-06-17 */
   const int sendsize = (MPinfoI.MTU - sizeof(struct sendhead))/(sizeof(cap_head)+PKT_CAPSIZE);
@@ -213,25 +213,26 @@ static struct option long_options[]= {
 };
 
 static void show_usage(const char* program_name){
-  printf("(C) 2004 patrik.arlos@bth.se\n");
-  printf("(C) 2011 david.sveningsson@bth.se\n"),
-  printf("Usage: %s [OPTION]... -i INTERFACE... -s INTERFACE\n"
-	 "       %s [OPTION] --local --capfile FILENAME\n", program_name, program_name);
-  printf("  -h, --help                  help (this text)\n");
-  printf("  -s, --manic=INTERFACE       MA Interface.\n");
-  printf("  -p, --port=PORT             Control interface listen port [default: 2000]\n");
-  printf("  -i, --interface=INTERFACE   Capture Interface (REQUIRED)\n");
-  printf("      --config=FILE           Read configuration from FILE [default: mp.conf]\n");
-  printf("      --local                 LOCAL MODE, do not talk to MArC, capture\n"
-         "                              everything and store to file.\n"
-         "      --flush                 Force streams to be flushed (to disk or network)\n"
+	printf("(C) 2004 Patrik Arlos <patrik.arlos@bth.se>\n");
+	printf("(C) 2011 David Sveningsson <david.sveningsson@bth.se>\n");
+	printf("Usage: %s [OPTION]... -i INTERFACE... -s INTERFACE\n"
+	       "       %s [OPTION] --local --capfile FILENAME\n", program_name, program_name);
+	printf("  -h, --help                  help (this text)\n"
+	       "  -s, --manic=INTERFACE       MA Interface.\n"
+	       "  -p, --port=PORT             Control interface listen port [default: 2000]\n"
+	       "  -i, --interface=INTERFACE   Capture Interface (REQUIRED)\n"
+	       "      --config=FILE           Read configuration from FILE [default: mp.conf]\n"
+	       "      --local                 LOCAL MODE, do not talk to MArC, capture\n"
+	       "                              everything and store to file.\n"
+	       "      --flush                 Force streams to be flushed (to disk or network)\n"
          "                              on every write. It incurs a small performance\n"
-         "                              penalty but can be useful for low-traffic streams.\n");
-  printf("  -v, --verbose               Verbose output.\n"
+         "                              penalty but can be useful for low-traffic streams.\n"
+	       "  -v, --verbose               Verbose output.\n"
          "  -d, --debug                 Hexdump of all messages (implies --verbose).\n"
          "      --show-packets          Print short description of captured packets.\n"
-         "  -q, --quiet                 Less output (inverse of --verbose)\n");
-  printf("\nLocal mode:\n"
+         "  -q, --quiet                 Less output (inverse of --verbose)\n"
+	       "\n"
+	       "Local mode:\n"
          "  -o, --output=FILE           Destination.\n"
          "  -l, --caplen=SIZE           Capture length, -1 for full. [default: %d].\n"
          "      --id=ID                 Set MAMPid [default: hostname]\n"
@@ -314,11 +315,11 @@ static int parse_argv(int argc, char** argv){
     case 'd': // interface to listen on
       set_td(optarg);
       break;
-      
+
     case 'i': // interface to listen on
       set_ci(optarg);
       break;
-      
+
     case 's':  // MA Network Interface name
       ma_nic(optarg);
       break;
@@ -400,7 +401,7 @@ int setup_capture(){
     } else {
       CI[i].driver = DRIVER_RAW;
     }
-      
+
     switch ( CI[i].driver ){
     case DRIVER_PCAP:
 #ifdef HAVE_DRIVER_PCAP
@@ -558,7 +559,7 @@ int main (int argc, char **argv){
 
   logmsg(stderr, MAIN, "All threads finished, terminating MP.\n");
   logmsg(stderr, MAIN, "Captured %ld pkts   Sent %ld pkts in %ld messages\n", MPstats->packet_count, MPstats->written_count, MPstats->sent_count);
-  
+
   logmsg(verbose, MAIN, "Releasing resources\n");
   for( int i=0; i < CONSUMERS; i++ ){
     if ( !MAsd[i].stream ){
@@ -571,7 +572,7 @@ int main (int argc, char **argv){
     }
     MAsd[i].stream = NULL;
   }
-  
+
   if ( sem_destroy(&semaphore) != 0 ){
     logmsg(stderr, MAIN, "%s: sem_destroy() returned %d: %s\n", argv[0], errno, strerror(errno));
   }
@@ -599,7 +600,7 @@ static void cleanup(int sig) {
 
   fputc('\r', stderr);
   logmsg(stderr, MAIN, "Thread %ld caught %s signal.\n", self, strsignal(sig));
-  
+
   if ( terminateThreads++ == 0 ){
     logmsg(stderr, MAIN, "Received termination signal, stopping capture.\n");
   } else {
