@@ -17,7 +17,7 @@
 /***************************************************************************
   This thread handles the control of the MP and the communications with the MAC.
 
- ***************************************************************************/ 
+ ***************************************************************************/
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -137,7 +137,7 @@ void* control(struct thread_data* td, void* prt){
     sigfillset(&sigmask);
     sigdelset(&sigmask, SIGUSR1);
     pthread_sigmask(SIG_SETMASK, &sigmask, &saved);
-  }  
+  }
 
   /* redirect output */
   marc_set_output_handler(output_wrapper_n, output_wrapper_v, stderr, verbose);
@@ -155,7 +155,7 @@ void* control(struct thread_data* td, void* prt){
   info.version.self.minor = VERSION_MINOR;
   info.version.self.micro = VERSION_MICRO;
   info.drivers = 3;
-  
+
   for ( int i = 0; i < noCI; i++ ){
     strncpy(info.CI[i].iface, _CI[i].iface, 8);
   }
@@ -220,7 +220,7 @@ void* control(struct thread_data* td, void* prt){
 	logmsg(verbose, CONTROL, "MP not authorized, ignoring message of type %d\n", event.type);
 	continue;
       }
-	
+
       break;
 
     default: /* error has been raised */
@@ -270,7 +270,7 @@ void* control(struct thread_data* td, void* prt){
     default:
       logmsg(verbose, CONTROL, "Got unhandled event of type %d containing %zd bytes.\n", event.type, size);
       logmsg(verbose, CONTROL, "PAYLOAD:\n");
-      hexdump(verbose, event.payload, size);    
+      hexdump(verbose, event.payload, size);
       break;
     }
   }
@@ -308,7 +308,7 @@ static void CIstatus1(){
 		   i, _CI[i].packet_count,
 		   i, _CI[i].buffer_usage);
   }
-  
+
   int ret;
   if ( (ret=marc_push_event(client, (MPMessage*)&stat, NULL)) != 0 ){
     logmsg(stderr, CONTROL, "marc_push_event() returned %d: %s\n", ret, strerror(ret));
@@ -318,7 +318,7 @@ static void CIstatus1(){
 static void CIstatus2(){
   MPMessage msg;
   struct MPstatus2* stat = (struct MPstatus2*)&msg.status2;
-  
+
   memset(stat, 0, sizeof(MPMessage));
   stat->type = MP_STATUS2_EVENT;
   mampid_set(stat->MAMPid, MPinfo->id);
