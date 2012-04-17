@@ -63,7 +63,7 @@ static void mp_filter(struct MPFilter* event, size_t bytes){
 
   if ( debug_flag ){
     logmsg(verbose, CONTROL, "Got MPFilter from MArCd.\n");
-    hexdump(verbose, (char*)event, sizeof(struct MPFilter));
+    hexdump(verbose, (char*)event, bytes);
   }
 
   if ( bytes < 200 ){
@@ -142,18 +142,22 @@ void* control(struct thread_data* td, void* prt){
   /* redirect output */
   marc_set_output_handler(output_wrapper_n, output_wrapper_v, stderr, verbose);
 
+  /* get version of libcap_utils */
+  caputils_version_t cv;
+  caputils_version(&cv);
+#define str(x) #x
   /* setup libmarc */
   struct marc_client_info info = {0,};
   info.client_ip = NULL;
   info.client_port = port;
   info.max_filters = CONSUMERS;
   info.noCI = noCI;
-  info.version.caputils.major = CAPUTILS_VERSION_MAJOR;
-  info.version.caputils.minor = CAPUTILS_VERSION_MINOR;
-  info.version.caputils.micro = CAPUTILS_VERSION_MICRO;
+  info.version.caputils.major = cv.major;
+  info.version.caputils.minor = cv.minor;
+  info.version.caputils.micro = cv.micro;
   info.version.self.major = VERSION_MAJOR;
   info.version.self.minor = VERSION_MINOR;
-  info.version.self.micro = VERSION_MICRO;
+  info.version.self.micro = atoi(str(VERSION_MICRO));
   info.drivers = 3;
 
   for ( int i = 0; i < noCI; i++ ){
