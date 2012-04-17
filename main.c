@@ -488,7 +488,7 @@ int setup_capture(){
 }
 
 int main (int argc, char **argv){
-  fprintf(stderr, "Measurement Point " VERSION " (caputils-" CAPUTILS_VERSION ")\n");
+	fprintf(stderr, "Measurement Point " VERSION " (caputils-%s)\n", caputils_version(NULL));
   fprintf(stderr, "----------------------------------------\n");
 
   // Init semaphore
