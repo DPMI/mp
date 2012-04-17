@@ -1,6 +1,6 @@
 m4_define([__VERSION_MAJOR__], [0])
 m4_define([__VERSION_MINOR__], [7])
-m4_define([__VERSION_MICRO__], [5])
+m4_define([__VERSION_MICRO__], [5_git])
 
 AC_PREREQ([2.61])
 AC_INIT([mp],[__VERSION_MAJOR__.__VERSION_MINOR__.__VERSION_MICRO__], [dsv@bth.se])
@@ -33,9 +33,8 @@ AM_CONDITIONAL(BUILD_SEM_TIMEDWAIT, [test "x$build_sem_timedwait" == "xyes"])
 AC_ARG_PROGRAM
 
 AC_SEARCH_LIBS([clock_gettime], [rt])
-PKG_CHECK_MODULES([libcap_stream], [libcap_stream-0.7 >= 0.7.4])
+PKG_CHECK_MODULES([libcap_utils], [libcap_utils-0.7 >= 0.7.7])
 PKG_CHECK_MODULES([libcap_marc], [libcap_marc-0.7 >= 0.7.4])
-PKG_CHECK_MODULES([libcap_filter], [libcap_filter-0.7 >= 0.7.4])
 
 ax_dag="no"
 ax_dag_legacy="no"
