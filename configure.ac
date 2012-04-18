@@ -21,7 +21,7 @@ AM_INIT_AUTOMAKE([-Wall foreign])
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADERS([config.h])
-AC_CONFIG_FILES([Makefile])
+AC_CONFIG_FILES([Makefile dist/deb-control])
 
 AC_GNU_SOURCE
 AC_PROG_CC_C_O
@@ -120,5 +120,11 @@ AS_IF([test -z "$FILTERS"],
 	[AC_DEFINE([CONSUMERS], 20, [Max filters])],
 	[AC_DEFINE_UNQUOTED([CONSUMERS], $FILTERS, [Max filters])]
 )
+
+dnl Find out what arch is used for (debian) packaging.
+ARCH=`echo $host|cut -d '-' -f 1`
+AS_IF([test "$ARCH" = "i686"], [ARCH="i386"])
+AS_IF([test "$ARCH" = "x86_64"], [ARCH="amd64"])
+AC_SUBST(ARCH)
 
 AC_OUTPUT
