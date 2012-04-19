@@ -89,7 +89,7 @@ void send_packet(struct consumer* con){
 
   ret = stream_write(con->stream, data, data_size);
 
-  logmsg(verbose, SENDER, "SendThread [id:%u] sending %zd bytes\n", thread_id(), data_size);
+  logmsg(verbose, SENDER, "SendThread [id:%u] sending %zd bytes with %d packets\n", thread_id(), data_size, ntohl(con->shead->nopkts));
   if ( debug_flag ){
 	  if ( ret == 0 ){
 		  logmsg(verbose, SENDER, "\tcaputils-%d.%d\n", ntohs(con->shead->version.major), ntohs(con->shead->version.minor));
