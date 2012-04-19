@@ -4,7 +4,7 @@
     begin                : Sat Mar 15 2003
     copyright            : (C) 2003-2005 by Patrik Arlos
     email                : patrik.arlos@bth.se
- ***************************************************************************/
+***************************************************************************/
 
 /***************************************************************************
  *                                                                         *
@@ -18,7 +18,7 @@
   This thread recives a semaphore from the capture threads and starts reading
   the shared memory in order by timestamps. The packets read from the memory
   are appended together into tcp packets and sent to the tcpserver software.
- ***************************************************************************/
+***************************************************************************/
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -42,76 +42,76 @@ void thread_init_finished(struct thread_data* td, int status);
 pthread_mutex_t mutex1 = PTHREAD_MUTEX_INITIALIZER;
 
 int wait_for_capture(sem_t* sem){
-  struct timespec ts;
+	struct timespec ts;
 
-  if ( clock_gettime(CLOCK_REALTIME, &ts) != 0 ){
-    int saved = errno;
-    logmsg(stderr, SENDER, "clock_gettime() returned %d: %s\n", saved, strerror(saved));
-    return saved;
-  }
+	if ( clock_gettime(CLOCK_REALTIME, &ts) != 0 ){
+		int saved = errno;
+		logmsg(stderr, SENDER, "clock_gettime() returned %d: %s\n", saved, strerror(saved));
+		return saved;
+	}
 
-  ts.tv_sec += SEMAPHORE_TIMEOUT_SEC;
+	ts.tv_sec += SEMAPHORE_TIMEOUT_SEC;
 
-  if ( sem_timedwait(sem, &ts) != 0 ){
-    int saved = errno;
-    switch ( saved ){
-    case ETIMEDOUT:
-    case EINTR:
-      break;
-    default:
-      logmsg(stderr, SENDER, "sem_timedwait() returned %d: %s\n", saved, strerror(saved));
-    }
-    return saved;
-  }
+	if ( sem_timedwait(sem, &ts) != 0 ){
+		int saved = errno;
+		switch ( saved ){
+		case ETIMEDOUT:
+		case EINTR:
+			break;
+		default:
+			logmsg(stderr, SENDER, "sem_timedwait() returned %d: %s\n", saved, strerror(saved));
+		}
+		return saved;
+	}
 
-  return 0;
+	return 0;
 }
 
 void send_packet(struct consumer* con){
-  const size_t header_size = sizeof(struct ethhdr) + sizeof(struct sendhead);
-  const size_t payload_size = con->sendpointer - con->sendptrref;
-  const size_t packet_full_size = header_size + payload_size; /* includes ethernet, sendheader and payload */
-  const uint32_t seqnr = ntohl(con->shead->sequencenr);
+	const size_t header_size = sizeof(struct ethhdr) + sizeof(struct sendhead);
+	const size_t payload_size = con->sendpointer - con->sendptrref;
+	const size_t packet_full_size = header_size + payload_size; /* includes ethernet, sendheader and payload */
+	const uint32_t seqnr = ntohl(con->shead->sequencenr);
 
-  con->shead->nopkts = htonl(con->sendcount);
-  /*con->shead->losscounter=htons((globalDropcount+memDropcount)-dropCount[whead->consumer]); */
-  con->dropCount = globalDropcount + memDropcount;
+	con->shead->nopkts = htonl(con->sendcount);
+	/*con->shead->losscounter=htons((globalDropcount+memDropcount)-dropCount[whead->consumer]); */
+	con->dropCount = globalDropcount + memDropcount;
 
-  int ret;
+	int ret;
 
-  const u_char* data = con->sendptrref;
-  size_t data_size = payload_size;
+	const u_char* data = con->sendptrref;
+	size_t data_size = payload_size;
 
-  if ( con->want_sendhead ){
-	  data -= header_size;
-	  data_size += header_size;
-  }
+	if ( con->want_sendhead ){
+		data -= header_size;
+		data_size += header_size;
+	}
 
-  ret = stream_write(con->stream, data, data_size);
+	ret = stream_write(con->stream, data, data_size);
 
-  logmsg(verbose, SENDER, "SendThread [id:%u] sending %zd bytes with %d packets\n", thread_id(), data_size, ntohl(con->shead->nopkts));
-  if ( debug_flag ){
-	  if ( ret == 0 ){
-		  logmsg(verbose, SENDER, "\tcaputils-%d.%d\n", ntohs(con->shead->version.major), ntohs(con->shead->version.minor));
-		  logmsg(verbose, SENDER, "\tdropCount[] = %d (g%d/m%d)\n", con->dropCount, globalDropcount, memDropcount);
-		  logmsg(verbose, SENDER, "\tPacket length = %zd bytes, Eth %zd, Send %zd, Cap %zd bytes\n", packet_full_size, sizeof(struct ethhdr), sizeof(struct sendhead), sizeof(struct cap_header));
-		  logmsg(verbose, SENDER, "\tSeqnr  = %04lx \t nopkts = %04d \t Losscount = %d\n", (unsigned long int)seqnr, ntohl(con->shead->nopkts), -1);
-	  } else {
-		  logmsg(stderr,  SENDER, "\tstream_write() returned %d: %s\n", ret, strerror(ret));
-		  logmsg(verbose, SENDER, "\tPacket length = %zd bytes, Eth %zd, Send %zd, Cap %zd bytes\n", packet_full_size, sizeof(struct ethhdr), sizeof(struct sendhead), sizeof(struct cap_header));
-	  }
-  }
+	logmsg(verbose, SENDER, "SendThread [id:%u] sending %zd bytes with %d packets\n", thread_id(), data_size, ntohl(con->shead->nopkts));
+	if ( debug_flag ){
+		if ( ret == 0 ){
+			logmsg(verbose, SENDER, "\tcaputils-%d.%d\n", ntohs(con->shead->version.major), ntohs(con->shead->version.minor));
+			logmsg(verbose, SENDER, "\tdropCount[] = %d (g%d/m%d)\n", con->dropCount, globalDropcount, memDropcount);
+			logmsg(verbose, SENDER, "\tPacket length = %zd bytes, Eth %zd, Send %zd, Cap %zd bytes\n", packet_full_size, sizeof(struct ethhdr), sizeof(struct sendhead), sizeof(struct cap_header));
+			logmsg(verbose, SENDER, "\tSeqnr  = %04lx \t nopkts = %04d \t Losscount = %d\n", (unsigned long int)seqnr, ntohl(con->shead->nopkts), -1);
+		} else {
+			logmsg(stderr,  SENDER, "\tstream_write() returned %d: %s\n", ret, strerror(ret));
+			logmsg(verbose, SENDER, "\tPacket length = %zd bytes, Eth %zd, Send %zd, Cap %zd bytes\n", packet_full_size, sizeof(struct ethhdr), sizeof(struct sendhead), sizeof(struct cap_header));
+		}
+	}
 
-  //Update the sequence number.
-  con->shead->sequencenr = htonl((seqnr+1) % 0xFFFF);
+	//Update the sequence number.
+	con->shead->sequencenr = htonl((seqnr+1) % 0xFFFF);
 
-  /* update stats */
-  MPstats->written_count += con->sendcount;
-  MPstats->sent_count++;
+	/* update stats */
+	MPstats->written_count += con->sendcount;
+	MPstats->sent_count++;
 
-  con->sendcount = 0;// Clear the number of packets in this sendbuffer
-  bzero(con->sendptrref,(maSendsize*(sizeof(cap_head)+PKT_CAPSIZE))); //Clear the memory location, for the packet data.
-  con->sendpointer=con->sendptrref; // Restore the pointer to the first spot where the next packet will be placed.
+	con->sendcount = 0;// Clear the number of packets in this sendbuffer
+	bzero(con->sendptrref,(maSendsize*(sizeof(cap_head)+PKT_CAPSIZE))); //Clear the memory location, for the packet data.
+	con->sendpointer=con->sendptrref; // Restore the pointer to the first spot where the next packet will be placed.
 }
 
 static int can_defer_send(struct consumer* con, struct timespec* now, struct timespec* last_sent, int caplen){
@@ -138,191 +138,191 @@ static int can_defer_send(struct consumer* con, struct timespec* now, struct tim
 }
 
 static int oldest_packet(int nics, int readPos[], sem_t* semaphore){
-  int oldest = -1;
-  while( oldest == -1 ){       // Loop while we havent gotten any pkts.
-    if ( terminateThreads>0 ) {
-      return -1;
-    }
+	int oldest = -1;
+	while( oldest == -1 ){       // Loop while we havent gotten any pkts.
+		if ( terminateThreads>0 ) {
+			return -1;
+		}
 
-    struct picotime timeOldest;        // timestamp of oldest packet
-    timeOldest.tv_sec = UINT32_MAX;
-    timeOldest.tv_psec = UINT64_MAX;
+		struct picotime timeOldest;        // timestamp of oldest packet
+		timeOldest.tv_sec = UINT32_MAX;
+		timeOldest.tv_psec = UINT64_MAX;
 
-    for( int i = 0; i < nics; i++){
-      unsigned char* raw_buffer = datamem[i][readPos[i]];
-      write_head* whead   = (write_head*)raw_buffer;
-      cap_head* head      = (cap_head*)(raw_buffer + sizeof(write_head));
+		for( int i = 0; i < nics; i++){
+			unsigned char* raw_buffer = datamem[i][readPos[i]];
+			write_head* whead   = (write_head*)raw_buffer;
+			cap_head* head      = (cap_head*)(raw_buffer + sizeof(write_head));
 
-      /* This consumer has no packages yet */
-      if( whead->free == 0 ) {
-	continue;
-      }
+			/* This consumer has no packages yet */
+			if( whead->free == 0 ) {
+				continue;
+			}
 
-      if( timecmp(&head->ts, &timeOldest) < 0 ){
-	timeOldest.tv_sec  = head->ts.tv_sec;
-	timeOldest.tv_psec = head->ts.tv_psec;
-	oldest = i;
-      }
-    }
+			if( timecmp(&head->ts, &timeOldest) < 0 ){
+				timeOldest.tv_sec  = head->ts.tv_sec;
+				timeOldest.tv_psec = head->ts.tv_psec;
+				oldest = i;
+			}
+		}
 
-    /* No packages, wait until some arrives */
-    if ( oldest==-1 ){
-      wait_for_capture(semaphore);
-    }
-  }
+		/* No packages, wait until some arrives */
+		if ( oldest==-1 ){
+			wait_for_capture(semaphore);
+		}
+	}
 
-  return oldest;
+	return oldest;
 }
 
 void copy_to_sendbuffer(struct consumer* dst, unsigned char* src, int* readPtr, struct CI* CI){
-  int readPos = *readPtr;
+	int readPos = *readPtr;
 
-  write_head* whead   = (write_head*)src;
-  cap_head* head      = (cap_head*)(src + sizeof(write_head));
-  const size_t packet_size = sizeof(cap_head)+head->caplen;
+	write_head* whead   = (write_head*)src;
+	cap_head* head      = (cap_head*)(src + sizeof(write_head));
+	const size_t packet_size = sizeof(cap_head)+head->caplen;
 
-  assert(dst);
-  assert(readPtr);
-  assert(CI);
+	assert(dst);
+	assert(readPtr);
+	assert(CI);
 
-  pthread_mutex_lock(&CI->mutex);
-  {
-    assert(whead->free > 0);
-    assert(CI->buffer_usage > 0);
+	pthread_mutex_lock(&CI->mutex);
+	{
+		assert(whead->free > 0);
+		assert(CI->buffer_usage > 0);
 
-    /* mark as free */
-    whead->free = 0;
-    CI->buffer_usage--;
+		/* mark as free */
+		whead->free = 0;
+		CI->buffer_usage--;
 
-    /* copy packet */
-    memcpy(dst->sendpointer, head, packet_size);
-    memset(head, 0, sizeof(cap_head) + PKT_CAPSIZE);
-  }
-  pthread_mutex_unlock(&CI->mutex);
+		/* copy packet */
+		memcpy(dst->sendpointer, head, packet_size);
+		memset(head, 0, sizeof(cap_head) + PKT_CAPSIZE);
+	}
+	pthread_mutex_unlock(&CI->mutex);
 
-  /* increment read position */
-  *readPtr = (readPos+1) % PKT_BUFFER ;
+	/* increment read position */
+	*readPtr = (readPos+1) % PKT_BUFFER ;
 
-  /* update sendpointer */
-  dst->sendpointer += packet_size;
-  dst->sendcount += 1;
+	/* update sendpointer */
+	dst->sendpointer += packet_size;
+	dst->sendcount += 1;
 }
 
 void* sender_capfile(struct thread_data* td, void* ptr){
-  send_proc_t* proc = (send_proc_t*)ptr;
-  int readPos[CI_NIC] = {0,};        /* read pointers */
+	send_proc_t* proc = (send_proc_t*)ptr;
+	int readPos[CI_NIC] = {0,};        /* read pointers */
 
-  logmsg(stderr, SENDER, "Initializing (local mode).\n");
+	logmsg(stderr, SENDER, "Initializing (local mode).\n");
 
-  struct consumer con;
-  consumer_init(&con, 0, sendmem[0]); /* in local mode only 1 stream is created, so it is safe to "steal" memory from consumer 0 */
-  con.want_sendhead = 0;
+	struct consumer con;
+	consumer_init(&con, 0, sendmem[0]); /* in local mode only 1 stream is created, so it is safe to "steal" memory from consumer 0 */
+	con.want_sendhead = 0;
 
-  //if ( (ret=createstream(&con.stream, &dest, NULL, mampid_get(MPinfo->id), MPinfo->comment)) != 0 ){
-  //  logmsg(stderr, SENDER, "  createstream() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
-  //      sem_post(proc->semaphore); /* unlock main thread */
-  //  return NULL;
-  //}
+	//if ( (ret=createstream(&con.stream, &dest, NULL, mampid_get(MPinfo->id), MPinfo->comment)) != 0 ){
+	//  logmsg(stderr, SENDER, "  createstream() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
+	//      sem_post(proc->semaphore); /* unlock main thread */
+	//  return NULL;
+	//}
 
-  /* unlock main thread */
-  thread_init_finished(td, 0);
+	/* unlock main thread */
+	thread_init_finished(td, 0);
 
-  while( terminateThreads == 0 ){
-    int oldest = oldest_packet(proc->nics, readPos, proc->semaphore);
+	while( terminateThreads == 0 ){
+		int oldest = oldest_packet(proc->nics, readPos, proc->semaphore);
 
-    /* couldn't find a packet, gave up waiting. we are probably terminating. */
-    if ( oldest == -1 ){
-      continue;
-    }
+		/* couldn't find a packet, gave up waiting. we are probably terminating. */
+		if ( oldest == -1 ){
+			continue;
+		}
 
-    unsigned char* raw_buffer = datamem[oldest][readPos[oldest]];
+		unsigned char* raw_buffer = datamem[oldest][readPos[oldest]];
 
-    copy_to_sendbuffer(&con, raw_buffer, &readPos[oldest], &_CI[oldest]);
-    send_packet(&con);
-  }
+		copy_to_sendbuffer(&con, raw_buffer, &readPos[oldest], &_CI[oldest]);
+		send_packet(&con);
+	}
 
-  logmsg(stderr, SENDER, "Finished (local).\n");
-  return NULL;
+	logmsg(stderr, SENDER, "Finished (local).\n");
+	return NULL;
 }
 
 void* sender_caputils(struct thread_data* td, void *ptr){
-    send_proc_t* proc = (send_proc_t*)ptr;      // Extract the parameters that we got from our master, i.e. parent process..
-    const int nics = proc->nics;             // The number of active CIs
+	send_proc_t* proc = (send_proc_t*)ptr;      // Extract the parameters that we got from our master, i.e. parent process..
+	const int nics = proc->nics;             // The number of active CIs
 
-    int readPos[CI_NIC] = {0,};        // array of memory positions
+	int readPos[CI_NIC] = {0,};        // array of memory positions
 
-    logmsg(stderr, SENDER, "Initializing. There are %d captures.\n", nics);
+	logmsg(stderr, SENDER, "Initializing. There are %d captures.\n", nics);
 
-    /* Timestamp when the sender last sent a packet.  */
-    struct timespec last_sent;
-    clock_gettime(CLOCK_REALTIME, &last_sent);
+	/* Timestamp when the sender last sent a packet.  */
+	struct timespec last_sent;
+	clock_gettime(CLOCK_REALTIME, &last_sent);
 
-    /* unlock main thread */
-    thread_init_finished(td, 0);
+	/* unlock main thread */
+	thread_init_finished(td, 0);
 
-    /* sender loop */
-    while( terminateThreads == 0 ){
-      int oldest = oldest_packet(proc->nics, readPos, proc->semaphore);
+	/* sender loop */
+	while( terminateThreads == 0 ){
+		int oldest = oldest_packet(proc->nics, readPos, proc->semaphore);
 
-      /* couldn't find a packet, gave up waiting. we are probably terminating. */
-      if ( oldest == -1 ){
-	continue;
-      }
+		/* couldn't find a packet, gave up waiting. we are probably terminating. */
+		if ( oldest == -1 ){
+			continue;
+		}
 
-      unsigned char* raw_buffer = datamem[oldest][readPos[oldest]];
-      write_head* whead   = (write_head*)raw_buffer;
-      cap_head* head      = (cap_head*)(raw_buffer + sizeof(write_head));
-      struct consumer* con = &MAsd[whead->consumer];
+		unsigned char* raw_buffer = datamem[oldest][readPos[oldest]];
+		write_head* whead   = (write_head*)raw_buffer;
+		cap_head* head      = (cap_head*)(raw_buffer + sizeof(write_head));
+		struct consumer* con = &MAsd[whead->consumer];
 
-      /* get current timestamp */
-      struct timespec now;
-      clock_gettime(CLOCK_REALTIME, &now);
+		/* get current timestamp */
+		struct timespec now;
+		clock_gettime(CLOCK_REALTIME, &now);
 
-      if ( can_defer_send(con, &now, &last_sent, head->caplen) ){
-	/* defer ok, write current packet to buffer */
-	copy_to_sendbuffer(con, raw_buffer, &readPos[oldest], &_CI[oldest]);
-	continue;
-      }
+		if ( can_defer_send(con, &now, &last_sent, head->caplen) ){
+			/* defer ok, write current packet to buffer */
+			copy_to_sendbuffer(con, raw_buffer, &readPos[oldest], &_CI[oldest]);
+			continue;
+		}
 
-      /* send existing packets (but _not_ current packet) */
-      send_packet(con);
+		/* send existing packets (but _not_ current packet) */
+		send_packet(con);
 
-      /* store timestamp (used to determine if sender must be flushed or not, due to old packages) */
-      last_sent = now;
+		/* store timestamp (used to determine if sender must be flushed or not, due to old packages) */
+		last_sent = now;
 
-      /* write current packet to buffer */
-      copy_to_sendbuffer(con, raw_buffer, &readPos[oldest], &_CI[oldest]);
-    }
+		/* write current packet to buffer */
+		copy_to_sendbuffer(con, raw_buffer, &readPos[oldest], &_CI[oldest]);
+	}
 
-    logmsg(verbose, SENDER, "Flushing sendbuffers.\n");
-    flushAll();
+	logmsg(verbose, SENDER, "Flushing sendbuffers.\n");
+	flushAll();
 
-    logmsg(stderr, SENDER, "Finished.\n");
-    return(NULL) ;
+	logmsg(stderr, SENDER, "Finished.\n");
+	return(NULL) ;
 }
 
 static void flushBuffer(int i){
-  struct consumer* con = &MAsd[i];
+	struct consumer* con = &MAsd[i];
 
-  /* no consumer */
-  if ( !con || con->status == 0 ){
-    return;
-  }
+	/* no consumer */
+	if ( !con || con->status == 0 ){
+		return;
+	}
 
-  /* nothing to flush */
-  if ( con->sendcount == 0 ){
-    return;
-  }
+	/* nothing to flush */
+	if ( con->sendcount == 0 ){
+		return;
+	}
 
-  logmsg(stderr, SENDER, "Consumer %d needs to be flushed, contains %d pkts\n", i, con->sendcount);
+	logmsg(stderr, SENDER, "Consumer %d needs to be flushed, contains %d pkts\n", i, con->sendcount);
 
-  con->shead->flush=htons(1);
-  send_packet(con);
-  con->shead->flush=htons(0);
+	con->shead->flush=htons(1);
+	send_packet(con);
+	con->shead->flush=htons(0);
 }
 
 static void flushAll(){
-  for( int i = 0; i < CONSUMERS; i++){
-    flushBuffer(i);
-  }
+	for( int i = 0; i < CONSUMERS; i++){
+		flushBuffer(i);
+	}
 }
