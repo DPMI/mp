@@ -18,7 +18,7 @@
   This thread recives a semaphore from the capture threads and starts reading
   the shared memory in order by timestamps. The packets read from the memory
   are appended together into tcp packets and sent to the tcpserver software.
- ***************************************************************************/ 
+ ***************************************************************************/
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -51,7 +51,7 @@ int wait_for_capture(sem_t* sem){
   }
 
   ts.tv_sec += SEMAPHORE_TIMEOUT_SEC;
-  
+
   if ( sem_timedwait(sem, &ts) != 0 ){
     int saved = errno;
     switch ( saved ){
@@ -63,7 +63,7 @@ int wait_for_capture(sem_t* sem){
     }
     return saved;
   }
-  
+
   return 0;
 }
 
@@ -81,12 +81,12 @@ void send_packet(struct consumer* con){
 
   const u_char* data = con->sendptrref;
   size_t data_size = payload_size;
-  
+
   if ( con->want_sendhead ){
 	  data -= header_size;
 	  data_size += header_size;
   }
-  
+
   ret = stream_write(con->stream, data, data_size);
 
   logmsg(verbose, SENDER, "SendThread [id:%u] sending %zd bytes\n", thread_id(), data_size);
@@ -110,7 +110,7 @@ void send_packet(struct consumer* con){
   MPstats->sent_count++;
 
   con->sendcount = 0;// Clear the number of packets in this sendbuffer
-  bzero(con->sendptrref,(maSendsize*(sizeof(cap_head)+PKT_CAPSIZE))); //Clear the memory location, for the packet data. 
+  bzero(con->sendptrref,(maSendsize*(sizeof(cap_head)+PKT_CAPSIZE))); //Clear the memory location, for the packet data.
   con->sendpointer=con->sendptrref; // Restore the pointer to the first spot where the next packet will be placed.
 }
 
@@ -125,11 +125,11 @@ static int can_defer_send(struct consumer* con, struct timespec* now, struct tim
 	                  * the division is put together the subtraction will be
 	                  * calculated as unsigned (tv_psec is stored as unsigned),
 	                  * then divided and only then  converted to signed int. */
-	
+
 	const signed long int age = sec + msec;
 	const size_t payload_size = con->sendpointer - con->sendptrref;
 	const size_t header_size = sizeof(struct ethhdr) + sizeof(struct cap_header) + sizeof(struct sendhead);
-	
+
 	const int larger_mtu = payload_size + caplen + header_size >= MPinfo->MTU;
 	const int need_flush = con->status == 0 && payload_size > 0;
 	const int old_age = age >= MAX_PACKET_AGE;
@@ -147,26 +147,26 @@ static int oldest_packet(int nics, int readPos[], sem_t* semaphore){
     struct picotime timeOldest;        // timestamp of oldest packet
     timeOldest.tv_sec = UINT32_MAX;
     timeOldest.tv_psec = UINT64_MAX;
-    
+
     for( int i = 0; i < nics; i++){
       unsigned char* raw_buffer = datamem[i][readPos[i]];
       write_head* whead   = (write_head*)raw_buffer;
       cap_head* head      = (cap_head*)(raw_buffer + sizeof(write_head));
-      
+
       /* This consumer has no packages yet */
       if( whead->free == 0 ) {
 	continue;
       }
-      
+
       if( timecmp(&head->ts, &timeOldest) < 0 ){
 	timeOldest.tv_sec  = head->ts.tv_sec;
 	timeOldest.tv_psec = head->ts.tv_psec;
 	oldest = i;
       }
     }
-       
+
     /* No packages, wait until some arrives */
-    if ( oldest==-1 ){ 
+    if ( oldest==-1 ){
       wait_for_capture(semaphore);
     }
   }
@@ -193,7 +193,7 @@ void copy_to_sendbuffer(struct consumer* dst, unsigned char* src, int* readPtr, 
     /* mark as free */
     whead->free = 0;
     CI->buffer_usage--;
-    
+
     /* copy packet */
     memcpy(dst->sendpointer, head, packet_size);
     memset(head, 0, sizeof(cap_head) + PKT_CAPSIZE);
@@ -202,7 +202,7 @@ void copy_to_sendbuffer(struct consumer* dst, unsigned char* src, int* readPtr, 
 
   /* increment read position */
   *readPtr = (readPos+1) % PKT_BUFFER ;
-  
+
   /* update sendpointer */
   dst->sendpointer += packet_size;
   dst->sendcount += 1;
@@ -213,7 +213,7 @@ void* sender_capfile(struct thread_data* td, void* ptr){
   int readPos[CI_NIC] = {0,};        /* read pointers */
 
   logmsg(stderr, SENDER, "Initializing (local mode).\n");
- 
+
   struct consumer con;
   consumer_init(&con, 0, sendmem[0]); /* in local mode only 1 stream is created, so it is safe to "steal" memory from consumer 0 */
   con.want_sendhead = 0;
@@ -229,15 +229,15 @@ void* sender_capfile(struct thread_data* td, void* ptr){
 
   while( terminateThreads == 0 ){
     int oldest = oldest_packet(proc->nics, readPos, proc->semaphore);
-    
+
     /* couldn't find a packet, gave up waiting. we are probably terminating. */
     if ( oldest == -1 ){
       continue;
     }
-    
+
     unsigned char* raw_buffer = datamem[oldest][readPos[oldest]];
 
-    copy_to_sendbuffer(&con, raw_buffer, &readPos[oldest], &_CI[oldest]);    
+    copy_to_sendbuffer(&con, raw_buffer, &readPos[oldest], &_CI[oldest]);
     send_packet(&con);
   }
 
@@ -263,7 +263,7 @@ void* sender_caputils(struct thread_data* td, void *ptr){
     /* sender loop */
     while( terminateThreads == 0 ){
       int oldest = oldest_packet(proc->nics, readPos, proc->semaphore);
-      
+
       /* couldn't find a packet, gave up waiting. we are probably terminating. */
       if ( oldest == -1 ){
 	continue;
@@ -303,7 +303,7 @@ void* sender_caputils(struct thread_data* td, void *ptr){
 
 static void flushBuffer(int i){
   struct consumer* con = &MAsd[i];
-  
+
   /* no consumer */
   if ( !con || con->status == 0 ){
     return;
