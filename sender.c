@@ -246,15 +246,14 @@ void* sender_capfile(struct thread_data* td, void* ptr){
 }
 
 void* sender_caputils(struct thread_data* td, void *ptr){
-	send_proc_t* proc = (send_proc_t*)ptr;      // Extract the parameters that we got from our master, i.e. parent process..
-	const int nics = proc->nics;             // The number of active CIs
-
-	int readPos[CI_NIC] = {0,};        // array of memory positions
+	send_proc_t* proc = (send_proc_t*)ptr;    /* Extract the parameters that we got from our master, i.e. parent process.. */
+	const int nics = proc->nics;              /* The number of active CIs */
+	struct timespec last_sent[MAX_FILTERS]; 	/* Timestamp when the sender last sent a packet.  */
+	int readPos[MAX_FILTERS] = {0,};          /* array of memory positions */
 
 	logmsg(stderr, SENDER, "Initializing. There are %d captures.\n", nics);
 
-	/* Timestamp when the sender last sent a packet.  */
-	struct timespec last_sent[MAX_FILTERS];
+	/* initialize timestamp */
 	{
 		struct timespec tmp;
 		clock_gettime(CLOCK_REALTIME, &tmp);
