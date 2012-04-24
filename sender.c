@@ -254,8 +254,14 @@ void* sender_caputils(struct thread_data* td, void *ptr){
 	logmsg(stderr, SENDER, "Initializing. There are %d captures.\n", nics);
 
 	/* Timestamp when the sender last sent a packet.  */
-	struct timespec last_sent;
-	clock_gettime(CLOCK_REALTIME, &last_sent);
+	struct timespec last_sent[CONSUMERS];
+	{
+		struct timespec tmp;
+		clock_gettime(CLOCK_REALTIME, &tmp);
+		for ( int i = 0; i < CONSUMERS; i++ ){
+			last_sent[i] = tmp;
+		}
+	}
 
 	/* unlock main thread */
 	thread_init_finished(td, 0);
@@ -278,7 +284,7 @@ void* sender_caputils(struct thread_data* td, void *ptr){
 		struct timespec now;
 		clock_gettime(CLOCK_REALTIME, &now);
 
-		if ( can_defer_send(con, &now, &last_sent, head->caplen) ){
+		if ( can_defer_send(con, &now, &last_sent[oldest], head->caplen) ){
 			/* defer ok, write current packet to buffer */
 			copy_to_sendbuffer(con, raw_buffer, &readPos[oldest], &_CI[oldest]);
 			continue;
@@ -295,7 +301,7 @@ void* sender_caputils(struct thread_data* td, void *ptr){
 			/* store timestamp (used to determine if sender must be flushed or not,
 			 * due to old packages). It is only updated when the current packet fits
 			 * into the sendbuffer because if it doesn't it should be send ASAP. */
-			last_sent = now;
+			last_sent[oldest] = now;
 		}
 
 		/* send existing packets */
