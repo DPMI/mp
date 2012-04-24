@@ -254,11 +254,11 @@ void* sender_caputils(struct thread_data* td, void *ptr){
 	logmsg(stderr, SENDER, "Initializing. There are %d captures.\n", nics);
 
 	/* Timestamp when the sender last sent a packet.  */
-	struct timespec last_sent[CONSUMERS];
+	struct timespec last_sent[MAX_FILTERS];
 	{
 		struct timespec tmp;
 		clock_gettime(CLOCK_REALTIME, &tmp);
-		for ( int i = 0; i < CONSUMERS; i++ ){
+		for ( int i = 0; i < MAX_FILTERS; i++ ){
 			last_sent[i] = tmp;
 		}
 	}
@@ -341,7 +341,7 @@ static void flushBuffer(int i){
 }
 
 static void flushAll(){
-	for( int i = 0; i < CONSUMERS; i++){
+	for( int i = 0; i < MAX_FILTERS; i++){
 		flushBuffer(i);
 	}
 }

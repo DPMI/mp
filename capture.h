@@ -106,7 +106,7 @@ void consumer_init_all();
 
 /* // Global variables. */
 int maSendsize;                     // number of packets to include in capture payload.
-struct consumer MAsd[CONSUMERS];
+struct consumer MAsd[MAX_FILTERS];
 
 extern int volatile terminateThreads;               //used for signaling thread to terminate
 extern int noCI;                           // Number of Capture Interfaces
@@ -120,7 +120,7 @@ extern struct CI* _CI; /* DO _*NOT*_ USE! For backwards compability ONLY! */
 u_char datamem[CI_NIC][PKT_BUFFER][(PKT_CAPSIZE+sizeof(write_head)+sizeof(cap_head))];
 
 // allocate sendbuffer
-u_char sendmem[CONSUMERS][sizeof(struct ethhdr)+sizeof(struct sendhead)+maxSENDSIZE*(sizeof(cap_head)+PKT_CAPSIZE)];
+u_char sendmem[MAX_FILTERS][sizeof(struct ethhdr)+sizeof(struct sendhead)+maxSENDSIZE*(sizeof(cap_head)+PKT_CAPSIZE)];
 
 // Threads
 void* capture(void*); //capture thread

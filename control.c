@@ -150,7 +150,7 @@ void* control(struct thread_data* td, void* prt){
   struct marc_client_info info = {0,};
   info.client_ip = NULL;
   info.client_port = port;
-  info.max_filters = CONSUMERS;
+  info.max_filters = MAX_FILTERS;
   info.noCI = noCI;
   info.version.caputils.major = cv.major;
   info.version.caputils.minor = cv.minor;

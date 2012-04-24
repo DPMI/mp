@@ -100,7 +100,7 @@ int filter(const char* CI, const void *pkt, struct cap_header *head){
 }
 
 static struct consumer* next_free_consumer(){
-	for ( int i = 0; i < CONSUMERS; i++ ){
+	for ( int i = 0; i < MAX_FILTERS; i++ ){
 		if ( MAsd[i].status == 0 ){
 			return &MAsd[i];
 		}
@@ -121,7 +121,7 @@ int mprules_add(const struct filter* filter){
 
 	struct consumer* con = next_free_consumer();
 	if( !con ){ // Problems, NO free consumers. Bail out!
-		logmsg(stderr, FILTER, "No free consumers! (max: %d)\n", CONSUMERS);
+		logmsg(stderr, FILTER, "No free consumers! (max: %d)\n", MAX_FILTERS);
 		return ENOBUFS;
 	}
 

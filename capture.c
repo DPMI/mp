@@ -336,7 +336,7 @@ void consumer_init(struct consumer* con, int index, unsigned char* buffer){
 }
 
 void consumer_init_all(){
-  for( int i=0; i<CONSUMERS; i++) {
+  for( int i = 0; i < MAX_FILTERS; i++) {
     consumer_init(&MAsd[i], i, sendmem[i]);
   }
 }

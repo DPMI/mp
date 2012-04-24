@@ -561,7 +561,7 @@ int main (int argc, char **argv){
   logmsg(stderr, MAIN, "Captured %ld pkts   Sent %ld pkts in %ld messages\n", MPstats->packet_count, MPstats->written_count, MPstats->sent_count);
 
   logmsg(verbose, MAIN, "Releasing resources\n");
-  for( int i=0; i < CONSUMERS; i++ ){
+  for( int i=0; i < MAX_FILTERS; i++ ){
     if ( !MAsd[i].stream ){
       continue;
     }
