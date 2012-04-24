@@ -128,7 +128,7 @@ static int can_defer_send(struct consumer* con, struct timespec* now, struct tim
 
 	const signed long int age = sec + msec;
 	const size_t payload_size = con->sendpointer - con->sendptrref;
-	const size_t header_size = sizeof(struct ethhdr) + sizeof(struct cap_header) + sizeof(struct sendhead);
+	static const size_t header_size = sizeof(struct ethhdr) + sizeof(struct cap_header) + sizeof(struct sendhead);
 
 	const int larger_mtu = payload_size + caplen + header_size >= MPinfo->MTU;
 	const int need_flush = con->status == 0 && payload_size > 0;
@@ -284,14 +284,27 @@ void* sender_caputils(struct thread_data* td, void *ptr){
 			continue;
 		}
 
-		/* send existing packets (but _not_ current packet) */
+		/* test if current packet fits current frame */
+		int processed = 0;
+		const size_t payload_size = con->sendpointer - con->sendptrref;
+		static const size_t header_size = sizeof(struct ethhdr) + sizeof(struct cap_header) + sizeof(struct sendhead);
+		if ( payload_size + head->caplen + header_size <= MPinfo->MTU ){
+			copy_to_sendbuffer(con, raw_buffer, &readPos[oldest], &_CI[oldest]);
+			processed = 1;
+
+			/* store timestamp (used to determine if sender must be flushed or not,
+			 * due to old packages). It is only updated when the current packet fits
+			 * into the sendbuffer because if it doesn't it should be send ASAP. */
+			last_sent = now;
+		}
+
+		/* send existing packets */
 		send_packet(con);
 
-		/* store timestamp (used to determine if sender must be flushed or not, due to old packages) */
-		last_sent = now;
-
-		/* write current packet to buffer */
-		copy_to_sendbuffer(con, raw_buffer, &readPos[oldest], &_CI[oldest]);
+		/* write current packet to buffer if needed */
+		if ( !processed ){
+			copy_to_sendbuffer(con, raw_buffer, &readPos[oldest], &_CI[oldest]);
+		}
 	}
 
 	logmsg(verbose, SENDER, "Flushing sendbuffers.\n");
