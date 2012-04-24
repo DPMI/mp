@@ -1,7 +1,23 @@
+Makefile
 Makefile.in
 aclocal.m4
 autom4te.cache
 build
 build-aux
+config.h
 config.h.in
+config.log
+config.status
 configure
+.deps
+dist/deb-control
+stamp-h1
+
+# binary files
+*.o
+libcapture.a
+mp
+
+# emacs
+*~
+
