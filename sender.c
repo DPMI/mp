@@ -114,29 +114,6 @@ void send_packet(struct consumer* con){
 	con->sendpointer=con->sendptrref; // Restore the pointer to the first spot where the next packet will be placed.
 }
 
-static int can_defer_send(struct consumer* con, struct timespec* now, struct timespec* last_sent, int caplen){
-	/* calculate time since last send. If it was long ago (longer than
-	 * MAX_PACKET_AGE) the send buffer is flushed even if it doesn't contain
-	 * enough payload for a full packet. */
-	signed long int sec = (now->tv_sec - last_sent->tv_sec) * 1000;
-	signed long int msec = (now->tv_nsec - last_sent->tv_nsec);
-	msec /= 1000000; /* please keep this division a separate statement. It ensures
-	                  * that the subtraction above is stored as a signed value. If
-	                  * the division is put together the subtraction will be
-	                  * calculated as unsigned (tv_psec is stored as unsigned),
-	                  * then divided and only then  converted to signed int. */
-
-	const signed long int age = sec + msec;
-	const size_t payload_size = con->sendpointer - con->sendptrref;
-	static const size_t header_size = sizeof(struct ethhdr) + sizeof(struct cap_header) + sizeof(struct sendhead);
-
-	const int larger_mtu = payload_size + caplen + header_size >= MPinfo->MTU;
-	const int need_flush = con->status == 0 && payload_size > 0;
-	const int old_age = age >= MAX_PACKET_AGE;
-
-	return  !( old_age || larger_mtu || need_flush );
-}
-
 static int oldest_packet(int nics, int readPos[], sem_t* semaphore){
 	int oldest = -1;
 	while( oldest == -1 ){       // Loop while we havent gotten any pkts.
@@ -283,24 +260,39 @@ void* sender_caputils(struct thread_data* td, void *ptr){
 		struct timespec now;
 		clock_gettime(CLOCK_REALTIME, &now);
 
-		if ( can_defer_send(con, &now, &last_sent[oldest], head->caplen) ){
-			/* defer ok, write current packet to buffer */
+		/* calculate time since last send. If it was long ago (longer than
+		 * MAX_PACKET_AGE) the send buffer is flushed even if it doesn't contain
+		 * enough payload for a full packet. */
+		signed long int sec = (now.tv_sec - last_sent[oldest].tv_sec) * 1000;
+		signed long int msec = (now.tv_nsec - last_sent[oldest].tv_nsec);
+		msec /= 1000000; /* please keep this division a separate statement. It ensures
+		                  * that the subtraction above is stored as a signed value. If
+		                  * the division is put together the subtraction will be
+		                  * calculated as unsigned (tv_psec is stored as unsigned),
+		                  * then divided and only then  converted to signed int. */
+		const signed long int age = sec + msec;
+		const int old_age = age >= MAX_PACKET_AGE;
+
+		/* calculate size of sendbuffer and compare with MTU */
+		const size_t payload_size = con->sendpointer - con->sendptrref;
+		static const size_t header_size = sizeof(struct ethhdr) + sizeof(struct cap_header) + sizeof(struct sendhead);
+		const int larger_mtu = payload_size + head->caplen + header_size >= MPinfo->MTU;
+
+		/* check if sender needs flushing */
+		const int need_flush = con->status == 0 && payload_size > 0;
+
+		/* test if measurement frame must be pushed now or if it can be deferred. */
+		const int can_defer_send = !( old_age || larger_mtu || need_flush );
+		if ( can_defer_send ){
 			copy_to_sendbuffer(con, raw_buffer, &readPos[oldest], &_CI[oldest]);
 			continue;
 		}
 
 		/* test if current packet fits current frame */
 		int processed = 0;
-		const size_t payload_size = con->sendpointer - con->sendptrref;
-		static const size_t header_size = sizeof(struct ethhdr) + sizeof(struct cap_header) + sizeof(struct sendhead);
-		if ( payload_size + head->caplen + header_size <= MPinfo->MTU ){
+		if ( !larger_mtu ){
 			copy_to_sendbuffer(con, raw_buffer, &readPos[oldest], &_CI[oldest]);
 			processed = 1;
-
-			/* store timestamp (used to determine if sender must be flushed or not,
-			 * due to old packages). It is only updated when the current packet fits
-			 * into the sendbuffer because if it doesn't it should be send ASAP. */
-			last_sent[oldest] = now;
 		}
 
 		/* send existing packets */
@@ -309,7 +301,16 @@ void* sender_caputils(struct thread_data* td, void *ptr){
 		/* write current packet to buffer if needed */
 		if ( !processed ){
 			copy_to_sendbuffer(con, raw_buffer, &readPos[oldest], &_CI[oldest]);
+
+			/* if buffer is considered old send a second frame with this packet */
+			if ( old_age || need_flush ){
+				send_packet(con);
+			}
 		}
+
+		/* store timestamp (used to determine if sender must be flushed or not,
+		 * due to old packages). */
+		last_sent[oldest] = now;
 	}
 
 	logmsg(verbose, SENDER, "Flushing sendbuffers.\n");
