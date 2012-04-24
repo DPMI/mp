@@ -47,7 +47,7 @@ int ma_mode(sigset_t* sigmask, sem_t* semaphore){
     logmsg(stderr, MAIN, "pthread_create() [controller] returned %d: %s\n", ret, strerror(ret));
     return ret;
   }
-  
+
   /* restore to default signal mask */
   pthread_sigmask(SIG_SETMASK, sigmask, NULL);
 
@@ -60,7 +60,7 @@ int ma_mode(sigset_t* sigmask, sem_t* semaphore){
     logmsg(verbose, MAIN, "Waiting for CI[%d] thread to finish\n", i);
     pthread_join(_CI[i].thread, NULL);
   }
-  
+
   if ( controlPID ){
     logmsg(verbose, MAIN, "Waiting for control thread to finish\n");
     pthread_join(controlPID, NULL);

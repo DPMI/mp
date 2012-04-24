@@ -96,7 +96,7 @@ int filter(const char* CI, const void *pkt, struct cap_header *head){
 		ptr[19]=ptr[19] << ENCRYPT | ( ptr[19] >> (8-ENCRYPT)); // Encrypt Destination
 	}
 
-	return destination;  
+	return destination;
 }
 
 static struct consumer* next_free_consumer(){
@@ -120,7 +120,7 @@ int mprules_add(const struct filter* filter){
 	long ret = 0;
 
 	struct consumer* con = next_free_consumer();
-	if( !con ){ // Problems, NO free consumers. Bail out! 
+	if( !con ){ // Problems, NO free consumers. Bail out!
 		logmsg(stderr, FILTER, "No free consumers! (max: %d)\n", CONSUMERS);
 		return ENOBUFS;
 	}
@@ -145,16 +145,16 @@ int mprules_add(const struct filter* filter){
 		rule->filter.consumer = con->index;
 		con->dropCount = globalDropcount + memDropcount;
 		con->want_sendhead = stream_addr_type(&rule->filter.dest) != STREAM_ADDR_CAPFILE; /* capfiles shouldn't contain sendheader */
-    
+
 		/* mark consumer as used */
 		con->status = 1;
-    
+
 		/* Open libcap stream */
 		if ( (ret=stream_create(&con->stream, &rule->filter.dest, MPinfo->iface, mampid_get(MPinfo->id), MPinfo->comment)) != 0 ){
 			logmsg(stderr, FILTER, "stream_create() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
 			exit(1);
 		}
-    
+
 		/* Setup headers */
 		switch( stream_addr_type(&rule->filter.dest) ){
 		case STREAM_ADDR_TCP:
@@ -211,7 +211,7 @@ int mprules_add(const struct filter* filter){
 			}
 			oldcon->status = 0;
 		}
-	
+
 		/* Update existing filter */
 		memcpy(&cur->filter, &rule->filter, sizeof(struct filter));
 		return 1;
@@ -294,7 +294,7 @@ static void stop_consumer(struct consumer* con){
 	}
 	con->stream = NULL;
 	con->status=0;
-  
+
 	return;
 }
 
@@ -303,7 +303,7 @@ void printFilters(void){
 		printf("NO RULES\n");
 		return;
 	}
-  
+
 	const struct rule* pointer = rules;
 	while( pointer != 0 ){
 		filter_print(&pointer->filter, stdout, 0);

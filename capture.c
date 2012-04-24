@@ -77,7 +77,7 @@ static void print_tcp(FILE* dst, const struct ip* ip, const struct tcphdr* tcp){
   if(tcp->rst) {
     fprintf(dst, "R");
   }
-  
+
   fprintf(dst, "] %s:%d ",inet_ntoa(ip->ip_src),(u_int16_t)ntohs(tcp->source));
   fprintf(dst, " --> %s:%d",inet_ntoa(ip->ip_dst),(u_int16_t)ntohs(tcp->dest));
   fprintf(dst, "\n");
@@ -109,21 +109,21 @@ static void print_ipv4(FILE* dst, const struct ip* ip){
   fprintf(dst, "ID=%d:",(u_int16_t)ntohs(ip->ip_id));
   fprintf(dst, "TTL=%d:",(u_int8_t)ip->ip_ttl);
   fprintf(dst, "Chk=%d:",(u_int16_t)ntohs(ip->ip_sum));
-  
+
   if(ntohs(ip->ip_off) & IP_DF) {
     fprintf(dst, "DF");
   }
   if(ntohs(ip->ip_off) & IP_MF) {
     fprintf(dst, "MF");
   }
-  
+
   fprintf(dst, " Tos:%0x]:\t",(u_int8_t)ip->ip_tos);
 
   switch( ip->ip_p ) {
   case IPPROTO_TCP:
     print_tcp(dst, ip, (const struct tcphdr*)payload);
     break;
-    
+
   case IPPROTO_UDP:
     print_udp(dst, ip, (const struct udphdr*)payload);
     break;
@@ -159,7 +159,7 @@ static void print_eth(FILE* dst, const struct ethhdr* eth){
   case ETHERTYPE_IPV6:
     printf("ipv6\n");
     break;
-   
+
   case ETHERTYPE_ARP:
     printf("arp\n");
     break;
@@ -198,14 +198,14 @@ static int push_packet(struct CI* CI, write_head* whead, cap_head* head, const u
   if ( show_packets ){
     print_packet(stderr, head);
   }
-  
+
   // prevent the reader from operating on the same chunk of memory.
   pthread_mutex_lock(&CI->mutex);
   {
     whead->free++; //marks the post that it has been written
     whead->consumer = recipient;
     CI->buffer_usage++;
-  
+
     if ( whead->free>1 ){ //Control buffer overrun
       logmsg(stderr, CAPTURE, "CI[%d] OVERWRITING: %ld @ %d for the %d time \n", CI->id, pthread_self(), CI->writepos, whead->free);
       logmsg(stderr, CAPTURE, "CI[%d] bufferUsage=%d\n", CI->id, CI->buffer_usage);
@@ -215,7 +215,7 @@ static int push_packet(struct CI* CI, write_head* whead, cap_head* head, const u
 
   /* increment write position */
   CI->writepos = (CI->writepos+1) % PKT_BUFFER;
-      
+
   /* flag that another packet is ready */
   if ( sem_post(CI->semaphore) != 0 ){
     logmsg(stderr, CAPTURE, "sem_post() returned %d: %s\n", errno, strerror(errno));
@@ -321,8 +321,8 @@ void consumer_init(struct consumer* con, int index, unsigned char* buffer){
 
   /* set the ethernet source address to adress used by the MA iface. */
   memcpy(con->ethhead->h_source, &MPinfo->hwaddr, ETH_ALEN);
-  
-  con->shead=(struct sendhead*)(buffer+sizeof(struct ethhdr)); // Set pointer to the sendhead, i.e. mp transmission protocol 
+
+  con->shead=(struct sendhead*)(buffer+sizeof(struct ethhdr)); // Set pointer to the sendhead, i.e. mp transmission protocol
   con->shead->sequencenr=htons(0x0000);    // Initialize the sequencenr to zero.
   con->shead->nopkts=htons(0);                    // Initialize the number of packet to zero
   con->shead->flush=htons(0);                     // Initialize the flush indicator.

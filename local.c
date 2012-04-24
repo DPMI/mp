@@ -43,7 +43,7 @@ int local_mode(sigset_t* sigmask, sem_t* semaphore, struct filter* filter, const
 	  return EINVAL;
   }
   filter->caplen = caplen > 0 ? caplen : 65535;
-	  
+
   mprules_add(filter);
 
   /* initialize capture */

@@ -20,7 +20,7 @@
  This is the header file for the mpcapture and contains basic definitions and
  functioncalls.
  ***************************************************************************/
- 
+
 #ifndef CAPT
 #define CAPT
 
@@ -30,9 +30,9 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <semaphore.h>
- 
+
 #define MIN(A,B) ((A) < (B) ? (A):(B))
- 
+
 #define minSENDSIZE 1                 // Number of packets for each send to tcpserver */
 #define maxSENDSIZE 70
 #define MYPROTO 0x0810              // Link Protocol.. Identifies a MP data frame.
