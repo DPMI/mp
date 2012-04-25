@@ -144,7 +144,10 @@ static int oldest_packet(int nics, int readPos[], sem_t* semaphore){
 
 		/* No packages, wait until some arrives */
 		if ( oldest==-1 ){
-			wait_for_capture(semaphore);
+			int ret = wait_for_capture(semaphore);
+			if ( ret == ETIMEDOUT ){
+				return -2;
+			}
 		}
 	}
 
@@ -248,6 +251,12 @@ void* sender_caputils(struct thread_data* td, void *ptr){
 
 		/* couldn't find a packet, gave up waiting. we are probably terminating. */
 		if ( oldest == -1 ){
+			continue;
+		}
+
+		/* timeout, flush all buffers */
+		if( oldest == -2 ){
+			flushAll();
 			continue;
 		}
 
