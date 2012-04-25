@@ -35,8 +35,8 @@
 
 #define SEMAPHORE_TIMEOUT_SEC 1
 
-static void flushBuffer(int i); // Flush sender buffer i.
-static void flushAll(); /* flushes all send buffers */
+static void flushBuffer(int i, int terminate); // Flush sender buffer i.
+static void flushAll(int terminate); /* flushes all send buffers */
 void thread_init_finished(struct thread_data* td, int status);
 
 pthread_mutex_t mutex1 = PTHREAD_MUTEX_INITIALIZER;
@@ -257,7 +257,7 @@ void* sender_caputils(struct thread_data* td, void *ptr){
 
 		/* timeout, flush all buffers */
 		if( oldest == -2 ){
-			flushAll();
+			flushAll(0);
 			continue;
 		}
 
@@ -323,13 +323,19 @@ void* sender_caputils(struct thread_data* td, void *ptr){
 	}
 
 	logmsg(verbose, SENDER, "Flushing sendbuffers.\n");
-	flushAll();
+	flushAll(1);
 
 	logmsg(stderr, SENDER, "Finished.\n");
 	return(NULL) ;
 }
 
-static void flushBuffer(int i){
+/**
+ * Forces a flush of the sendbuffer.
+ * @param i Filter index.
+ * @param terminate If non-zero it instructs the consumers that the MP is
+ *                  terminating.
+ */
+static void flushBuffer(int i, int terminate){
 	struct consumer* con = &MAsd[i];
 
 	/* no consumer */
@@ -344,13 +350,13 @@ static void flushBuffer(int i){
 
 	logmsg(stderr, SENDER, "Consumer %d needs to be flushed, contains %d pkts\n", i, con->sendcount);
 
-	con->shead->flush=htons(1);
+	con->shead->flush = htons(terminate);
 	send_packet(con);
-	con->shead->flush=htons(0);
+	con->shead->flush = htons(0);
 }
 
-static void flushAll(){
+static void flushAll(int terminate){
 	for( int i = 0; i < MAX_FILTERS; i++){
-		flushBuffer(i);
+		flushBuffer(i, terminate);
 	}
 }
