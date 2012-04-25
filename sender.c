@@ -226,6 +226,7 @@ void* sender_capfile(struct thread_data* td, void* ptr){
 }
 
 void* sender_caputils(struct thread_data* td, void *ptr){
+	static const size_t header_size = sizeof(struct ethhdr) + sizeof(struct cap_header) + sizeof(struct sendhead);
 	send_proc_t* proc = (send_proc_t*)ptr;    /* Extract the parameters that we got from our master, i.e. parent process.. */
 	const int nics = proc->nics;              /* The number of active CIs */
 	struct timespec last_sent[MAX_FILTERS]; 	/* Timestamp when the sender last sent a packet.  */
@@ -284,7 +285,6 @@ void* sender_caputils(struct thread_data* td, void *ptr){
 
 		/* calculate size of sendbuffer and compare with MTU */
 		const size_t payload_size = con->sendpointer - con->sendptrref;
-		static const size_t header_size = sizeof(struct ethhdr) + sizeof(struct cap_header) + sizeof(struct sendhead);
 		const int larger_mtu = payload_size + head->caplen + header_size >= MPinfo->MTU;
 
 		/* check if sender needs flushing */
