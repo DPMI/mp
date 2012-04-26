@@ -1,25 +1,10 @@
 #
-# Configuration file for Measurement point. Requires version >0.6
+# Configuration file for Measurement point.
 #
 
-#Maximum Capture size
-CAPSIZE=256	
-
 #Interface that attaches to MA network
-MAnic=lo
-#eth0
-
-#IP only needed if MAnic isnt directly connected to the MArNetwork.
-#For intance, if the lo interface or a tunnel is used.
-#MAip=194.47.148.100
+MAnic=eth0
 
 #Capture Interface, and its accuracy.
-CI=pcapeth3
-TD=4
-
-#If enabled, the MP will encrypt what it beleives to be IP addresses..
-#ENCRYPT
-
-#If enabled, the MP will capture all packets and store to a file. No communication with MArC is done.
-#Not functioning yet.
-#LOCAL=test.cap
+CI=dag0
+#TD=4

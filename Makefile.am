@@ -1,8 +1,10 @@
 ACLOCAL_AMFLAGS = -I m4
 
 bin_PROGRAMS = mp
-
 noinst_LIBRARIES = libcapture.a
+
+pkgconfdir = $(sysconfdir)/mp
+pkgconf_DATA = mp.conf.sample
 
 libcapture_a_CFLAGS = -Wall ${libcap_utils_CFLAGS} ${PTHREAD_CFLAGS}  ${DAG_CFLAGS}
 libcapture_a_SOURCES = capture.c capture.h
