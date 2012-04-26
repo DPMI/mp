@@ -195,6 +195,11 @@ int parse_config(const char* default_filename, int* argc, char** argv[], struct 
   }
 
   char* path = realpath(filename, NULL);
+  if ( !path ){
+	  logmsg(stderr, MAIN, "Failed to resolve the path of `%s': %s\n", filename, strerror(errno));
+	  path = strdup(filename);
+  }
+
   FILE* fp = fopen(path, "r");
   if ( !fp ){
     int saved = errno;
