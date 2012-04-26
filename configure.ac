@@ -32,6 +32,10 @@ AX_BROKEN_SEM_TIMEDWAIT
 AM_CONDITIONAL(BUILD_SEM_TIMEDWAIT, [test "x$build_sem_timedwait" == "xyes"])
 AC_ARG_PROGRAM
 
+pkgconfdir="${sysconfdir}/mp"
+AC_SUBST(pkgconfdir)
+AX_DEFINE_DIR([PKGCONF_DIR], [pkgconfdir], [mp configuration files])
+
 AC_SEARCH_LIBS([clock_gettime], [rt])
 PKG_CHECK_MODULES([libcap_utils], [libcap_utils-0.7 >= 0.7.7])
 PKG_CHECK_MODULES([libcap_marc], [libcap_marc-0.7 >= 0.7.4])

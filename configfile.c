@@ -5,7 +5,7 @@
  * Rewrite it if you feel like it. I guess it would be more proper to translate
  * argv to configuration options (instead of the otherway around) because you
  * probably have more configuration options than CLI arguments anway.
- * 
+ *
  * I consider this a hack anyway.
  * -- David Sveningsson <dsv@bth.se> 2011-06-17
  */
@@ -21,6 +21,7 @@
 #include <string.h>
 #include <errno.h>
 #include <assert.h>
+#include <unistd.h>
 
 static const char* config_filename(int argc, char* argv[]){
   for ( int i = 0; i < argc; i++ ){
@@ -116,7 +117,7 @@ static int append_arg(int* argc, char** argv[], int i, const char* opt, const ch
         +--------------+
      1  |    --foo     | src   (given i=1)
         +--------------+
-     2  | DEADC0DEDEAD |  
+     2  | DEADC0DEDEAD |
         +--------------+
      3  | DEADC0DEDEAD | dst   (given new_args=2)
         +--------------+
@@ -172,19 +173,41 @@ int parse_config(const char* default_filename, int* argc, char** argv[], struct 
 
   /* allow filename to be overridden by --config */
   const char* overridden = config_filename(*argc, *argv);
-  const char* filename = overridden ? overridden : default_filename;
+  const char* filename = overridden;
 
-  FILE* fp = fopen(filename, "r");
+  if ( !filename ){
+	  /* try in pkgconfdir ($prefix/etc/mp by default) */
+	  char* tmp;
+	  int ret = asprintf(&tmp, "%s/%s", PKGCONF_DIR, default_filename);
+	  if ( ret == -1 ){
+		  fprintf(stderr, "%s: %s\n", "mp", strerror(errno));
+		  exit(1);
+	  }
+
+	  if ( access(tmp, R_OK) == 0 ){
+		  filename = tmp;
+	  }
+
+	  /* try default filename in pwd (has precedence of sysconfdir) */
+	  if ( access(default_filename, R_OK) == 0 ){
+		  filename = default_filename;
+	  }
+  }
+
+  char* path = realpath(filename, NULL);
+  FILE* fp = fopen(path, "r");
   if ( !fp ){
     int saved = errno;
     /* only show this error if the user has manually overridden the file */
     if ( overridden ){
-      logmsg(stderr, MAIN, "Failed to open configuration file \"%s\": %s\n", filename, strerror(errno));
+      logmsg(stderr, MAIN, "Failed to open configuration file \"%s\": %s\n", path, strerror(errno));
     }
+    free(path);
     return saved;
   }
 
-  logmsg(stderr, MAIN, "Reading configuration from \"%s\".\n", filename);
+  logmsg(stderr, MAIN, "Reading configuration from \"%s\".\n", path);
+  free(path);
 
   /* create a copy of argv since it is most likely not on the heap already */
   {
