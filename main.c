@@ -221,7 +221,7 @@ static void show_usage(const char* program_name){
 	       "  -s, --manic=INTERFACE       MA Interface.\n"
 	       "  -p, --port=PORT             Control interface listen port [default: 2000]\n"
 	       "  -i, --interface=INTERFACE   Capture Interface (REQUIRED)\n"
-	       "      --config=FILE           Read configuration from FILE [default: mp.conf]\n"
+	       "  -f, --config=FILE           Read configuration from FILE [default: mp.conf]\n"
 	       "      --local                 LOCAL MODE, do not talk to MArC, capture\n"
 	       "                              everything and store to file.\n"
 	       "      --flush                 Force streams to be flushed (to disk or network)\n"
@@ -291,13 +291,14 @@ static int parse_argv(int argc, char** argv){
   int option_index = 0;
   int op;
 
-  while ( (op = getopt_long(argc, argv, "hwmvd:i:s:p:o:", long_options, &option_index)) != -1 )
+  while ( (op = getopt_long(argc, argv, "hwmvdf::i:s:p:o:", long_options, &option_index)) != -1 )
     switch (op){
     case '?': /* error */
 	    return 1;
 
     case 0: /* longopt with flag set */
     case OPTION_IGNORE:
+    case 'f': /* already handled */
       break;
 
     case OPTION_MAMPID:

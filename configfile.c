@@ -26,18 +26,30 @@ static const char* config_filename(int argc, char* argv[]){
   for ( int i = 0; i < argc; i++ ){
     const char* cur = argv[i];
 
-    if ( strncmp(cur, "--config", 8) != 0 ){
-      continue;
+    /* --config */
+    if ( strncmp(cur, "--config", 8) == 0 ){
+	    if ( cur[8] == '=' ){ /* filename follows */
+		    return &cur[9];
+	    }
+	    if ( i+1 == argc || argv[i+1][0] == '-' ){ /* missing filename argument */
+		    fprintf(stderr, "Missing argument to --config\n");
+		    continue;
+	    }
+	    return argv[i+1];
     }
-    if ( cur[8] == '=' ){ /* filename follows */
-      return &cur[9];
+
+    /* -f */
+    if ( strcmp(cur, "-f") == 0 ){
+	    if ( i+1 == argc || argv[i+1][0] == '-' ){ /* missing filename argument */
+		    fprintf(stderr, "Missing argument to -f\n");
+		    continue;
+	    }
+
+	    return argv[i+1];
     }
-    if ( i+1 == argc || argv[i+1][0] == '-' ){ /* missing filename argument */
-      fprintf(stderr, "Missing argument to --config\n");
-      continue;
-    }
-    return argv[i+1];
+
   }
+
   return NULL;
 }
 
