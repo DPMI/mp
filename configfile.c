@@ -180,8 +180,9 @@ int parse_config(const char* default_filename, int* argc, char** argv[], struct 
 	  char* tmp;
 	  int ret = asprintf(&tmp, "%s/%s", PKGCONF_DIR, default_filename);
 	  if ( ret == -1 ){
+		  int saved = errno;
 		  fprintf(stderr, "%s: %s\n", "mp", strerror(errno));
-		  exit(1);
+		  return saved;
 	  }
 
 	  if ( access(tmp, R_OK) == 0 ){
@@ -192,6 +193,11 @@ int parse_config(const char* default_filename, int* argc, char** argv[], struct 
 	  if ( access(default_filename, R_OK) == 0 ){
 		  filename = default_filename;
 	  }
+  }
+
+  /* no configfile present or passed from user */
+  if ( !filename ){
+	  return 0;
   }
 
   char* path = realpath(filename, NULL);
@@ -258,7 +264,7 @@ int parse_config(const char* default_filename, int* argc, char** argv[], struct 
     struct translation_t* cur = translation;
     while ( cur->name ){
       if ( strcmp(cur->name, opt) == 0 ){
-	break;
+	      break;
       }
       cur++;
     }
