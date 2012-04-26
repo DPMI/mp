@@ -145,7 +145,7 @@ void* control(struct thread_data* td, void* prt){
   /* get version of libcap_utils */
   caputils_version_t cv;
   caputils_version(&cv);
-#define str(x) #x
+
   /* setup libmarc */
   struct marc_client_info info = {0,};
   info.client_ip = NULL;
@@ -157,7 +157,7 @@ void* control(struct thread_data* td, void* prt){
   info.version.caputils.micro = cv.micro;
   info.version.self.major = VERSION_MAJOR;
   info.version.self.minor = VERSION_MINOR;
-  info.version.self.micro = atoi(str(VERSION_MICRO));
+  info.version.self.micro = VERSION_MICRO;
   info.drivers = 3;
 
   for ( int i = 0; i < noCI; i++ ){
