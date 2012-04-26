@@ -158,7 +158,17 @@ void* control(struct thread_data* td, void* prt){
   info.version.self.major = VERSION_MAJOR;
   info.version.self.minor = VERSION_MINOR;
   info.version.self.micro = VERSION_MICRO;
-  info.drivers = 3;
+
+  info.drivers = 0;
+#ifdef HAVE_DRIVER_RAW
+  info.drivers |= 1;
+#endif
+#ifdef HAVE_DRIVER_PCAP
+  info.drivers |= 2;
+#endif
+#if defined(HAVE_DRIVER_DAG) || defined(HAVE_DRIVER_DAG_LEGACY)
+  info.drivers |= 4;
+#endif
 
   for ( int i = 0; i < noCI; i++ ){
     strncpy(info.CI[i].iface, _CI[i].iface, 8);
