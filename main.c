@@ -555,6 +555,7 @@ int main (int argc, char **argv){
   if ( !local ){
     ret = ma_mode(&sigmask, &semaphore);
   } else {
+	  MPinfoI.MTU = 4096; /* sender requires MTU to be set */
 	  ret = local_mode(&sigmask, &semaphore, &filter, destination, caplen);
   }
 
