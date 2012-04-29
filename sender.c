@@ -52,14 +52,15 @@ int wait_for_capture(sem_t* sem){
 
 	ts.tv_sec += SEMAPHORE_TIMEOUT_SEC;
 
-	if ( sem_timedwait(sem, &ts) != 0 ){
+	int ret;
+	if ( (ret=sem_timedwait(sem, &ts)) != 0 ){
 		int saved = errno;
 		switch ( saved ){
 		case ETIMEDOUT:
 		case EINTR:
 			break;
 		default:
-			logmsg(stderr, SENDER, "sem_timedwait() returned %d: %s\n", saved, strerror(saved));
+			logmsg(stderr, SENDER, "sem_timedwait(%p) returned %d: %s\n", sem, ret, strerror(saved));
 		}
 		return saved;
 	}
