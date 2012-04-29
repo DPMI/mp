@@ -269,11 +269,16 @@ static void show_configuration(){
   logmsg(verbose, MAIN, "MP Configuration:\n");
   logmsg(verbose, MAIN, "  Mode: %s\n", local ? "Local" : "MA");
   if ( local ){
-	  stream_addr_t addr;
-	  stream_addr_aton(&addr, destination, STREAM_ADDR_GUESS, 0);
 	  logmsg(verbose, MAIN, "  MAMPid: %s\n", mampid_get(MPinfo->id));
 	  logmsg(verbose, MAIN, "  Comment: %s\n", MPinfo->comment);
-	  logmsg(verbose, MAIN, "  Destination: %s (caplen: %d)\n", stream_addr_ntoa(&addr), caplen);
+
+	  if ( destination ){
+		  stream_addr_t addr;
+		  stream_addr_aton(&addr, destination, STREAM_ADDR_GUESS, 0);
+		  logmsg(verbose, MAIN, "  Destination: %s (caplen: %d)\n", stream_addr_ntoa(&addr), caplen);
+	  } else {
+		  logmsg(verbose, MAIN, "  Destination: none\n");
+	  }
   }
   logmsg(verbose, MAIN, "  Capture Interfaces \n");
   for ( int i = 0; i < noCI; i++) {
