@@ -187,6 +187,7 @@ enum Options {
 	OPTION_IGNORE = 256,
 	OPTION_MAMPID,
 	OPTION_COMMENT,
+	OPTION_VERSION,
 };
 
 static struct option long_options[]= {
@@ -197,6 +198,7 @@ static struct option long_options[]= {
   {"id", 1, NULL, OPTION_MAMPID},
   {"comment", 1, NULL, OPTION_COMMENT},
   {"help", 0, NULL, 'h'},
+  {"version", no_argument, NULL, OPTION_VERSION},
   {"port", 1, NULL, 'p'},
   {"output", required_argument, NULL, 'o'},
   {"caplen", required_argument, NULL, 'l'},
@@ -218,6 +220,7 @@ static void show_usage(const char* program_name){
 	printf("Usage: %s [OPTION]... -i INTERFACE... -s INTERFACE\n"
 	       "       %s [OPTION] --local --capfile FILENAME\n", program_name, program_name);
 	printf("  -h, --help                  help (this text)\n"
+	       "      --version               Display version and exit.\n"
 	       "  -s, --manic=INTERFACE       MA Interface.\n"
 	       "  -p, --port=PORT             Control interface listen port [default: 2000]\n"
 	       "  -i, --interface=INTERFACE   Capture Interface (REQUIRED)\n"
@@ -316,6 +319,10 @@ static int parse_argv(int argc, char** argv){
     case OPTION_COMMENT:
 	    free(MPinfoI.comment);
 	    MPinfoI.comment = strdup(optarg);
+	    break;
+
+    case OPTION_VERSION:
+	    exit(0);
 	    break;
 
     case 'd': // interface to listen on
@@ -494,8 +501,11 @@ int setup_capture(){
 }
 
 int main (int argc, char **argv){
-	fprintf(stderr, "Measurement Point " VERSION " (caputils-%s)\n", caputils_version(NULL));
-  fprintf(stderr, "----------------------------------------\n");
+	{
+		static char line[] = "---------------------------------------------------------------------------------------------"; /* "should be long enough for anybody" */
+		int n = fprintf(stderr, "Measurement Point " VERSION " (caputils-%s)\n", caputils_version(NULL));
+		fprintf(stderr, "%.*s\n", n-1, line);
+	}
 
   // Init semaphore
   if ( sem_init(&semaphore, 0, 0) != 0 ){
