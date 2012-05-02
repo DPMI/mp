@@ -1,3 +1,12 @@
+mp-0.7.7
+--------
+
+	* fix: [loca] Sender requires MTU.
+	* fix: Handle when destination is unset.
+	* fix: Sending proper driver enum.
+	* fix: Install mp.conf.sample
+	* add: Support for -f (--config shortopt)
+
 mp-0.7.6
 --------
 
