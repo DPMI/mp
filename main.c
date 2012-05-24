@@ -78,7 +78,6 @@ static pthread_t main_thread;
 static int local = 0;       /* run in local-mode, don't try to contact MArCd */
 int port = 0; /* used by control.c */
 static const char* destination = NULL;
-static int caplen = 96;
 static struct CI CI[CI_NIC];
 struct CI* _CI = CI;
 
@@ -201,7 +200,6 @@ static struct option long_options[]= {
   {"version", no_argument, NULL, OPTION_VERSION},
   {"port", 1, NULL, 'p'},
   {"output", required_argument, NULL, 'o'},
-  {"caplen", required_argument, NULL, 'l'},
   {"flush", 0, &flush_flag, 1},
   {"verbose", 0, &verbose_flag, 1},
   {"debug", 0, &debug_flag, 1},
@@ -237,9 +235,9 @@ static void show_usage(const char* program_name){
 	       "\n"
 	       "Local mode:\n"
          "  -o, --output=FILE           Destination.\n"
-         "  -l, --caplen=SIZE           Capture length, -1 for full. [default: %d].\n"
          "      --id=ID                 Set MAMPid [default: hostname]\n"
-         "      --comment=STRING        Set comment [default: MP " VERSION "]\n", caplen);
+         "      --comment=STRING        Set comment [default: MP " VERSION "]\n"
+         "(in local mode the regular DPMI filter commands work)\n");
 
 #ifdef HAVE_DRIVER_DAG
   printf("\n");
@@ -278,7 +276,7 @@ static void show_configuration(){
 	  if ( destination ){
 		  stream_addr_t addr;
 		  stream_addr_aton(&addr, destination, STREAM_ADDR_GUESS, 0);
-		  logmsg(verbose, MAIN, "  Destination: %s (caplen: %d)\n", stream_addr_ntoa(&addr), caplen);
+		  logmsg(verbose, MAIN, "  Destination: %s\n", stream_addr_ntoa(&addr));
 	  } else {
 		  logmsg(verbose, MAIN, "  Destination: none\n");
 	  }
@@ -344,10 +342,6 @@ static int parse_argv(int argc, char** argv){
     case 'o': /* --output */
       destination = optarg;
       break;
-
-    case 'l': /* --caplen */
-	    caplen = atoi(optarg);
-	    break;
 
     case 'v':
       verbose_flag = 1;
@@ -566,7 +560,7 @@ int main (int argc, char **argv){
     ret = ma_mode(&sigmask, &semaphore);
   } else {
 	  MPinfoI.MTU = 4096; /* sender requires MTU to be set */
-	  ret = local_mode(&sigmask, &semaphore, &filter, destination, caplen);
+	  ret = local_mode(&sigmask, &semaphore, &filter, destination);
   }
 
   /* only show stats on clean exit */

@@ -16,7 +16,7 @@
 extern int flush_flag;
 int setup_capture();
 
-int local_mode(sigset_t* sigmask, sem_t* semaphore, struct filter* filter, const char* destination, int caplen){
+int local_mode(sigset_t* sigmask, sem_t* semaphore, struct filter* filter, const char* destination){
   int ret;
   pthread_t senderPID;
   send_proc_t sender;
@@ -42,8 +42,7 @@ int local_mode(sigset_t* sigmask, sem_t* semaphore, struct filter* filter, const
 	  logmsg(stderr, MAIN, "stream requires MA interface to be set (-s IFACE or see --help)\n");
 	  return EINVAL;
   }
-  filter->caplen = caplen > 0 ? caplen : 65535;
-
+  filter_print(filter, verbose, 0);
   mprules_add(filter);
 
   /* initialize capture */
