@@ -226,18 +226,18 @@ static void show_usage(const char* program_name){
 	       "      --local                 LOCAL MODE, do not talk to MArC, capture\n"
 	       "                              everything and store to file.\n"
 	       "      --flush                 Force streams to be flushed (to disk or network)\n"
-         "                              on every write. It incurs a small performance\n"
-         "                              penalty but can be useful for low-traffic streams.\n"
+	       "                              on every write. It incurs a small performance\n"
+	       "                              penalty but can be useful for low-traffic streams.\n"
 	       "  -v, --verbose               Verbose output.\n"
-         "  -d, --debug                 Hexdump of all messages (implies --verbose).\n"
-         "      --show-packets          Print short description of captured packets.\n"
-         "  -q, --quiet                 Less output (inverse of --verbose)\n"
+	       "  -d, --debug                 Hexdump of all messages (implies --verbose).\n"
+	       "      --show-packets          Print short description of captured packets.\n"
+	       "  -q, --quiet                 Less output (inverse of --verbose)\n"
 	       "\n"
 	       "Local mode:\n"
-         "  -o, --output=FILE           Destination.\n"
-         "      --id=ID                 Set MAMPid [default: hostname]\n"
-         "      --comment=STRING        Set comment [default: MP " VERSION "]\n"
-         "(in local mode the regular DPMI filter commands work)\n");
+	       "  -o, --output=FILE           Destination.\n"
+	       "      --id=ID                 Set MAMPid [default: hostname]\n"
+	       "      --comment=STRING        Set comment [default: MP " VERSION "]\n"
+	       "(in local mode the regular DPMI filter commands work)\n");
 
 #ifdef HAVE_DRIVER_DAG
   printf("\n");
