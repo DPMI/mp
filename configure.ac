@@ -1,6 +1,6 @@
 m4_define([__VERSION_MAJOR__], [0])
 m4_define([__VERSION_MINOR__], [7])
-m4_define([__VERSION_MICRO__], [8])
+m4_define([__VERSION_MICRO__], [9])
 m4_define([__VERSION_SUFFIX__], [-git])
 
 AC_PREREQ([2.61])
