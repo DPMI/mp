@@ -1,6 +1,7 @@
 mp-0.7.8
 --------
 
+	* fix: duplicated --caplen caused neither to be used.
 	* add: --version
 
 mp-0.7.7
