@@ -96,6 +96,7 @@ void send_packet(struct consumer* con){
 	if ( debug_flag ){
 		if ( ret == 0 ){
 			logmsg(verbose, SENDER, "\tcaputils-%d.%d\n", ntohs(con->shead->version.major), ntohs(con->shead->version.minor));
+			logmsg(verbose, SENDER, "\tdst: %s\n", stream_addr_ntoa(&con->filter->dest));
 			logmsg(verbose, SENDER, "\tdropCount[] = %d (g%d/m%d)\n", con->dropCount, globalDropcount, memDropcount);
 			logmsg(verbose, SENDER, "\tPacket length = %zd bytes, Eth %zd, Send %zd, Cap %zd bytes\n", packet_full_size, sizeof(struct ethhdr), sizeof(struct sendhead), sizeof(struct cap_header));
 			logmsg(verbose, SENDER, "\tSeqnr  = %04lx \t nopkts = %04d \t Losscount = %d\n", (unsigned long int)seqnr, ntohl(con->shead->nopkts), -1);
