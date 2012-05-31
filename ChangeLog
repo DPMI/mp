@@ -1,3 +1,9 @@
+mp-0.7.9
+--------
+
+	* fix: properly flushes all filters, fixes issues with multiple filters
+	       and one has high-volume and has low-volume traffic.
+
 mp-0.7.8
 --------
 
