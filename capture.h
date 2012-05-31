@@ -39,6 +39,7 @@
 
 struct consumer {
 	struct stream* stream;
+	struct filter* filter;
 	int index;
 
 	int status;                        // Status of consumer: 0 idle/free, 1 occupied/busy

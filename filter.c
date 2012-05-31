@@ -145,6 +145,7 @@ int mprules_add(const struct filter* filter){
 		/* setup consumer for this filter */
 		rule->consumer = con;
 		rule->filter.consumer = con->index;
+		con->filter = &rule->filter;
 		con->dropCount = globalDropcount + memDropcount;
 		con->want_sendhead = stream_addr_type(&rule->filter.dest) != STREAM_ADDR_CAPFILE; /* capfiles shouldn't contain sendheader */
 
