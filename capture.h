@@ -50,6 +50,7 @@ struct consumer {
 	void* sendptrref;                  // pointer to packet in sendmem, REFERENCE!!!
 	struct sendhead* shead;            // pointer to sendheaders.
 	struct ethhdr* ethhead;            // pointer to ethernet header
+	struct timespec last_sent;         // timestamp of the last flush
 };
 
 extern const struct MPinfo {

@@ -229,11 +229,75 @@ void* sender_capfile(struct thread_data* td, void* ptr){
 	return NULL;
 }
 
-void* sender_caputils(struct thread_data* td, void *ptr){
+static void flush_senders(){
+	/* get current timestamp */
+	struct timespec now;
+	clock_gettime(CLOCK_REALTIME, &now);
+
+	for ( int i = 0; i < MAX_FILTERS; i++ ){
+		struct consumer* con = &MAsd[i];
+		const size_t payload_size = con->sendpointer - con->sendptrref;
+
+		if ( payload_size == 0) continue;
+		const int need_flush = con->status == 0 && payload_size > 0;
+
+		/* calculate time since last send. If it was long ago (longer than
+		 * MAX_PACKET_AGE) the send buffer is flushed even if it doesn't contain
+		 * enough payload for a full packet. */
+		signed long int sec = (now.tv_sec - con->last_sent.tv_sec) * 1000;
+		signed long int msec = (now.tv_nsec - con->last_sent.tv_nsec);
+		msec /= 1000000; /* please keep this division a separate statement. It ensures
+		                  * that the subtraction above is stored as a signed value. If
+		                  * the division is put together the subtraction will be
+		                  * calculated as unsigned (tv_psec is stored as unsigned),
+		                  * then divided and only then  converted to signed int. */
+		const signed long int age = sec + msec;
+		const int old_age = age >= MAX_PACKET_AGE;
+
+		if ( need_flush || old_age ){
+			send_packet(con);
+			con->last_sent = now;
+		}
+	}
+}
+
+static void fill_senders(const send_proc_t* proc, int readPos[]){
 	static const size_t header_size = sizeof(struct ethhdr) + sizeof(struct cap_header) + sizeof(struct sendhead);
+
+	const int oldest = oldest_packet(proc->nics, readPos, proc->semaphore);
+
+	/* couldn't find a packet, gave up waiting. we are probably terminating. */
+	if ( oldest == -1 ){
+		return;
+	}
+
+	/* timeout, flush all buffers */
+	if( oldest == -2 ){
+		flushAll(0);
+		return;
+	}
+
+	unsigned char* raw_buffer = datamem[oldest][readPos[oldest]];
+	write_head* whead   = (write_head*)raw_buffer;
+	cap_head* head      = (cap_head*)(raw_buffer + sizeof(write_head));
+	struct consumer* con = &MAsd[whead->consumer];
+
+	/* calculate size of sendbuffer and compare with MTU */
+	const size_t payload_size = con->sendpointer - con->sendptrref;
+	const int larger_mtu = payload_size + head->caplen + header_size >= MPinfo->MTU;
+
+	/* if the current packet doesn't fit flush first */
+	if ( larger_mtu ){
+		send_packet(con);
+	}
+
+	/* copy packet into buffer */
+	copy_to_sendbuffer(con, raw_buffer, &readPos[oldest], &_CI[oldest]);
+}
+
+void* sender_caputils(struct thread_data* td, void *ptr){
 	send_proc_t* proc = (send_proc_t*)ptr;    /* Extract the parameters that we got from our master, i.e. parent process.. */
 	const int nics = proc->nics;              /* The number of active CIs */
-	struct timespec last_sent[MAX_FILTERS]; 	/* Timestamp when the sender last sent a packet.  */
 	int readPos[MAX_FILTERS] = {0,};          /* array of memory positions */
 
 	logmsg(stderr, SENDER, "Initializing. There are %d captures.\n", nics);
@@ -243,7 +307,7 @@ void* sender_caputils(struct thread_data* td, void *ptr){
 		struct timespec tmp;
 		clock_gettime(CLOCK_REALTIME, &tmp);
 		for ( int i = 0; i < MAX_FILTERS; i++ ){
-			last_sent[i] = tmp;
+			MAsd[i].last_sent = tmp;
 		}
 	}
 
@@ -252,78 +316,8 @@ void* sender_caputils(struct thread_data* td, void *ptr){
 
 	/* sender loop */
 	while( terminateThreads == 0 ){
-		int oldest = oldest_packet(proc->nics, readPos, proc->semaphore);
-
-		/* couldn't find a packet, gave up waiting. we are probably terminating. */
-		if ( oldest == -1 ){
-			continue;
-		}
-
-		/* timeout, flush all buffers */
-		if( oldest == -2 ){
-			flushAll(0);
-			continue;
-		}
-
-		unsigned char* raw_buffer = datamem[oldest][readPos[oldest]];
-		write_head* whead   = (write_head*)raw_buffer;
-		cap_head* head      = (cap_head*)(raw_buffer + sizeof(write_head));
-		struct consumer* con = &MAsd[whead->consumer];
-
-		/* get current timestamp */
-		struct timespec now;
-		clock_gettime(CLOCK_REALTIME, &now);
-
-		/* calculate time since last send. If it was long ago (longer than
-		 * MAX_PACKET_AGE) the send buffer is flushed even if it doesn't contain
-		 * enough payload for a full packet. */
-		signed long int sec = (now.tv_sec - last_sent[oldest].tv_sec) * 1000;
-		signed long int msec = (now.tv_nsec - last_sent[oldest].tv_nsec);
-		msec /= 1000000; /* please keep this division a separate statement. It ensures
-		                  * that the subtraction above is stored as a signed value. If
-		                  * the division is put together the subtraction will be
-		                  * calculated as unsigned (tv_psec is stored as unsigned),
-		                  * then divided and only then  converted to signed int. */
-		const signed long int age = sec + msec;
-		const int old_age = age >= MAX_PACKET_AGE;
-
-		/* calculate size of sendbuffer and compare with MTU */
-		const size_t payload_size = con->sendpointer - con->sendptrref;
-		const int larger_mtu = payload_size + head->caplen + header_size >= MPinfo->MTU;
-
-		/* check if sender needs flushing */
-		const int need_flush = con->status == 0 && payload_size > 0;
-
-		/* test if measurement frame must be pushed now or if it can be deferred. */
-		const int can_defer_send = !( old_age || larger_mtu || need_flush );
-		if ( can_defer_send ){
-			copy_to_sendbuffer(con, raw_buffer, &readPos[oldest], &_CI[oldest]);
-			continue;
-		}
-
-		/* test if current packet fits current frame */
-		int processed = 0;
-		if ( !larger_mtu ){
-			copy_to_sendbuffer(con, raw_buffer, &readPos[oldest], &_CI[oldest]);
-			processed = 1;
-		}
-
-		/* send existing packets */
-		send_packet(con);
-
-		/* write current packet to buffer if needed */
-		if ( !processed ){
-			copy_to_sendbuffer(con, raw_buffer, &readPos[oldest], &_CI[oldest]);
-
-			/* if buffer is considered old send a second frame with this packet */
-			if ( old_age || need_flush ){
-				send_packet(con);
-			}
-		}
-
-		/* store timestamp (used to determine if sender must be flushed or not,
-		 * due to old packages). */
-		last_sent[oldest] = now;
+		flush_senders();
+		fill_senders(proc, readPos);
 	}
 
 	logmsg(verbose, SENDER, "Flushing sendbuffers.\n");
