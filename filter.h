@@ -23,8 +23,9 @@ int mprules_del(int filter_id);
 int mprules_clear();
 
 struct rule {
-  struct filter filter;
-  struct rule* next;
+	struct filter filter;
+	struct consumer* consumer;
+	struct rule* next;
 };
 
 /**

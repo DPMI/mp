@@ -127,6 +127,7 @@ int mprules_add(const struct filter* filter){
 
 	/* allocate rule */
 	struct rule* rule = malloc(sizeof(struct rule));
+	rule->consumer = NULL;
 	rule->next = NULL;
 	memcpy(&rule->filter, filter, sizeof(struct filter));
 
@@ -142,6 +143,7 @@ int mprules_add(const struct filter* filter){
 
 	if ( !discard_filter ){
 		/* setup consumer for this filter */
+		rule->consumer = con;
 		rule->filter.consumer = con->index;
 		con->dropCount = globalDropcount + memDropcount;
 		con->want_sendhead = stream_addr_type(&rule->filter.dest) != STREAM_ADDR_CAPFILE; /* capfiles shouldn't contain sendheader */
