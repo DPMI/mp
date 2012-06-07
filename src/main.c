@@ -206,9 +206,11 @@ static struct option long_options[]= {
 	{"quiet", 0, &verbose_flag, 0},
 	{"show-packets", 0 ,&show_packets, 1},
 	{"config", 1, NULL, OPTION_IGNORE},
+#ifdef HAVE_DRIVER_DAG
 	{"dag.wiretap", 0, NULL, 'w'},
 	{"dag.rxtx", 0, NULL, 'm'},
 	{"forward", 0, NULL, 'w'},
+#endif
 	{0, 0, 0, 0}
 };
 
