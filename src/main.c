@@ -189,7 +189,8 @@ enum Options {
 	OPTION_VERSION,
 };
 
-static struct option long_options[]= {
+static const char* shortopts = "hwmvdf::i:s:p:o:";
+static struct option longopts[]= {
 	{"local", 0, &local, 1},
 	{"accuracy", 1, NULL, 'd'},
 	{"interface", 1, NULL, 'i'},
@@ -299,7 +300,7 @@ static int parse_argv(int argc, char** argv){
 	int option_index = 0;
 	int op;
 
-	while ( (op = getopt_long(argc, argv, "hwmvdf::i:s:p:o:", long_options, &option_index)) != -1 )
+	while ( (op = getopt_long(argc, argv, shortopts, longopts, &option_index)) != -1 )
 		switch (op){
 		case '?': /* error */
 			return 1;
@@ -533,7 +534,7 @@ int main (int argc, char **argv){
 	init_capture();
 
 	/* parse_config prints errors, never fatal */
-	parse_config("mp.conf", &argc, &argv, long_options);
+	parse_config("mp.conf", &argc, &argv, longopts);
 
 	/* parse filter */
 	struct filter filter;
