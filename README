@@ -1,3 +1,8 @@
-mp software.
+DPMI Measurement Point
 
-Release 0.something+1
+Install
+-------
+
+./configure [--with-dag=PREFIX] [--with-pcap] [--without-raw]
+make
+make install
