@@ -394,8 +394,8 @@ static int parse_argv(int argc, char** argv){
 static int init_capture(){
 	for (int i=0; i < CI_NIC; i++) {
 		CI[i].id = i;
-		CI[i].driver = DRIVER_UNKNOWN,
-			CI[i].sd = -1;
+		CI[i].driver = DRIVER_UNKNOWN;
+		CI[i].sd = -1;
 		CI[i].datamem = NULL;
 		CI[i].semaphore = NULL;
 		CI[i].packet_count = 0;
