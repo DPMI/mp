@@ -1,6 +1,7 @@
 mp-0.7.9
 --------
 
+	* change: move code into subdirectory.
 	* fix: properly flushes all filters, fixes issues with multiple filters
 	       and one has high-volume and has low-volume traffic.
 
