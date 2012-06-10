@@ -190,7 +190,7 @@ enum Options {
 };
 
 static const char* shortopts =
-	"hvdf::i:s:p:o:"
+	"hvd:Df:i:s:p:o:"
 #ifdef HAVE_DRIVER_DAG
 	"wm"
 #endif
@@ -237,7 +237,7 @@ static void show_usage(const char* program_name){
 	       "                              on every write. It incurs a small performance\n"
 	       "                              penalty but can be useful for low-traffic streams.\n"
 	       "  -v, --verbose               Verbose output.\n"
-	       "  -d, --debug                 Hexdump of all messages (implies --verbose).\n"
+	       "  -D, --debug                 Hexdump of all messages (implies --verbose).\n"
 	       "      --show-packets          Print short description of captured packets.\n"
 	       "  -q, --quiet                 Less output (inverse of --verbose)\n"
 	       "\n"
@@ -333,6 +333,10 @@ static int parse_argv(int argc, char** argv){
 
 		case 'd': // interface to listen on
 			set_td(optarg);
+			break;
+
+		case 'D': /* --debug */
+			debug_flag = 1;
 			break;
 
 		case 'i': // interface to listen on
