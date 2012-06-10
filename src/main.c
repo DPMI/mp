@@ -190,7 +190,7 @@ enum Options {
 };
 
 static const char* shortopts =
-	"hvd:Df:i:s:p:o:"
+	"hvqd:Df:i:s:p:o:"
 #ifdef HAVE_DRIVER_DAG
 	"wm"
 #endif
@@ -355,8 +355,12 @@ static int parse_argv(int argc, char** argv){
 			destination = optarg;
 			break;
 
-		case 'v':
+		case 'v': /* --verbose */
 			verbose_flag = 1;
+			break;
+
+		case 'q': /* --quiet */
+			verbose_flag = 0;
 			break;
 
 		case 'h': /*Help*/
