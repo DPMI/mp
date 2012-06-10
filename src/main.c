@@ -189,7 +189,12 @@ enum Options {
 	OPTION_VERSION,
 };
 
-static const char* shortopts = "hwmvdf::i:s:p:o:";
+static const char* shortopts =
+	"hvdf::i:s:p:o:"
+#ifdef HAVE_DRIVER_DAG
+	"wm"
+#endif
+;
 static struct option longopts[]= {
 	{"local",        no_argument, &local, 1},
 	{"accuracy",     required_argument, NULL, 'd'},
