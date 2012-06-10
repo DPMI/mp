@@ -103,6 +103,7 @@ int ENCRYPT = 0;
 int globalDropcount = 0;
 int memDropcount = 0;
 int dag_mode = 0; /* 0: rxtx 1: wiretap */
+const char* dag_config = "varlen slen=1514";
 
 /* really worstcase implementation of clamp =) */
 static int clamp(int v, int min, int max){
@@ -192,7 +193,7 @@ enum Options {
 static const char* shortopts =
 	"hvqd:Df:i:s:p:o:"
 #ifdef HAVE_DRIVER_DAG
-	"wm"
+	"wmc:"
 #endif
 ;
 static struct option longopts[]= {
@@ -216,6 +217,7 @@ static struct option longopts[]= {
 	{"dag.wiretap",  no_argument, NULL, 'w'},
 	{"dag.rxtx",     no_argument, NULL, 'm'},
 	{"forward",      no_argument, NULL, 'w'},
+	{"config",       required_argument, NULL, 'c'},
 #endif
 	{0, 0, 0, 0}
 };
@@ -253,6 +255,7 @@ static void show_usage(const char* program_name){
 	printf("  -w, --dag.wiretap           Wiretap mode (forwards traffic).\n");
 	printf("  -m  --dag.rxtx              Port A as RX and port B as TX [default].\n");
 	printf("      --forward               Alias for --dag.wiretap\n");
+	printf("  -c, --config=STRING         DAG configuration string. See dagfour(1). [default: \"%s\"]\n", dag_config);
 #endif
 
 	printf("\n");
@@ -374,6 +377,10 @@ static int parse_argv(int argc, char** argv){
 
 		case 'm': /* --dag.rxtx */
 			dag_mode = 0;
+			break;
+
+		case 'c': /* --config */
+			dag_config = optarg;
 			break;
 
 		default:

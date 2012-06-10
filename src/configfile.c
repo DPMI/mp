@@ -153,6 +153,7 @@ static struct translation_t {
   {"MAnic", "--manic"},
   {"CI", "--interface"},
   {"LOCAL", "--local"},
+  {"CONFIG", "--config"},
   {NULL, NULL}
 };
 

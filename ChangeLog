@@ -1,6 +1,8 @@
 mp-0.7.9
 --------
 
+	* add: support for setting dag config string and defaults to a sane one.
+	* fix: a few argument handling bugs.
 	* change: move code into subdirectory.
 	* fix: properly flushes all filters, fixes issues with multiple filters
 	       and one has high-volume and has low-volume traffic.

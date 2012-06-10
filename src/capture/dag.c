@@ -31,6 +31,7 @@ struct dag_context {
 };
 
 extern int dag_mode;
+extern const char* dag_config;
 
 static int process_packet(dag_record_t* dr, unsigned char* dst, struct cap_header* head){
   char* payload = ((char *) dr) + dag_record_size;
@@ -106,7 +107,7 @@ static int process_packet(dag_record_t* dr, unsigned char* dst, struct cap_heade
 static int setup_device(struct CI* CI, const char* config){
   char dev[256];
   snprintf(dev, 256, "/dev/%s", CI->iface);
-  
+
   logmsg(verbose, CAPTURE, "\tdevice: %s\n", dev);
   logmsg(verbose, CAPTURE, "\tconfig: \"%s\"\n", config);
   if ( dag_mode == 0 ){
@@ -155,7 +156,7 @@ static int read_packet_rxtx(struct dag_context* cap, unsigned char* dst, struct 
   /* process packet */
   int ret = process_packet(dr, dst, head);
   cap->bottom += rlen; /* advance read position */
-  
+
   return ret;
 }
 
@@ -192,7 +193,7 @@ static void dagcapture_set_poll(struct dag_context* cap, size_t mindata, unsigne
 
   m.tv_usec = maxwait * 1000;
   p.tv_usec = poll * 1000;
-  
+
   dag_set_stream_poll(cap->fd, RX_STREAM, mindata, &m, &p);
 }
 
@@ -227,7 +228,7 @@ static int dagcapture_init_rxtx(struct dag_context* cap){
     100,     /* 100ms timeout */
     10       /* 10ms poll interval */
   );
- 
+
   return 0;
 }
 
@@ -250,7 +251,7 @@ static int dagcapture_init_wiretap(struct dag_context* cap){
   {
     int rx_buffer = dag_get_stream_buffer_size(cap->fd, RX_STREAM);
     int tx_buffer = dag_get_stream_buffer_size(cap->fd, TX_STREAM);
-    
+
     if ( rx_buffer != tx_buffer ){
       return dagcapture_error("dag_get_stream_buffer_size", EINVAL,
 			      "DAG card does not appear to be correctly configured for inline operation\n\n"
@@ -281,7 +282,7 @@ static int dagcapture_init_wiretap(struct dag_context* cap){
     100,     /* 100ms timeout */
     10       /* 10ms poll interval */
   );
- 
+
   return 0;
 }
 
@@ -308,7 +309,7 @@ void* dag_capture(void* ptr){
 
   logmsg(verbose, CAPTURE, "CI[%d] initializing capture on %s using DAGv2 (memory at %p).\n", CI->id, CI->iface, &datamem[CI->id]);
 
-  if ( !setup_device(CI, "") ){
+  if ( !setup_device(CI, dag_config) ){
     /* error already show */
     return NULL;
   }
@@ -362,7 +363,7 @@ static int legacy_read_packet(struct dag_context* cap, unsigned char* dst, struc
   /* process packet */
   int ret = process_packet(dr, dst, head);
   cap->bottom += rlen; /* advance read position */
-  
+
   return ret;
 }
 
@@ -386,7 +387,7 @@ static int dagcapture_init(struct dag_context* cap){
 static int dagcapture_destroy(struct dag_context* cap){
   dag_close(cap->fd);
   return 0;
-} 
+}
 
 void* dag_legacy_capture(void* ptr){
   struct CI* CI = (struct CI*)ptr;
@@ -394,7 +395,7 @@ void* dag_legacy_capture(void* ptr){
 
   logmsg(verbose, CAPTURE, "CI[%d] initializing capture on %s using DAGv1 (memory at %p).\n", CI->id, CI->iface, &datamem[CI->id]);
 
-  if ( !setup_device(CI, "") ){
+  if ( !setup_device(CI, dag_config) ){
     /* error already show */
     return NULL;
   }
