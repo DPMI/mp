@@ -4,34 +4,34 @@ bin_PROGRAMS = mp
 noinst_LIBRARIES = libcapture.a
 pkgconf_DATA = mp.conf.sample
 
-libcapture_a_CFLAGS = -Wall ${libcap_utils_CFLAGS} ${PTHREAD_CFLAGS}  ${DAG_CFLAGS}
-libcapture_a_SOURCES = capture.c capture.h
+libcapture_a_CFLAGS = -I ${top_srcdir}/src -Wall ${libcap_utils_CFLAGS} ${PTHREAD_CFLAGS} ${DAG_CFLAGS}
+libcapture_a_SOURCES = src/capture.c src/capture.h
 
 if HAVE_PCAP
-libcapture_a_SOURCES += capture/pcap.c
+libcapture_a_SOURCES += src/capture/pcap.c
 endif
 
 if HAVE_RAW
-libcapture_a_SOURCES += capture/raw.c
+libcapture_a_SOURCES += src/capture/raw.c
 endif
 
 if HAVE_DAG
-libcapture_a_SOURCES += capture/dag.c
+libcapture_a_SOURCES += src/capture/dag.c
 endif
 
-mp_CFLAGS = -Wall ${libcap_utils_CFLAGS} ${libcap_marc_CFLAGS} ${PTHREAD_CFLAGS} ${PCAP_CFLAGS} ${DAG_CFLAGS}
+mp_CFLAGS = -I ${top_srcdir}/src -Wall ${libcap_utils_CFLAGS} ${libcap_marc_CFLAGS} ${PTHREAD_CFLAGS} ${PCAP_CFLAGS} ${DAG_CFLAGS}
 mp_LDADD = libcapture.a ${libcap_utils_LIBS} ${libcap_marc_LIBS} ${PTHREAD_LIBS} ${PCAP_LIBS} ${DAG_LIBS}
 mp_SOURCES = \
-	configfile.c configfile.h \
-	control.c \
-	filter.c filter.h \
-	headers.h \
-	local.c \
-	log.h \
-	ma.c ma.h \
-	main.c \
-	sender.c sender.h \
-	thread.c thread.h
+	src/configfile.c src/configfile.h \
+	src/control.c \
+	src/filter.c src/filter.h \
+	src/headers.h \
+	src/local.c \
+	src/log.h \
+	src/ma.c src/ma.h \
+	src/main.c \
+	src/sender.c src/sender.h \
+	src/thread.c src/thread.h
 
 if BUILD_SEM_TIMEDWAIT
 mp_SOURCES += lib/sem_timedwait.c
