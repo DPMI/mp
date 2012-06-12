@@ -197,7 +197,7 @@ static const char* shortopts =
 #endif
 ;
 static struct option longopts[]= {
-	{"local",        no_argument, &local, 1},
+	{"local",        no_argument,       &local, 1},
 	{"accuracy",     required_argument, NULL, 'd'},
 	{"interface",    required_argument, NULL, 'i'},
 	{"manic",        required_argument, NULL, 's'},
@@ -207,18 +207,20 @@ static struct option longopts[]= {
 	{"version",      no_argument,       NULL, OPTION_VERSION},
 	{"port",         required_argument, NULL, 'p'},
 	{"output",       required_argument, NULL, 'o'},
-	{"flush",        no_argument, &flush_flag, 1},
-	{"verbose",      no_argument, &verbose_flag, 1},
-	{"debug",        no_argument, &debug_flag, 1},
-	{"quiet",        no_argument, &verbose_flag, 0},
-	{"show-packets", no_argument ,&show_packets, 1},
+	{"flush",        no_argument,       &flush_flag, 1},
+	{"verbose",      no_argument,       &verbose_flag, 1},
+	{"debug",        no_argument,       &debug_flag, 1},
+	{"quiet",        no_argument,       &verbose_flag, 0},
+	{"show-packets", no_argument ,      &show_packets, 1},
 	{"config",       required_argument, NULL, OPTION_IGNORE},
+
 #ifdef HAVE_DRIVER_DAG
-	{"dag.wiretap",  no_argument, NULL, 'w'},
-	{"dag.rxtx",     no_argument, NULL, 'm'},
-	{"forward",      no_argument, NULL, 'w'},
+	{"dag.wiretap",  no_argument,       NULL, 'w'},
+	{"dag.rxtx",     no_argument,       NULL, 'm'},
+	{"forward",      no_argument,       NULL, 'w'},
 	{"config",       required_argument, NULL, 'c'},
 #endif
+
 	{0, 0, 0, 0}
 };
 
