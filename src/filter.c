@@ -164,11 +164,11 @@ int mprules_add(const struct filter* filter){
 		case STREAM_ADDR_UDP:
 			break;
 		case STREAM_ADDR_ETHERNET:
-			{
-				struct ethhdr *ethhead = (struct ethhdr*)sendmem[con->index];
-				memcpy(ethhead->h_dest, &rule->filter.dest.ether_addr, ETH_ALEN);
-			}
-			break;
+		{
+			struct ethhdr *ethhead = (struct ethhdr*)sendmem[con->index];
+			memcpy(ethhead->h_dest, &rule->filter.dest.ether_addr, ETH_ALEN);
+		}
+		break;
 		case STREAM_ADDR_CAPFILE:
 			break;
 		case STREAM_ADDR_GUESS:

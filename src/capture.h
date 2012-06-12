@@ -54,18 +54,18 @@ struct consumer {
 };
 
 extern const struct MPinfo {
-	char* iface;
-	char* comment;   /* MP comment */
-	mampid_t id;     /* MAMPid */
-	size_t MTU;
-	struct ether_addr hwaddr;
+char* iface;
+char* comment;   /* MP comment */
+mampid_t id;     /* MAMPid */
+size_t MTU;
+struct ether_addr hwaddr;
 } *MPinfo;
 
 extern struct MPstats {
-	long packet_count;   /* number of received packages */
-	long matched_count;  /* number of packages with matched a filter */
-	long sent_count;     /* number of capture packages sent (contains many packages) */
-	long written_count;  /* number of actual packages sent */
+long packet_count;   /* number of received packages */
+long matched_count;  /* number of packages with matched a filter */
+long sent_count;     /* number of capture packages sent (contains many packages) */
+long written_count;  /* number of actual packages sent */
 } *MPstats;
 
 enum CIDriver {

@@ -6,9 +6,9 @@
 #define SENDER_BARRIER_TIMEOUT 20
 
 struct send_proc {
-  int nics;                         /* How many nics/capture processes will be present*/
-  sem_t* semaphore;                 /* Semaphore */
-  const char* filename;             /* In local mode it is the filename to store the result in */
+	int nics;                         /* How many nics/capture processes will be present*/
+	sem_t* semaphore;                 /* Semaphore */
+	const char* filename;             /* In local mode it is the filename to store the result in */
 };
 typedef struct send_proc send_proc_t;
 
