@@ -204,11 +204,13 @@ int mprules_add(const struct filter* filter){
 	 * By design, two filters cannot have the same filter_id even if it is currently possible to have it in the database */
 	if ( cur && cur->filter.filter_id == rule->filter.filter_id ){
 		const int index = cur->filter.consumer;
+		int seqnum = 0;
 
 		/* close old consumer (if the old consumer is -1 it means no actual stream
 		 * is bound, this can happen if for instance a discard destination is used) */
 		if ( index >= 0 ){
 			struct consumer* oldcon = &MAsd[index];
+			seqnum = oldcon->shead->sequencenr;
 			if ( (ret=stream_close(oldcon->stream)) != 0 ){
 				logmsg(stderr, FILTER, "stream_close() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
 			}
@@ -217,6 +219,10 @@ int mprules_add(const struct filter* filter){
 
 		/* Update existing filter */
 		memcpy(&cur->filter, &rule->filter, sizeof(struct filter));
+
+		/* restore sequence number */
+		con->shead->sequencenr = seqnum;
+
 		return 1;
 	}
 
