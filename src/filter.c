@@ -172,6 +172,9 @@ int mprules_add(const struct filter* filter){
 		case STREAM_ADDR_CAPFILE:
 			break;
 		case STREAM_ADDR_GUESS:
+		case STREAM_ADDR_FP:
+		case STREAM_ADDR_FIFO:
+			logmsg(stderr, FILTER, "illegal destination address\n");
 			abort();
 		}
 	} else {
