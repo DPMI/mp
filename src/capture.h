@@ -107,7 +107,6 @@ void consumer_init(struct consumer* con, int index, unsigned char* buffer);
 void consumer_init_all();
 
 /* // Global variables. */
-int maSendsize;                            // number of packets to include in capture payload.
 struct consumer MAsd[MAX_FILTERS];
 
 extern int volatile terminateThreads;      // used for signaling thread to terminate

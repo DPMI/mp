@@ -114,7 +114,7 @@ void send_packet(struct consumer* con){
 	MPstats->sent_count++;
 
 	con->sendcount = 0;// Clear the number of packets in this sendbuffer
-	bzero(con->sendptrref,(maSendsize*(sizeof(cap_head)+PKT_CAPSIZE))); //Clear the memory location, for the packet data.
+	memset(con->sendptrref, 0, data_size); //Clear the memory location, for the packet data.
 	con->sendpointer=con->sendptrref; // Restore the pointer to the first spot where the next packet will be placed.
 }
 

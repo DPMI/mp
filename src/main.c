@@ -105,17 +105,6 @@ int memDropcount = 0;
 int dag_mode = 0; /* 0: rxtx 1: wiretap */
 const char* dag_config = "varlen slen=1514";
 
-/* really worstcase implementation of clamp =) */
-static int clamp(int v, int min, int max){
-	if ( v < min ){
-		return min;
-	}
-	if ( v > max ){
-		return max;
-	}
-	return v;
-}
-
 static void ma_nic(const char* arg) {
 	struct ifreq ifr;
 
@@ -152,10 +141,6 @@ static void ma_nic(const char* arg) {
 		exit(1);
 	}
 	MPinfoI.MTU = ifr.ifr_mtu; // Store the MA network MTU.
-
-	/* This variable should be dropped -- 2011-06-17 */
-	const int sendsize = (MPinfoI.MTU - sizeof(struct sendhead))/(sizeof(cap_head)+PKT_CAPSIZE);
-	maSendsize = clamp(sendsize, minSENDSIZE, maxSENDSIZE);
 
 	close(s);
 }
