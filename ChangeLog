@@ -1,6 +1,7 @@
 mp-0.7.9
 --------
 
+	* add: show which dag interface the error occured on.
 	* add: support for setting dag config string and defaults to a sane one.
 	* fix: a few argument handling bugs.
 	* change: move code into subdirectory.

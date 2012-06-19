@@ -33,7 +33,7 @@ struct dag_context {
 extern int dag_mode;
 extern const char* dag_config;
 
-static int process_packet(dag_record_t* dr, unsigned char* dst, struct cap_header* head){
+static int process_packet(struct dag_context* cap, dag_record_t* dr, unsigned char* dst, struct cap_header* head){
 	char* payload = ((char *) dr) + dag_record_size;
 	const size_t rlen = ntohs(dr->rlen); /* DAG record length */
 	const size_t pload_len = rlen - dag_record_size; /* payload length */
@@ -58,21 +58,21 @@ static int process_packet(dag_record_t* dr, unsigned char* dst, struct cap_heade
 	}
 
 	if (dr->flags.trunc) {
-		logmsg(stderr, CAPTURE, "Truncated record\n");
+		logmsg(stderr, CAPTURE, "Truncated record on %s\n", head->nic);
 		// ++ trunc_errs;
 		if ( 1 /*skipflag*/ )
 			return 0;
 	}
 
 	if (dr->flags.rxerror) {
-		logmsg(stderr, CAPTURE, "RX error\n");
+		logmsg(stderr, CAPTURE, "RX error on %s\n", head->nic);
 		//  ++ rx_errs;
 		if ( 1 /* skipflag */ )
 			return 0;
 	}
 
 	if (dr->flags.dserror) {
-		logmsg(stderr, CAPTURE, "Internal error\n");
+		logmsg(stderr, CAPTURE, "DS error (internal error) on %s\n", head->nic);
 		//  ++ ds_errs;
 		if ( 1 /*skipflag*/ )
 			return 0;
@@ -154,7 +154,7 @@ static int read_packet_rxtx(struct dag_context* cap, unsigned char* dst, struct 
 	}
 
 	/* process packet */
-	int ret = process_packet(dr, dst, head);
+	int ret = process_packet(cap, dr, dst, head);
 	cap->bottom += rlen; /* advance read position */
 
 	return ret;
@@ -171,7 +171,7 @@ static int read_packet_wiretap(struct dag_context* cap, unsigned char* dst, stru
 	const size_t rlen = ntohs(dr->rlen);
 
 	/* process packet */
-	int ret = process_packet(dr, dst, head);
+	int ret = process_packet(cap, dr, dst, head);
 
 	dr->flags.iface = 1 - dr->flags.iface;
 	dag_tx_stream_commit_bytes(cap->fd, TX_STREAM, rlen);
@@ -361,7 +361,7 @@ static int legacy_read_packet(struct dag_context* cap, unsigned char* dst, struc
 	}
 
 	/* process packet */
-	int ret = process_packet(dr, dst, head);
+	int ret = process_packet(cap, dr, dst, head);
 	cap->bottom += rlen; /* advance read position */
 
 	return ret;
