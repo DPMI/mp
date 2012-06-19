@@ -436,7 +436,9 @@ int setup_capture(){
 		case DRIVER_RAW:
 #ifdef HAVE_DRIVER_RAW
 			func = capture;
-#else /* HAVE_DRIVER_RAW */
+#elif defined(HAVE_DRIVER_PCAP)
+			func = pcap_capture; /* fallback on pcap */
+#else
 			logmsg(stderr, MAIN, "This MP lacks support for raw packet capture (use libpcap or DAG instead or rebuild with --with-raw)\n");
 			return EINVAL;
 #endif /* HAVE_DRIVER_RAW */
