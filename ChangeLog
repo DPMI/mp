@@ -1,6 +1,7 @@
 mp-0.7.9
 --------
 
+	* add: if built without raw but with pcap it uses pcap by default.
 	* fix: retaining sequencenumber when updating filter.
 	* add: show which dag interface the error occured on.
 	* add: support for setting dag config string and defaults to a sane one.
