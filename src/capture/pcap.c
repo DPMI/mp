@@ -65,6 +65,9 @@ static void init_offline(struct pcap_context* cap){
 }
 
 static int init(struct pcap_context* cap){
+	/* reset error message, mostly to make sure valgrind is silent */
+	memset(cap->errbuf, 0, PCAP_ERRBUF_SIZE);
+
 	if ( cap->iface[0] != ':' ){ /* live capture */
 		init_live(cap);
 	} else { /* offline capture */
