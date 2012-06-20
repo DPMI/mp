@@ -263,7 +263,7 @@ static void flush_senders(){
 		/* stop consumers flagged for termination */
 		if ( con->state == STOP ){
 			int ret;
-			logmsg(stderr, SENDER, "Closing stream %d\n", con->index);
+			logmsg(verbose, SENDER, "Closing stream %d\n", con->index);
 			if ( (ret=stream_close(con->stream)) != 0 ){
 				logmsg(stderr, SENDER, "stream_close() returned 0x%08x: %s\n", ret, caputils_error_string(ret));
 			}
