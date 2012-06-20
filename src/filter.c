@@ -214,10 +214,15 @@ int mprules_add(const struct filter* filter){
 		if ( index >= 0 ){
 			struct consumer* oldcon = &MAsd[index];
 			seqnum = oldcon->shead->sequencenr;
-			if ( (ret=stream_close(oldcon->stream)) != 0 ){
-				logmsg(stderr, FILTER, "stream_close() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
+
+			/* if the consumer need to be flushed the seqnum needs to be increased by
+			 * one as an additional frame will be sent */
+			if ( oldcon->sendpointer - oldcon->sendptrref > 0 ){
+				seqnum++;
 			}
-			oldcon->state = IDLE;
+
+			/* defer closing stream until sender has processed it */
+			oldcon->state = STOP;
 		}
 
 		/* Update existing filter */

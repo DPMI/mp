@@ -47,6 +47,7 @@
 enum state {
 	IDLE,
 	BUSY,
+	STOP,
 };
 
 struct consumer {

@@ -238,25 +238,40 @@ static void flush_senders(){
 		struct consumer* con = &MAsd[i];
 		const size_t payload_size = con->sendpointer - con->sendptrref;
 
-		if ( payload_size == 0) continue;
-		const int need_flush = con->state == IDLE && payload_size > 0;
+		/* if ( con->index < 4){ */
+		/* 	printf("c: %d s: %zd st: %d\n", con->index, payload_size, con->state); */
+		/* } */
 
-		/* calculate time since last send. If it was long ago (longer than
-		 * MAX_PACKET_AGE) the send buffer is flushed even if it doesn't contain
-		 * enough payload for a full packet. */
-		signed long int sec = (now.tv_sec - con->last_sent.tv_sec) * 1000;
-		signed long int msec = (now.tv_nsec - con->last_sent.tv_nsec);
-		msec /= 1000000; /* please keep this division a separate statement. It ensures
-		                  * that the subtraction above is stored as a signed value. If
-		                  * the division is put together the subtraction will be
-		                  * calculated as unsigned (tv_psec is stored as unsigned),
-		                  * then divided and only then  converted to signed int. */
-		const signed long int age = sec + msec;
-		const int old_age = age >= MAX_PACKET_AGE;
+		if ( payload_size > 0 ){
+			const int need_flush = con->state != BUSY && payload_size > 0;
 
-		if ( need_flush || old_age ){
-			send_packet(con);
-			con->last_sent = now;
+			/* calculate time since last send. If it was long ago (longer than
+			 * MAX_PACKET_AGE) the send buffer is flushed even if it doesn't contain
+			 * enough payload for a full packet. */
+			signed long int sec = (now.tv_sec - con->last_sent.tv_sec) * 1000;
+			signed long int msec = (now.tv_nsec - con->last_sent.tv_nsec);
+			msec /= 1000000; /* please keep this division a separate statement. It ensures
+			                  * that the subtraction above is stored as a signed value. If
+			                  * the division is put together the subtraction will be
+			                  * calculated as unsigned (tv_psec is stored as unsigned),
+			                  * then divided and only then  converted to signed int. */
+			const signed long int age = sec + msec;
+			const int old_age = age >= MAX_PACKET_AGE;
+
+			if ( need_flush || old_age ){
+				send_packet(con);
+				con->last_sent = now;
+			}
+		}
+
+		/* stop consumers flagged for termination */
+		if ( con->state == STOP ){
+			int ret;
+			logmsg(stderr, SENDER, "Closing stream %d\n", con->index);
+			if ( (ret=stream_close(con->stream)) != 0 ){
+				logmsg(stderr, SENDER, "stream_close() returned 0x%08x: %s\n", ret, caputils_error_string(ret));
+			}
+			con->state = IDLE;
 		}
 	}
 }
