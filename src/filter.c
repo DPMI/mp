@@ -150,7 +150,7 @@ int mprules_add(const struct filter* filter){
 		con->want_sendhead = stream_addr_type(&rule->filter.dest) != STREAM_ADDR_CAPFILE; /* capfiles shouldn't contain sendheader */
 
 		/* mark consumer as used */
-		con->state = IDLE;
+		con->state = BUSY;
 
 		/* Open libcap stream */
 		if ( (ret=stream_create(&con->stream, &rule->filter.dest, MPinfo->iface, mampid_get(MPinfo->id), MPinfo->comment)) != 0 ){
