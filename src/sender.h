@@ -3,7 +3,7 @@
 
 #include "thread.h"
 #include <semaphore.h>
-#define SENDER_BARRIER_TIMEOUT 20
+#define SENDER_BARRIER_TIMEOUT 30
 
 struct send_proc {
 	int nics;                         /* How many nics/capture processes will be present*/
