@@ -313,7 +313,7 @@ int capture_loop(struct CI* CI, struct capture_context* cap){
 void consumer_init(struct consumer* con, int index, unsigned char* buffer){
 	con->stream = NULL;
 	con->index = index;
-	con->status = 0;
+	con->state = IDLE;
 	con->dropCount=0;
 
 	con->ethhead=(struct ethhdr*)buffer; // pointer to ethernet header.

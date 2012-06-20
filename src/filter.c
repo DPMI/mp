@@ -101,7 +101,7 @@ int filter(const char* CI, const void *pkt, struct cap_header *head){
 
 static struct consumer* next_free_consumer(){
 	for ( int i = 0; i < MAX_FILTERS; i++ ){
-		if ( MAsd[i].status == 0 ){
+		if ( MAsd[i].state == IDLE ){
 			return &MAsd[i];
 		}
 	}
@@ -150,7 +150,7 @@ int mprules_add(const struct filter* filter){
 		con->want_sendhead = stream_addr_type(&rule->filter.dest) != STREAM_ADDR_CAPFILE; /* capfiles shouldn't contain sendheader */
 
 		/* mark consumer as used */
-		con->status = 1;
+		con->state = IDLE;
 
 		/* Open libcap stream */
 		if ( (ret=stream_create(&con->stream, &rule->filter.dest, MPinfo->iface, mampid_get(MPinfo->id), MPinfo->comment)) != 0 ){
@@ -217,7 +217,7 @@ int mprules_add(const struct filter* filter){
 			if ( (ret=stream_close(oldcon->stream)) != 0 ){
 				logmsg(stderr, FILTER, "stream_close() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
 			}
-			oldcon->status = 0;
+			oldcon->state = IDLE;
 		}
 
 		/* Update existing filter */
@@ -294,7 +294,7 @@ int mprules_clear(){
  */
 static void stop_consumer(struct consumer* con){
 	/* no consumer */
-	if ( !con || con->status == 0 ){
+	if ( !con || con->state == IDLE ){
 		return;
 	}
 
@@ -305,7 +305,7 @@ static void stop_consumer(struct consumer* con){
 		logmsg(stderr, FILTER, "stream_close() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
 	}
 	con->stream = NULL;
-	con->status=0;
+	con->state = IDLE;
 
 	return;
 }

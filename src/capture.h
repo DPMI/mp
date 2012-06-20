@@ -44,12 +44,17 @@
 #define maxSENDSIZE 70
 #define MYPROTO 0x0810              // Link Protocol.. Identifies a MP data frame.
 
+enum state {
+	IDLE,
+	BUSY,
+};
+
 struct consumer {
 	struct stream* stream;
 	struct filter* filter;
 	int index;
 
-	int status;                        // Status of consumer: 0 idle/free, 1 occupied/busy
+	enum state state;                  /* state of this consumer */
 	int want_sendhead;                 // 1 if consumer want the sendheader or 0 if just the payload
 	int sendcount;                     // number of packets recieved but not sent
 	uint16_t dropCount;                // number of drops during CONSUMERn collection time.

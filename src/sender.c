@@ -239,7 +239,7 @@ static void flush_senders(){
 		const size_t payload_size = con->sendpointer - con->sendptrref;
 
 		if ( payload_size == 0) continue;
-		const int need_flush = con->status == 0 && payload_size > 0;
+		const int need_flush = con->state == IDLE && payload_size > 0;
 
 		/* calculate time since last send. If it was long ago (longer than
 		 * MAX_PACKET_AGE) the send buffer is flushed even if it doesn't contain
@@ -337,7 +337,7 @@ static void flushBuffer(int i, int terminate){
 	struct consumer* con = &MAsd[i];
 
 	/* no consumer */
-	if ( !con || con->status == 0 ){
+	if ( !con || con->state == IDLE ){
 		return;
 	}
 
