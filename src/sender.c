@@ -238,10 +238,6 @@ static void flush_senders(){
 		struct consumer* con = &MAsd[i];
 		const size_t payload_size = con->sendpointer - con->sendptrref;
 
-		/* if ( con->index < 4){ */
-		/* 	printf("c: %d s: %zd st: %d\n", con->index, payload_size, con->state); */
-		/* } */
-
 		if ( payload_size > 0 ){
 			const int need_flush = con->state != BUSY && payload_size > 0;
 
