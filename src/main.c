@@ -127,6 +127,7 @@ static void ma_nic(const char* arg) {
 		perror("SIOCGIFINDEX");
 		exit(1);
 	}
+	MPinfoI.ifindex = ifr.ifr_ifindex;
 
 	/* Get my MAC */
 	if(ioctl(s, SIOCGIFHWADDR,&ifr) == -1) {
@@ -525,8 +526,7 @@ int main (int argc, char **argv){
 	memset(&MPinfoI,  0, sizeof(struct MPinfo));
 	memset(&MPstatsI, 0, sizeof(struct MPstats));
 	MPinfoI.comment = strdup("MP " VERSION);
-	gethostname(MPinfoI.id, 16);
-	MPinfoI.id[15] = 0;
+	gethostname(MPinfoI.hostname, HOST_NAME_MAX);
 	MPinfo = &MPinfoI;
 	MPstats = &MPstatsI;
 

@@ -30,8 +30,15 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <semaphore.h>
+#include <unistd.h>
 
 #define MIN(A,B) ((A) < (B) ? (A):(B))
+
+/* according to gethostname(2) it is 256 on linux but doesn't always seem to be
+ * defined. */
+#ifndef HOST_NAME_MAX
+#define HOST_NAME_MAX 256
+#endif
 
 #define minSENDSIZE 1               // Number of packets for each send to tcpserver */
 #define maxSENDSIZE 70
@@ -54,11 +61,13 @@ struct consumer {
 };
 
 extern const struct MPinfo {
-	char* iface;
+	char* iface;                       /* Name of the MA interface */
 	char* comment;                     /* MP comment */
-	mampid_t id;                       /* MAMPid */
-	size_t MTU;
-	struct ether_addr hwaddr;
+	char hostname[HOST_NAME_MAX+1];    /* Local hostname */
+	mampid_t id;                       /* MAMPid (empty string when not authorized) */
+	size_t MTU;                        /* MA interface MTU */
+	size_t ifindex;                    /* MA interface index */
+	struct ether_addr hwaddr;          /* MA interface hwaddr */
 } *MPinfo;
 
 extern struct MPstats {
