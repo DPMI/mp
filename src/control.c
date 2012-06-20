@@ -341,7 +341,7 @@ static void CIstatus2(){
 	stat->matched_count = htonl(MPstats->matched_count);
 	stat->status = 0;
 	stat->noFilters = htonl(mprules_count());
-	stat->noCI = htonl(noCI);
+	stat->noCI = noCI;
 
 	for( int i=0; i < noCI; i++){
 		strncpy(stat->CI[i].iface, _CI[i].iface, 8);
