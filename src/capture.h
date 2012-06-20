@@ -54,11 +54,11 @@ struct consumer {
 };
 
 extern const struct MPinfo {
-char* iface;
-char* comment;   /* MP comment */
-mampid_t id;     /* MAMPid */
-size_t MTU;
-struct ether_addr hwaddr;
+	char* iface;
+	char* comment;                     /* MP comment */
+	mampid_t id;                       /* MAMPid */
+	size_t MTU;
+	struct ether_addr hwaddr;
 } *MPinfo;
 
 extern struct MPstats {
