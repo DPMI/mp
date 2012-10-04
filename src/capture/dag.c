@@ -33,23 +33,41 @@ struct dag_context {
 extern int dag_mode;
 extern const char* dag_config;
 
+static size_t min(size_t a, size_t b){
+  return (a<b) ? a : b;
+}
+
 static int process_packet(struct dag_context* cap, dag_record_t* dr, unsigned char* dst, struct cap_header* head){
-	char* payload = ((char *) dr) + dag_record_size;
-	const size_t rlen = ntohs(dr->rlen); /* DAG record length */
-	const size_t pload_len = rlen - dag_record_size; /* payload length */
-	size_t data_len = pload_len; /* data length (payload minus additional alignment/padding) */
-	size_t alignment = 0;
+	/**
+	 *     For ethernet:
+	 *
+	 *
+	 *      dr            +------------ wire length ----------+
+	 *       |            |                                   |
+	 *       v            v                                   v
+	 *       +------------+---+------------\/\/\----------+---+- - +
+	 *       |    DAG     | S |                           | F |
+	 *       |  Header    | D |           Payload         | C |    |
+	 *       |            | F |                           | S |
+	 *       +------------+---+------------\/\/\----------+---+- - +
+	 *                    ^                                        ^
+	 *                    |                                        |
+	 *                    +----------- Record length --------------+
+	 *                    |              (aligned)
+	 *                    |
+	 *    Payload --------+
+	 */
 
-	//++ wire_pkts;
+	const size_t rlen = ntohs(dr->rlen);                      /* DAG record length (aligned) */
+	const size_t wlen = ntohs(dr->wlen);                      /* DAG wire length */
+	const size_t pload_len = min(rlen-dag_record_size, wlen); /* payload length */
+	const char* payload = ((const char *) dr) + dag_record_size;
 
+	size_t discarded_bytes = 0;
 	if ( dr->type == TYPE_ETH ) {
-		/* why? --ext 2011-06-14 */
-		alignment = 4;
-		payload += 2;
-	} else {
-		alignment = 0;
+		discarded_bytes = 4; /* discard SFD and checksum */ /* checksum should be 4 bytes? --ext 2012-09-11 */
+		payload += 2;        /* first byte is Start Frame Delimiter (SFD), not sure about the second --ext 2012-09-11 */
 	}
-	data_len -= alignment;
 
 	/* when and why? --ext 2011-06-14 */
 	if (payload == NULL && pload_len != 0) {
@@ -78,7 +96,7 @@ static int process_packet(struct dag_context* cap, dag_record_t* dr, unsigned ch
 			return 0;
 	}
 
-	data_len = MIN(data_len, PKT_CAPSIZE);
+	const size_t data_len = min(min(pload_len, wlen - discarded_bytes), PKT_CAPSIZE);
 	const size_t padding = PKT_CAPSIZE - data_len;
 
 	memcpy(dst, payload, data_len);
@@ -93,7 +111,7 @@ static int process_packet(struct dag_context* cap, dag_record_t* dr, unsigned ch
 		head->ts.tv_psec *= 250;       // DAG counter is based on 250ps increments..
 	}
 
-	head->len    = ntohs(dr->wlen) - 4; /* why -4? --ext 2011-06-14 */
+	head->len    = wlen - discarded_bytes;
 	head->caplen = data_len;
 
 	/* rewrite iface to indicate direction (dag0 -> d0X where X is direction) */

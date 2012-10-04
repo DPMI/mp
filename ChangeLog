@@ -1,6 +1,7 @@
 mp-0.7.10
 --------
 
+	* fix: fix discrepancy between len and caplen.
 	* add: support to set dag config from config-file.
 	* fix: better default DAG config.
 
