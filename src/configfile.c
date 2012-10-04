@@ -154,6 +154,7 @@ static struct translation_t {
 	{"CI", "--interface"},
 	{"LOCAL", "--local"},
 	{"CONFIG", "--config"},
+	{"DAG", "--dag-config"},
 	{NULL, NULL}
 };
 

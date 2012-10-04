@@ -8,3 +8,7 @@ MAnic=eth0
 #Capture Interface, and its accuracy.
 CI=dag0
 #TD=4
+
+# DAG configuration
+# same parameters as dag{three,four,..}
+# DAG=varlen slen=1536
