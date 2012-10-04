@@ -103,7 +103,7 @@ int ENCRYPT = 0;
 int globalDropcount = 0;
 int memDropcount = 0;
 int dag_mode = 0; /* 0: rxtx 1: wiretap */
-const char* dag_config = "varlen slen=1514";
+const char* dag_config = "varlen slen=1536";
 
 static void ma_nic(const char* arg) {
 	struct ifreq ifr;
