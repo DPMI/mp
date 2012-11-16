@@ -152,9 +152,7 @@ static void set_ci(const char* iface) {
 		exit(1);
 	}
 
-	strncpy(CI[iflag].iface, iface, NICLEN);
-	CI[iflag].iface[NICLEN-1] = 0; /* force null-terminator */
-
+	CI[iflag].iface = strdup(iface);
 	iflag++;
 }
 
@@ -390,7 +388,7 @@ static int init_capture(){
 		CI[i].packet_count = 0;
 		CI[i].matched_count = 0;
 		CI[i].buffer_usage = 0;
-		CI[i].iface[0] = 0;
+		CI[i].iface = NULL;
 		CI[i].accuracy = 0;
 		pthread_mutex_init(&CI[i].mutex, NULL);
 	}

@@ -97,10 +97,9 @@ struct write_header //Used for marking a packet as read or written in the shared
 };
 typedef struct write_header write_head;
 
-#define NICLEN 256
 struct CI {
 	int id;
-	char iface[NICLEN]; /* capture interface */
+	char* iface;        /* capture interface */
 	uint8_t accuracy;   /* Accuracy of interface, read from config file. */
 	enum CIDriver driver;
 

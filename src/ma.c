@@ -59,6 +59,7 @@ int ma_mode(sigset_t* sigmask, sem_t* semaphore){
 	for ( int i = 0; i < noCI; i++ )  {
 		logmsg(verbose, MAIN, "Waiting for CI[%d] thread to finish\n", i);
 		pthread_join(_CI[i].thread, NULL);
+		free(_CI[i].iface);
 	}
 
 	if ( controlPID ){

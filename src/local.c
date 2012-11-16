@@ -60,6 +60,7 @@ int local_mode(sigset_t* sigmask, sem_t* semaphore, struct filter* filter, const
 	for ( int i = 0; i < noCI; i++ )  {
 		logmsg(verbose, MAIN, "Waiting for CI[%d] thread\n", i);
 		pthread_join(_CI[i].thread, NULL);
+		free(_CI[i].iface);
 	}
 
 	logmsg(stderr, MAIN, "Thread awakens, all threads terminated. Stopping\n");
