@@ -10,6 +10,8 @@
 #include <pcap.h>
 #include <errno.h>
 
+static const int pcap_timeout = 500;
+
 struct pcap_context {
 	struct capture_context base;
 	const char* iface; /* copied reference */
@@ -26,7 +28,6 @@ static int read_packet_pcap(struct pcap_context* ctx, unsigned char* dst, struct
 		break;
 
 	case 0: /* timeout */
-		logmsg(stderr, CAPTURE, "pcap_next() timeout\n");
 		return 0;
 
 	case -2: /* offline capture EOF */
@@ -54,8 +55,8 @@ static int read_packet_pcap(struct pcap_context* ctx, unsigned char* dst, struct
 }
 
 static void init_live(struct pcap_context* cap){
-	logmsg(verbose, CAPTURE, "  pcap live capture\n");
-	cap->handle = pcap_open_live (cap->iface, BUFSIZ, 1, 0, cap->errbuf);   /* open device for reading */
+	logmsg(verbose, CAPTURE, "  pcap live capture (timeout: %dms)\n", pcap_timeout);
+	cap->handle = pcap_open_live (cap->iface, BUFSIZ, 1, pcap_timeout, cap->errbuf);   /* open device for reading */
 }
 
 static void init_offline(struct pcap_context* cap){
