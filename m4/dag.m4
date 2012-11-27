@@ -1,5 +1,6 @@
 AC_DEFUN([AX_DAG2], [
   saved_CPPFLAGS="$CPPFLAGS"
+  saved_LDFLAGS="$LDFLAGS"
 
   case $1 in
     yes | "")
@@ -13,6 +14,7 @@ AC_DEFUN([AX_DAG2], [
       ax_dag_path="$1"
       ax_dag_want="yes"
       CPPFLAGS="$CPPFLAGS -I$ax_dag_path/include"
+      LDFLAGS="$LDFLAGS -L$ax_dag_path/lib"
       ;;
   esac
 
@@ -27,6 +29,11 @@ AC_DEFUN([AX_DAG2], [
         ax_dag_libs="-L$ax_dag_path/lib $ax_dag_libs"
       ])
 
+      AC_CHECK_LIB([dag], [dag_offset],[true],[
+        AC_MSG_ERROR([Could not find dag_offset in -ldag (required for Endace DAG support)])
+      ])
+
+      dnl legacy driver requires a built source-tree
       AS_IF([test "x$2" == "xlegacy"], [
         AC_MSG_CHECKING([for dagapi.o])
         AS_IF([test -e $ax_dag_path/tools/dagapi.o], [
@@ -37,11 +44,18 @@ AC_DEFUN([AX_DAG2], [
           AC_MSG_RESULT([no])
           AC_MSG_ERROR([
 
-
 Legacy drivers require \$prefix/tools/dagapi.o to be present. Point the prefix to the source-tree instead of installed location.
 This is because nothing in dagapi.h is implemented in libdag.{s,so} library])
         ])
       ])
+
+      dnl test for functions required by the new driver
+      AS_IF([test "x$2" != "xlegacy"], [
+        AC_CHECK_LIB([dag], [dag_advance_stream],[true],[
+          AC_MSG_ERROR([Could not find dag_advance_stream in -ldag (required for Endace DAG support, maybe try --with-dag-legacy)])
+        ])
+      ])
+
       AC_SUBST(DAG_CFLAGS, [$ax_dag_cflags])
       AC_SUBST(DAG_LIBS, [$ax_dag_libs])
       AC_DEFINE([HAVE_DAG], 1, [Define to 1 if you have Endace DAG])
@@ -51,4 +65,5 @@ This is because nothing in dagapi.h is implemented in libdag.{s,so} library])
   ]) dnl if ${ax_dag_want}
 
   CPPFLAGS="$saved_CPPFLAGS"
+  LDFLAGS="$saved_LDFLAGS"
 ])
