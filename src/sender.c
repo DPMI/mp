@@ -54,7 +54,7 @@ int wait_for_capture(sem_t* sem){
 
 	int ret;
 	if ( (ret=sem_timedwait(sem, &ts)) != 0 ){
-		int saved = errno;
+		const int saved = errno;
 		switch ( saved ){
 		case ETIMEDOUT:
 		case EINTR:
