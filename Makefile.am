@@ -25,7 +25,6 @@ mp_SOURCES = \
 	src/configfile.c src/configfile.h \
 	src/control.c \
 	src/filter.c src/filter.h \
-	src/headers.h \
 	src/local.c \
 	src/log.h \
 	src/ma.c src/ma.h \
