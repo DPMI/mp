@@ -157,6 +157,9 @@ typedef int (*read_packet_callback)(void* context, unsigned char* dst, struct ca
 typedef int (*stats_callback)(void* context);
 
 struct capture_context {
+	const char* iface;                    /* Name of the interface, copied reference */
+
+	/* callbacks */
 	init_callback init;
 	destroy_callback destroy;
 	read_packet_callback read_packet;

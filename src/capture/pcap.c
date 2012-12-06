@@ -14,7 +14,6 @@ static const int pcap_timeout = 500;
 
 struct pcap_context {
 	struct capture_context base;
-	const char* iface; /* copied reference */
 	pcap_t* handle;
 	char errbuf[PCAP_ERRBUF_SIZE];
 };
@@ -56,20 +55,20 @@ static int read_packet_pcap(struct pcap_context* ctx, unsigned char* dst, struct
 
 static void init_live(struct pcap_context* cap){
 	logmsg(verbose, CAPTURE, "  pcap live capture (timeout: %dms)\n", pcap_timeout);
-	cap->handle = pcap_open_live (cap->iface, BUFSIZ, 1, pcap_timeout, cap->errbuf);   /* open device for reading */
+	cap->handle = pcap_open_live (cap->base.iface, BUFSIZ, 1, pcap_timeout, cap->errbuf);   /* open device for reading */
 }
 
 static void init_offline(struct pcap_context* cap){
-	cap->iface = cap->iface + 1; /* +1 to remove : */
+	cap->base.iface = cap->base.iface + 1; /* +1 to remove : */
 	logmsg(verbose, CAPTURE, "  pcap offline capture\n");
-	cap->handle = pcap_open_offline (cap->iface, cap->errbuf);
+	cap->handle = pcap_open_offline (cap->base.iface, cap->errbuf);
 }
 
 static int init(struct pcap_context* cap){
 	/* reset error message, mostly to make sure valgrind is silent */
 	memset(cap->errbuf, 0, PCAP_ERRBUF_SIZE);
 
-	if ( cap->iface[0] != ':' ){ /* live capture */
+	if ( cap->base.iface[0] != ':' ){ /* live capture */
 		init_live(cap);
 	} else { /* offline capture */
 		init_offline(cap);
@@ -103,9 +102,9 @@ static int stats(struct pcap_context* cap){
 void* pcap_capture(void* ptr){
 	struct CI* CI = (struct CI*)ptr;
 	struct pcap_context cap;
-	cap.iface = CI->iface;
+	cap.base.iface = CI->iface;
 
-	logmsg(verbose, CAPTURE, "CI[%d] initializing capture on %s using pcap (memory at %p).\n", CI->id, CI->iface, &datamem[CI->id]);
+	logmsg(verbose, CAPTURE, "CI[%d] initializing capture on %s using pcap (memory at %p).\n", CI->id, cap.base.iface, &datamem[CI->id]);
 
 	/* setup callbacks */
 	cap.base.init = (init_callback)init;
@@ -117,7 +116,7 @@ void* pcap_capture(void* ptr){
 	capture_loop(CI, (struct capture_context*)&cap);
 
 	/* stop capture */
-	logmsg(verbose, CAPTURE, "CI[%d] stopping capture on %s.\n", CI->id, cap.iface);
+	logmsg(verbose, CAPTURE, "CI[%d] stopping capture on %s.\n", CI->id, cap.base.iface);
 
 	return NULL;
 }

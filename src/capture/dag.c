@@ -324,8 +324,9 @@ void* dag_capture(void* ptr){
 	struct CI* CI = (struct CI*)ptr;
 	struct dag_context cap;
 	memset(&cap, 0, sizeof(struct dag_context));
+	cap.base.iface = CI->iface;
 
-	logmsg(verbose, CAPTURE, "CI[%d] initializing capture on %s using DAGv2 (memory at %p).\n", CI->id, CI->iface, &datamem[CI->id]);
+	logmsg(verbose, CAPTURE, "CI[%d] initializing capture on %s using DAGv2 (memory at %p).\n", CI->id, cap.base.iface, &datamem[CI->id]);
 
 	if ( !setup_device(CI, dag_config) ){
 		/* error already show */
@@ -410,8 +411,9 @@ static int dagcapture_destroy(struct dag_context* cap){
 void* dag_legacy_capture(void* ptr){
 	struct CI* CI = (struct CI*)ptr;
 	struct dag_context cap;
+	cap.base.iface = CI->iface;
 
-	logmsg(verbose, CAPTURE, "CI[%d] initializing capture on %s using DAGv1 (memory at %p).\n", CI->id, CI->iface, &datamem[CI->id]);
+	logmsg(verbose, CAPTURE, "CI[%d] initializing capture on %s using DAGv1 (memory at %p).\n", CI->id, cap.base.iface, &datamem[CI->id]);
 
 	if ( !setup_device(CI, dag_config) ){
 		/* error already show */

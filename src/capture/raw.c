@@ -19,7 +19,6 @@
 
 struct raw_context {
 	struct capture_context base;
-	const char* iface; /* copied reference */
 	int socket;
 	char buffer[BUFFER_SIZE];
 };
@@ -140,7 +139,7 @@ int stats(struct raw_context* ctx){
 	socklen_t len = sizeof (struct tpacket_stats);
 
 	if ( getsockopt(ctx->socket, SOL_PACKET, PACKET_STATISTICS, &kstats, &len) != 0 ) {
-		logmsg(stderr, CAPTURE, "failed to read stats for %s: %s\n", ctx->iface, strerror(errno));
+		logmsg(stderr, CAPTURE, "failed to read stats for %s: %s\n", ctx->base.iface, strerror(errno));
 		return 1;
 	}
 
@@ -153,10 +152,10 @@ int stats(struct raw_context* ctx){
 void* capture(void* ptr){
 	struct CI* CI = (struct CI*)ptr;
 	struct raw_context cap;
-	cap.iface = CI->iface;
+	cap.base.iface = CI->iface;
 
 	/* initialize raw capture */
-	logmsg(verbose, CAPTURE, "CI[%d] initializing capture on %s using RAW_SOCKET (memory at %p).\n", CI->id, CI->iface, &datamem[CI->id]);
+	logmsg(verbose, CAPTURE, "CI[%d] initializing capture on %s using RAW_SOCKET (memory at %p).\n", CI->id, cap.base.iface, &datamem[CI->id]);
 
 	/* open socket */
 	CI->sd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
