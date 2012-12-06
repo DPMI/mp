@@ -40,7 +40,6 @@
 #define HOST_NAME_MAX 256
 #endif
 
-#define minSENDSIZE 1               // Number of packets for each send to tcpserver */
 #define maxSENDSIZE 70
 
 enum state {
