@@ -317,7 +317,7 @@ void consumer_init(struct consumer* con, int index, unsigned char* buffer){
 	con->dropCount=0;
 
 	con->ethhead=(struct ethhdr*)buffer; // pointer to ethernet header.
-	con->ethhead->h_proto=htons(MYPROTO);    // Set the protocol field of the ethernet header.
+	con->ethhead->h_proto=htons(ETHERTYPE_MP);    // Set the protocol field of the ethernet header.
 
 	/* set the ethernet source address to adress used by the MA iface. */
 	memcpy(con->ethhead->h_source, &MPinfo->hwaddr, ETH_ALEN);

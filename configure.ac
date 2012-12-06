@@ -41,7 +41,7 @@ AC_SUBST(pkgconfdir)
 AX_DEFINE_DIR([PKGCONF_DIR], [pkgconfdir], [mp configuration files])
 
 AC_SEARCH_LIBS([clock_gettime], [rt])
-PKG_CHECK_MODULES([libcap_utils], [libcap_utils-0.7 >= 0.7.10 libcap_marc-0.7])
+PKG_CHECK_MODULES([libcap_utils], [libcap_utils-0.7 >= 0.7.14 libcap_marc-0.7])
 
 ax_dag="no"
 ax_dag_legacy="no"

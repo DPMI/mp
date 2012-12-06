@@ -116,7 +116,7 @@ static void ma_nic(const char* arg) {
 	MPinfoI.iface = strdup(arg);
 	strncpy(ifr.ifr_name, MPinfo->iface, IFNAMSIZ);
 
-	int s = socket(AF_PACKET, SOCK_RAW, htons(MYPROTO));
+	int s = socket(AF_PACKET, SOCK_RAW, htons(ETHERTYPE_MP));
 	if ( s == -1 ){
 		logmsg(stderr, MAIN, "Failed to open SOCK_RAW socket for %s: %s\n", arg, strerror(errno));
 		exit(1);

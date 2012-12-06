@@ -42,7 +42,6 @@
 
 #define minSENDSIZE 1               // Number of packets for each send to tcpserver */
 #define maxSENDSIZE 70
-#define MYPROTO 0x0810              // Link Protocol.. Identifies a MP data frame.
 
 enum state {
 	IDLE,
