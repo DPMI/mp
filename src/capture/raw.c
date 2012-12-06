@@ -152,7 +152,7 @@ int stats(struct raw_context* ctx){
 void* capture(void* ptr){
 	struct CI* CI = (struct CI*)ptr;
 	struct raw_context cap;
-	cap.base.iface = CI->iface;
+	capture_init(&cap.base, CI->iface);
 
 	/* initialize raw capture */
 	logmsg(verbose, CAPTURE, "CI[%d] initializing capture on %s using RAW_SOCKET (memory at %p).\n", CI->id, cap.base.iface, &datamem[CI->id]);
@@ -167,8 +167,6 @@ void* capture(void* ptr){
 	setpromisc(CI->sd, CI->iface);
 
 	/* setup callbacks */
-	cap.base.init = 0;
-	cap.base.destroy = 0;
 	cap.base.read_packet = (read_packet_callback)read_packet_raw;
 	cap.base.stats = (stats_callback)stats;
 

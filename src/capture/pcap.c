@@ -102,7 +102,7 @@ static int stats(struct pcap_context* cap){
 void* pcap_capture(void* ptr){
 	struct CI* CI = (struct CI*)ptr;
 	struct pcap_context cap;
-	cap.base.iface = CI->iface;
+	capture_init(&cap.base, CI->iface);
 
 	logmsg(verbose, CAPTURE, "CI[%d] initializing capture on %s using pcap (memory at %p).\n", CI->id, cap.base.iface, &datamem[CI->id]);
 

@@ -303,6 +303,12 @@ int capture_loop(struct CI* CI, struct capture_context* cap){
 	return 0;
 }
 
+int capture_init(struct capture_context* cap, const char* iface){
+	memset(cap, 0, sizeof(struct capture_context));
+	cap->iface = iface;
+	return 0;
+}
+
 void consumer_init(struct consumer* con, int index, unsigned char* buffer){
 	con->stream = NULL;
 	con->index = index;

@@ -166,6 +166,7 @@ struct capture_context {
 	stats_callback stats;
 };
 
+int capture_init(struct capture_context* cap, const char* iface);
 int capture_loop(struct CI* CI, struct capture_context* cap);
 
 #endif

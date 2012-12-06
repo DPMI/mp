@@ -323,8 +323,7 @@ static int dagcapture_destroy_wiretap(struct dag_context* cap){
 void* dag_capture(void* ptr){
 	struct CI* CI = (struct CI*)ptr;
 	struct dag_context cap;
-	memset(&cap, 0, sizeof(struct dag_context));
-	cap.base.iface = CI->iface;
+	capture_init(&cap.base, CI->iface);
 
 	logmsg(verbose, CAPTURE, "CI[%d] initializing capture on %s using DAGv2 (memory at %p).\n", CI->id, cap.base.iface, &datamem[CI->id]);
 
@@ -343,12 +342,10 @@ void* dag_capture(void* ptr){
 		cap.base.init = (init_callback)dagcapture_init_rxtx;
 		cap.base.destroy = (destroy_callback)dagcapture_destroy_rxtx;
 		cap.base.read_packet = (read_packet_callback)read_packet_rxtx;
-		cap.base.stats = NULL;
 	} else if ( dag_mode == 1 ){
 		cap.base.init = (init_callback)dagcapture_init_wiretap;
 		cap.base.destroy = (destroy_callback)dagcapture_destroy_wiretap;
 		cap.base.read_packet = (read_packet_callback)read_packet_wiretap;
-		cap.base.stats = NULL;
 	} else {
 		logmsg(stderr, CAPTURE, "Unsupported mode: %d\n", dag_mode);
 		abort();
@@ -411,7 +408,7 @@ static int dagcapture_destroy(struct dag_context* cap){
 void* dag_legacy_capture(void* ptr){
 	struct CI* CI = (struct CI*)ptr;
 	struct dag_context cap;
-	cap.base.iface = CI->iface;
+	capture_init(&cap.base, CI->iface);
 
 	logmsg(verbose, CAPTURE, "CI[%d] initializing capture on %s using DAGv1 (memory at %p).\n", CI->id, cap.base.iface, &datamem[CI->id]);
 
