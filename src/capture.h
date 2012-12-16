@@ -172,6 +172,11 @@ struct capture_context {
 	stats_callback stats;
 };
 
+/**
+ * Setup capturing.
+ *
+ * @param iface Name of the interface to capture on. (Memory is only referenced)
+ */
 int capture_init(struct capture_context* cap, const char* iface);
 int capture_loop(struct CI* CI, struct capture_context* cap);
 
