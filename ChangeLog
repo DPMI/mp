@@ -1,3 +1,8 @@
+mp-0.7.11
+--------
+
+	* fix: readded CAPLEN=N in mp.conf
+
 mp-0.7.10
 --------
 

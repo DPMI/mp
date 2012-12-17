@@ -155,6 +155,7 @@ static struct translation_t {
 	{"LOCAL", "--local"},
 	{"CONFIG", "--config"},
 	{"DAG", "--dag-config"},
+	{"CAPLEN", "--caplen"},
 	{NULL, NULL}
 };
 

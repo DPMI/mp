@@ -11,4 +11,7 @@ CI=dag0
 
 # DAG configuration
 # same parameters as dag{three,four,..}
-# DAG=varlen slen=1536
+#DAG=varlen slen=1536
+
+# For local mode this specifies the maximum capture length
+#CAPLEN=1514
