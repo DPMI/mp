@@ -509,8 +509,8 @@ int setup_capture(){
 int main (int argc, char **argv){
 	{
 		static char line[] = "---------------------------------------------------------------------------------------------"; /* "should be long enough for anybody" */
-		int n = fprintf(stderr, "Measurement Point " VERSION " (caputils-%s)\n", caputils_version(NULL));
-		fprintf(stderr, "%.*s\n", n-1, line);
+		int n = fprintf(stdout, "Measurement Point " VERSION " (caputils-%s)\n", caputils_version(NULL));
+		fprintf(stdout, "%.*s\n", n-1, line);
 	}
 
 	// Init semaphore
