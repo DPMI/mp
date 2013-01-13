@@ -282,9 +282,9 @@ void* control(struct thread_data* td, void* prt){
 			break;
 
 		default:
-			logmsg(verbose, CONTROL, "Got unhandled event of type %d containing %zd bytes.\n", event.type, size);
-			logmsg(verbose, CONTROL, "PAYLOAD:\n");
-			hexdump(verbose, event.payload, size);
+			logmsg(verbose, CONTROL, "Got unhandled event of type %d containing %zd bytes (including header).\n", event.type, size);
+			logmsg(verbose, CONTROL, "PAYLOAD (%zd bytes):\n", size-4-sizeof(mampid_t));
+			hexdump(verbose, event.payload, size-4-sizeof(mampid_t));
 			break;
 		}
 	}
