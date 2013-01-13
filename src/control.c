@@ -215,7 +215,7 @@ void* control(struct thread_data* td, void* prt){
 		}
 
 		/* get next message */
-		switch ( (ret=marc_poll_event(client, &event, &size, NULL, &timeout)) ){
+		switch ( (ret=marc_poll_event(client, &event, &size, NULL, NULL, &timeout)) ){
 		case EAGAIN: /* delivered if using a timeout */
 		case EINTR:  /* interuped */
 			if ( auth_retry >= 0 ){
