@@ -1,7 +1,7 @@
 AC_DEFUN([AX_BROKEN_SEM_TIMEDWAIT], [
-  saved_LDFLAGS="$LDFLAGS"
-  LDFLAGS="-lrt"
-  AC_MSG_CHECKING([broken sem_timedwait implementation])  
+  saved_LIBS="$LDFLAGS"
+  LIBS="-lrt -pthread"
+  AC_MSG_CHECKING([for broken sem_timedwait implementation])
   AC_RUN_IFELSE([
     AC_LANG_PROGRAM([dnl
       #include <semaphore.h>
@@ -19,5 +19,5 @@ AC_DEFUN([AX_BROKEN_SEM_TIMEDWAIT], [
     AC_DEFINE([sem_timedwait], [__sem_timedwait], [workaround for broken sem_timedwait implementations])
     build_sem_timedwait="yes"
   ])
-  LDFLAGS="$saved_LDFLAGS"
+  LIBS="$saved_LIBS"
 ])
