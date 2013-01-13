@@ -179,6 +179,7 @@ void* control(struct thread_data* td, void* prt){
 		thread_init_finished(td, ret);
 		return NULL;
 	}
+	logmsg(verbose, CONTROL, "Listening on %s:%d.\n", info.client_ip, info.client_port);
 
 	/* restore sigmask */
 	{
