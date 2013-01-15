@@ -149,7 +149,7 @@ void* control(struct thread_data* td, void*); // Control thread
  * @param head Capture header.
  * @return Recipient id or -1 if no filter matches.
  */
-int filter(const char* nic, const void* pkt, struct cap_header* head); //filtering routine
+int filter(const char* nic, void* pkt, struct cap_header* head); //filtering routine
 
 typedef int (*init_callback)(void* context);
 typedef int (*destroy_callback)(void* context);

@@ -44,19 +44,19 @@ static size_t rule_count = 0;
 
 static void stop_consumer(struct consumer* con);
 
-int filter(const char* CI, const void *pkt, struct cap_header *head){
+int filter(const char* CI, void *pkt, struct cap_header *head){
 	/* fast path */
 	if ( mprules_count() == 0 ) {
 		return -1;
 	}
 
-	const struct ethhdr* ether = (struct ethhdr*)pkt;
+	const struct ethhdr* ether = (const struct ethhdr*)pkt;
 	const struct ether_vlan_header* vlan = NULL;
 	struct ip* ip_hdr = NULL;
 
 	/* setup vlan header */
 	if(ntohs(ether->h_proto)==0x8100){
-		vlan = (struct ether_vlan_header*)(pkt);
+		vlan = (const struct ether_vlan_header*)(pkt);
 	}
 
 	/* if listening on the same iface as capturing (i.e. -i and -s is the same), ignore mp packages */
@@ -252,7 +252,7 @@ int mprules_add(const struct filter* filter){
 /*
   This function finds a filter that matched the filter_id, and removes it.
 */
-int mprules_del(const int filter_id){
+int mprules_del(const unsigned int filter_id){
 	struct rule* cur = rules;
 	struct rule* prev = NULL;
 	while ( cur ){

@@ -15,7 +15,7 @@ int mprules_add(const struct filter* filter);
 /**
  * Delete filter from rule chain.
  */
-int mprules_del(int filter_id);
+int mprules_del(unsigned int filter_id);
 
 /**
  * Delete all rules from the chain.

@@ -103,7 +103,7 @@ static void print_icmp(FILE* dst, const struct ip* ip, const struct icmphdr* icm
 }
 
 static void print_ipv4(FILE* dst, const struct ip* ip){
-	void* payload = ((char*)ip) + 4*ip->ip_hl;
+	const void* payload = ((const char*)ip) + 4*ip->ip_hl;
 	fprintf(dst, "IPv4(HDR[%d])[", 4*ip->ip_hl);
 	fprintf(dst, "Len=%d:",(u_int16_t)ntohs(ip->ip_len));
 	fprintf(dst, "ID=%d:",(u_int16_t)ntohs(ip->ip_id));
@@ -139,21 +139,21 @@ static void print_ipv4(FILE* dst, const struct ip* ip){
 }
 
 static void print_eth(FILE* dst, const struct ethhdr* eth){
-	void* payload = ((char*)eth) + sizeof(struct ethhdr);
+	const void* payload = ((const char*)eth) + sizeof(struct ethhdr);
 	uint16_t h_proto = ntohs(eth->h_proto);
 	uint16_t vlan_tci;
 
   begin:
 	switch ( h_proto ){
 	case ETHERTYPE_VLAN:
-		vlan_tci = ((uint16_t*)payload)[0];
-		h_proto = ntohs(((uint16_t*)payload)[0]);
-		payload = ((char*)eth) + sizeof(struct ethhdr);
+		vlan_tci = ((const uint16_t*)payload)[0];
+		h_proto = ntohs(((const uint16_t*)payload)[0]);
+		payload = ((const char*)eth) + sizeof(struct ethhdr);
 		fprintf(dst, "802.1Q vlan# %d: ", 0x0FFF&ntohs(vlan_tci));
 		goto begin;
 
 	case ETHERTYPE_IP:
-		print_ipv4(dst, (struct ip*)payload);
+		print_ipv4(dst, (const struct ip*)payload);
 		break;
 
 	case ETHERTYPE_IPV6:
@@ -189,7 +189,7 @@ static void print_packet(FILE* dst, cap_head* caphead){
 	print_eth(dst, caphead->ethhdr);
 }
 
-static int push_packet(struct CI* CI, write_head* whead, cap_head* head, const unsigned char* packet_buffer){
+static int push_packet(struct CI* CI, write_head* whead, cap_head* head, unsigned char* packet_buffer){
 	const int recipient = filter(CI->iface, packet_buffer, head);
 	if ( recipient == -1 ){ /* no match */
 		return -1;
