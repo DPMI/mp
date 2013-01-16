@@ -122,9 +122,12 @@ static int process_packet(struct dag_context* cap, dag_record_t* dr, unsigned ch
 	return head->len;
 }
 
-static int setup_device(struct CI* CI, const char* config){
+static int setup_device(struct CI* CI){
 	char dev[256];
 	snprintf(dev, 256, "/dev/%s", CI->iface);
+
+	char config[256];
+	snprintf(config, sizeof(config), "slen=%d %s", snaplen(), dag_config);
 
 	logmsg(verbose, CAPTURE, "\tdevice: %s\n", dev);
 	logmsg(verbose, CAPTURE, "\tconfig: \"%s\"\n", config);
@@ -143,7 +146,7 @@ static int setup_device(struct CI* CI, const char* config){
 		return 0;
 	}
 
-	if ( dag_configure(CI->sd, (char*)config) < 0 ) {
+	if ( dag_configure(CI->sd, config) < 0 ) {
 		int e = errno;
 		logmsg(stderr, CAPTURE, "dag_configure() on interface %s returned %d: %s\n", dev, e, strerror(e));
 		return 0;
@@ -166,7 +169,7 @@ static int read_packet_rxtx(struct dag_context* cap, unsigned char* dst, struct 
 	const size_t rlen = ntohs(dr->rlen);
 
 	/* not enough data in buffer */
-	if ( diff < rlen ){
+	if ( diff < (int)rlen ){
 		cap->top = dag_advance_stream(cap->fd, RX_STREAM, &cap->bottom);
 		return 0; /* process eventual packages in the next batch */
 	}
@@ -327,9 +330,7 @@ void* dag_capture(void* ptr){
 
 	logmsg(verbose, CAPTURE, "CI[%d] initializing capture on %s using DAGv2 (memory at %p).\n", CI->id, cap.base.iface, &datamem[CI->id]);
 
-	char config[256];
-	snprintf(config, sizeof(config), "slen=%d %s", snaplen(), dag_config);
-	if ( !setup_device(CI, config) ){
+	if ( !setup_device(CI) ){
 		/* error already show */
 		return NULL;
 	}
@@ -414,7 +415,7 @@ void* dag_legacy_capture(void* ptr){
 
 	logmsg(verbose, CAPTURE, "CI[%d] initializing capture on %s using DAGv1 (memory at %p).\n", CI->id, cap.base.iface, &datamem[CI->id]);
 
-	if ( !setup_device(CI, dag_config) ){
+	if ( !setup_device(CI) ){
 		/* error already show */
 		return NULL;
 	}
