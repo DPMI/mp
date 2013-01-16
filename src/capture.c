@@ -48,13 +48,6 @@
 #include <netinet/udp.h>
 #include <netinet/ip_icmp.h>
 
-#ifndef ETHERTYPE_IPV6 /* libc might not provide this if it is missing ipv6 support */
-#define ETHERTYPE_IPV6 0x86dd
-#endif /* ETHERTYPE_IPV6 */
-
-#define STPBRIDGES 0x0026
-#define CDPVTP 0x016E
-
 extern int show_packets;
 
 static void print_tcp(FILE* dst, const struct ip* ip, const struct tcphdr* tcp){
