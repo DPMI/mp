@@ -46,7 +46,7 @@ int local_mode(sigset_t* sigmask, sem_t* semaphore, struct filter* filter, const
 	mprules_add(filter);
 
 	/* initialize capture */
-	if ( (ret=setup_capture()) != 0 ){
+	if ( (ret=setup_capture(semaphore)) != 0 ){
 		logmsg(stderr, MAIN, "setup_capture() returned %d: %s\n", ret, strerror(ret));
 		return 1;
 	}

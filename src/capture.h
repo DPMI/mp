@@ -102,6 +102,19 @@ struct CI {
 };
 
 /**
+ * Start all capture interfaces.
+ *
+ * @param Sender semaphore.
+ */
+int setup_capture(sem_t* semaphore);
+
+/**
+ * Add a new capture interface.
+ */
+int add_capture(const char* iface);
+void set_td(const char* arg);
+
+/**
  * Get selected snaplen.
  */
 int snaplen();

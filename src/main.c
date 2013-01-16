@@ -76,15 +76,11 @@ const struct MPinfo* MPinfo = NULL;
 struct MPstats* MPstats = NULL;
 
 static void cleanup(int sig); // Runs when program terminates
-static short int iflag=0;  // number of capture interfaces
-static short int tdflag=0; // Number of T_delta definitions.
 
 static pthread_t main_thread;
 static int local = 0;       /* run in local-mode, don't try to contact MArCd */
 int port = 0; /* used by control.c */
 static const char* destination = NULL;
-static struct CI CI[CI_NIC];
-struct CI* _CI = CI;
 static int cur_snaplen = DEFAULT_SNAPLEN;
 
 int flush_flag = 0;
@@ -177,27 +173,6 @@ void update_local_mtu(){
 		MPinfoI.MTU = ifr.ifr_mtu;
 	}
 }
-
-static void set_ci(const char* iface) {
-	if ( iflag == CI_NIC ){
-		logmsg(stderr, MAIN, "Cannot specify more than %d capture interface(s)\n", CI_NIC);
-		exit(1);
-	}
-
-	CI[iflag].iface = strdup(iface);
-	iflag++;
-}
-
-static void set_td(const char* arg) {
-	CI[tdflag].accuracy = atoi(arg);
-
-	if ( verbose_flag ){
-		printf("Setting T_delta(%d) = %d.\n", iflag, CI[tdflag].accuracy);
-	}
-
-	tdflag++;
-}
-
 
 enum Options {
 	OPTION_IGNORE = 256,
@@ -317,7 +292,7 @@ static void show_configuration(){
 	}
 	logmsg(verbose, MAIN, "  Capture Interfaces \n");
 	for ( int i = 0; i < noCI; i++) {
-		logmsg(verbose, MAIN, "    CI[%d]: %s   T_delta: %d digits\n", i, CI[i].iface, CI[i].accuracy);
+		logmsg(verbose, MAIN, "    CI[%d]: %s   T_delta: %d digits\n", i, _CI[i].iface, _CI[i].accuracy);
 	}
 
 	if ( MPinfo->iface ){
@@ -366,7 +341,7 @@ static int parse_argv(int argc, char** argv){
 			break;
 
 		case 'i': // interface to listen on
-			set_ci(optarg);
+			add_capture(optarg);
 			break;
 
 		case 's':  // MA Network Interface name
@@ -414,145 +389,6 @@ static int parse_argv(int argc, char** argv){
 			assert(0 && "declared but unhandled argument");
 			break;
 		}
-
-	return 0;
-}
-
-static int init_capture(){
-	for (int i=0; i < CI_NIC; i++) {
-		CI[i].id = i;
-		CI[i].driver = DRIVER_UNKNOWN;
-		CI[i].sd = -1;
-		CI[i].datamem = NULL;
-		CI[i].semaphore = NULL;
-		CI[i].packet_count = 0;
-		CI[i].matched_count = 0;
-		CI[i].dropped_count = 0;
-		CI[i].seq_drop = 0;
-		CI[i].iface = NULL;
-		CI[i].accuracy = 0;
-		pthread_mutex_init(&CI[i].mutex, NULL);
-		format_setup(&CI[i].format, FORMAT_DATE_STR | FORMAT_DATE_LOCALTIME | FORMAT_LAYER_APPLICATION);
-	}
-
-	/* reset memory */
-	memset(datamem, 0, sizeof(datamem));
-
-	return 0;
-}
-
-// Create childprocess for each Nic
-int setup_capture(){
-	int ret = 0;
-	void* (*func)(void*) = NULL;
-	sem_t flag;
-
-	logmsg(verbose, MAIN, "Creating capture_threads.\n");
-
-	sem_init(&flag, 0, 0);
-
-	for (int i=0; i < iflag; i++) {
-		CI[i].semaphore = &semaphore;
-		CI[i].flag = &flag;
-		func = NULL;
-
-		if ( strncmp("pcap", CI[i].iface, 4) == 0 ){
-			CI[i].driver = DRIVER_PCAP;
-			memmove(CI[i].iface, &CI[i].iface[4], strlen(&CI[i].iface[4])+1); /* plus terminating */
-		} else if (strncmp("dag", CI[i].iface, 3)==0) {
-			CI[i].driver = DRIVER_DAG;
-		} else if (strncmp("raw", CI[i].iface, 3)==0) {
-			CI[i].driver = DRIVER_RAW;
-			memmove(CI[i].iface, &CI[i].iface[3], strlen(&CI[i].iface[3])+1); /* plus terminating */
-		} else {
-#ifdef HAVE_DRIVER_PCAP
-			CI[i].driver = DRIVER_PCAP;
-#else
-			CI[i].driver = DRIVER_RAW;
-#endif
-		}
-
-		switch ( CI[i].driver ){
-		case DRIVER_PCAP:
-#ifdef HAVE_DRIVER_PCAP
-			func = pcap_capture;
-#else /* HAVE_DRIVER_PCAP */
-			logmsg(stderr, MAIN, "This MP lacks support for libpcap (rebuild with --with-pcap)\n");
-			return EINVAL;
-#endif /* HAVE_DRIVER_PCAP */
-
-			break;
-
-		case DRIVER_RAW:
-#ifdef HAVE_DRIVER_RAW
-			func = capture;
-#elif defined(HAVE_DRIVER_PCAP)
-			func = pcap_capture; /* fallback on pcap */
-#else
-			logmsg(stderr, MAIN, "This MP lacks support for raw packet capture (use libpcap or DAG instead or rebuild with --with-raw)\n");
-			return EINVAL;
-#endif /* HAVE_DRIVER_RAW */
-
-			break;
-
-		case DRIVER_DAG:
-#ifdef HAVE_DAG
-#ifdef HAVE_DRIVER_DAG
-			func = dag_capture;
-#else /* HAVE_DRIVER_DAG */
-			func = dag_legacy_capture;
-#endif
-
-#else /* HAVE_DAG */
-			logmsg(stderr, MAIN, "This MP lacks support for Endace DAG (rebuild with --with-dag)\n");
-			return EINVAL;
-#endif
-			break;
-
-		case DRIVER_UNKNOWN:
-			abort(); /* cannot happen, defaults to RAW */
-			break;
-		}
-	}
-
-	/* launch all capture threads */
-	for (int i=0; i < iflag; i++) {
-		if ( (ret=pthread_create( &CI[i].thread, NULL, func, &CI[i])) != 0 ) {
-			logmsg(stderr, MAIN, "Error creating capture thread.");
-			return ret;
-		}
-	}
-
-	/* await completion
-	 * not using flag_wait because it should wait a total of N secs and not N secs
-	 * per thread. */
-	{
-		struct timespec ts;
-		if ( clock_gettime(CLOCK_REALTIME, &ts) != 0 ){
-			int saved = errno;
-			logmsg(stderr, MAIN, "clock_gettime() returned %d: %s\n", saved, strerror(saved));
-			return saved;
-		}
-		ts.tv_sec += 20; /* 20s timeout */
-
-		for (int i=0; i < iflag; i++) {
-			if ( sem_timedwait(&flag, &ts) == 0 ){
-				continue;
-			}
-
-			int saved = errno;
-			switch ( saved ){
-			case ETIMEDOUT:
-			case EINTR:
-				break;
-			default:
-				logmsg(stderr, MAIN, "sem_timedwait() returned %d: %s\n", saved, strerror(saved));
-			}
-			return saved;
-		}
-	}
-
-	sem_destroy(&flag);
 
 	return 0;
 }
@@ -607,8 +443,6 @@ int main (int argc, char **argv){
 	sigdelset(&all, SIGINT); /* always trap SIGINT */
 	sigprocmask(SIG_SETMASK, &all, &sigmask);
 
-	init_capture();
-
 	/* parse_config prints errors, never fatal */
 	parse_config("mp.conf", &argc, &argv, longopts);
 
@@ -620,7 +454,6 @@ int main (int argc, char **argv){
 	if ( parse_argv(argc, argv) != 0 ){
 		exit(1);
 	}
-	noCI = iflag;
 
 	/* force verbose if debug is enabled */
 	verbose_flag |= debug_flag;
