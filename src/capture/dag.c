@@ -41,19 +41,19 @@ static int process_packet(struct dag_context* cap, dag_record_t* dr, unsigned ch
 	/**
 	 *     For ethernet:
 	 *
-	 *
-	 *      dr            +------------ wire length ----------+
-	 *       |            |                                   |
-	 *       v            v                                   v
-	 *       +------------+---+------------\/\/\----------+---+- - +
-	 *       |    DAG     | S |                           | F |
-	 *       |  Header    | D |           Payload         | C |    |
-	 *       |            | F |                           | S |
-	 *       +------------+---+------------\/\/\----------+---+- - +
-	 *                    ^                                        ^
-	 *                    |                                        |
-	 *                    +----------- Record length --------------+
-	 *                    |              (aligned)
+	 *   dag record
+	 *       |    offset ---+     +-------- Wire length -------+
+	 *       | (do not use) |     |                            |
+	 *       v              v     v                            v
+	 *       +------------+---+---+---------\/\/\----------+---+- - +
+	 *       |    DAG     |   | P |                        | F |
+	 *       |  Header    |   | a |        Payload         | C |    |
+	 *       |            |   | d |                        | S |
+	 *       +------------+---+---+---------\/\/\----------+---+- - +
+	 *       ^            ^                                         ^
+	 *       |            |                                         |
+	 *       +------------)------------ Record length --------------+
+	 *                    |               (aligned)
 	 *                    |
 	 *    Payload --------+
 	 */
@@ -65,8 +65,8 @@ static int process_packet(struct dag_context* cap, dag_record_t* dr, unsigned ch
 
 	size_t discarded_bytes = 0;
 	if ( dr->type == TYPE_ETH ) {
-		discarded_bytes = 4; /* discard SFD and checksum */ /* checksum should be 4 bytes? --ext 2012-09-11 */
-		payload += 2;        /* first byte is Start Frame Delimiter (SFD), not sure about the second --ext 2012-09-11 */
+		discarded_bytes = 4;  /* discard checksum */
+		payload += 2;         /* skip offset and padding */
 	}
 
 	/* when and why? --ext 2011-06-14 */
