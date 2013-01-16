@@ -63,9 +63,7 @@ static int process_packet(struct dag_context* cap, dag_record_t* dr, unsigned ch
 	const size_t pload_len = min(rlen-dag_record_size, wlen); /* payload length */
 	const char* payload = ((const char *) dr) + dag_record_size;
 
-	size_t discarded_bytes = 0;
 	if ( dr->type == TYPE_ETH ) {
-		discarded_bytes = 4;  /* discard checksum */
 		payload += 2;         /* skip offset and padding */
 	}
 
@@ -96,11 +94,8 @@ static int process_packet(struct dag_context* cap, dag_record_t* dr, unsigned ch
 			return 0;
 	}
 
-	const size_t data_len = min(min(pload_len, wlen - discarded_bytes), PKT_CAPSIZE);
-	const size_t padding = PKT_CAPSIZE - data_len;
-
+	const size_t data_len = min(min(pload_len, wlen), PKT_CAPSIZE);
 	memcpy(dst, payload, data_len);
-	memset(dst + data_len, 0, padding);
 
 	/* copied from /software/palDesktop/measurementpoint/src/v06/mp_fullsize (I assume it works) */ {
 		unsigned long long int ts = dr->ts;
@@ -111,7 +106,7 @@ static int process_packet(struct dag_context* cap, dag_record_t* dr, unsigned ch
 		head->ts.tv_psec *= 250;       // DAG counter is based on 250ps increments..
 	}
 
-	head->len    = wlen - discarded_bytes;
+	head->len    = wlen - 4; /* do not include FCS in len */
 	head->caplen = data_len;
 
 	/* rewrite iface to indicate direction (dag0 -> d0X where X is direction) */
