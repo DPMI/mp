@@ -327,7 +327,9 @@ void* dag_capture(void* ptr){
 
 	logmsg(verbose, CAPTURE, "CI[%d] initializing capture on %s using DAGv2 (memory at %p).\n", CI->id, cap.base.iface, &datamem[CI->id]);
 
-	if ( !setup_device(CI, dag_config) ){
+	char config[256];
+	snprintf(config, sizeof(config), "slen=%d %s", snaplen(), dag_config);
+	if ( !setup_device(CI, config) ){
 		/* error already show */
 		return NULL;
 	}

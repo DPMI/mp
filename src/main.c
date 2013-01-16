@@ -60,6 +60,10 @@
 #include <dagapi.h>
 #endif /* HAVE_DAG */
 
+#define STR_EXPAND(x) #x
+#define STR(x) STR_EXPAND(x)
+#define DEFAULT_SNAPLEN 1536
+
 struct packet_stat{              // struct for interface statistics
 	u_int pkg_recv;
 	u_int	pkg_drop;
@@ -80,6 +84,7 @@ int port = 0; /* used by control.c */
 static const char* destination = NULL;
 static struct CI CI[CI_NIC];
 struct CI* _CI = CI;
+static int cur_snaplen = DEFAULT_SNAPLEN;
 
 int flush_flag = 0;
 int verbose_flag = 0;
@@ -103,7 +108,11 @@ int ENCRYPT = 0;
 int globalDropcount = 0;
 int memDropcount = 0;
 int dag_mode = 0; /* 0: rxtx 1: wiretap */
-const char* dag_config = "varlen slen=1536";
+const char* dag_config = "varlen";
+
+int snaplen(){
+	return cur_snaplen;
+}
 
 static void ma_nic(const char* arg) {
 	struct ifreq ifr;
@@ -175,7 +184,7 @@ enum Options {
 };
 
 static const char* shortopts =
-	"hvqd:Df:i:s:p:o:"
+	"hvqd:Df:i:s:p:o:S:"
 #ifdef HAVE_DRIVER_DAG
 	"wmc:"
 #endif
@@ -197,6 +206,7 @@ static struct option longopts[]= {
 	{"quiet",        no_argument,       &verbose_flag, 0},
 	{"show-packets", no_argument ,      &show_packets, 1},
 	{"config",       required_argument, NULL, OPTION_IGNORE},
+	{"snaplen",      required_argument, NULL, 'S'},
 
 #ifdef HAVE_DRIVER_DAG
 	{"dag.wiretap",  no_argument,       NULL, 'w'},
@@ -218,6 +228,7 @@ static void show_usage(const char* program_name){
 	       "  -s, --manic=INTERFACE       MA Interface.\n"
 	       "  -p, --port=PORT             Control interface listen port [default: 2000]\n"
 	       "  -i, --interface=INTERFACE   Capture Interface (REQUIRED)\n"
+	       "  -S, --snaplen=BYTES         Maximum packet capture size [default: " STR(DEFAULT_SNAPLEN) "]\n"
 	       "  -f, --config=FILE           Read configuration from FILE [default: mp.conf]\n"
 	       "      --local                 LOCAL MODE, do not talk to MArC, capture\n"
 	       "                              everything and store to file.\n"
@@ -242,7 +253,8 @@ static void show_usage(const char* program_name){
 	printf("  -m  --dag.rxtx              Port A as RX and port B as TX [default].\n");
 	printf("      --forward               Alias for --dag.wiretap\n");
 	printf("  -c, --dag-config=STRING     Dag configuration commands. See dag manual for\n"
-	       "                              details, e.g. dagfour(1). [Default: \"%s\"]\n", dag_config);
+	       "                              details, e.g. dagfour(1). slen is always prepended\n"
+	       "                              to the config. [Default: \"%s\"]\n", dag_config);
 #endif
 
 	printf("\n");
@@ -267,6 +279,7 @@ static void show_configuration(){
 	logmsg(verbose, MAIN, "\n");
 	logmsg(verbose, MAIN, "MP Configuration:\n");
 	logmsg(verbose, MAIN, "  Mode: %s\n", local ? "Local" : "MA");
+	logmsg(verbose, MAIN, "  Snaplen: %d\n", snaplen());
 	if ( local ){
 		logmsg(verbose, MAIN, "  MAMPid: %s\n", mampid_get(MPinfo->id));
 		logmsg(verbose, MAIN, "  Comment: %s\n", MPinfo->comment);
@@ -343,6 +356,10 @@ static int parse_argv(int argc, char** argv){
 
 		case 'o': /* --output */
 			destination = optarg;
+			break;
+
+		case 'S': /* --snaplen */
+			cur_snaplen = atoi(optarg);
 			break;
 
 		case 'v': /* --verbose */
