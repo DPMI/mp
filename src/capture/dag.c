@@ -61,16 +61,10 @@ static int process_packet(struct dag_context* cap, dag_record_t* dr, unsigned ch
 	const size_t rlen = ntohs(dr->rlen);                      /* DAG record length (aligned) */
 	const size_t wlen = ntohs(dr->wlen);                      /* DAG wire length */
 	const size_t pload_len = min(rlen-dag_record_size, wlen); /* payload length */
-	const char* payload = ((const char *) dr) + dag_record_size;
+	const char* payload = ((const char *)dr) + dag_record_size;
 
-	if ( dr->type == TYPE_ETH ) {
+	if ( dr->type == TYPE_ETH ){
 		payload += 2;         /* skip offset and padding */
-	}
-
-	/* when and why? --ext 2011-06-14 */
-	if (payload == NULL && pload_len != 0) {
-		//++pload_null_errs;
-		return 0;
 	}
 
 	if (dr->flags.trunc) {
@@ -94,8 +88,7 @@ static int process_packet(struct dag_context* cap, dag_record_t* dr, unsigned ch
 			return 0;
 	}
 
-	const size_t data_len = min(min(pload_len, wlen), PKT_CAPSIZE);
-	memcpy(dst, payload, data_len);
+	memcpy(dst, payload, pload_len);
 
 	/* copied from /software/palDesktop/measurementpoint/src/v06/mp_fullsize (I assume it works) */ {
 		unsigned long long int ts = dr->ts;
@@ -107,7 +100,7 @@ static int process_packet(struct dag_context* cap, dag_record_t* dr, unsigned ch
 	}
 
 	head->len    = wlen - 4; /* do not include FCS in len */
-	head->caplen = data_len;
+	head->caplen = pload_len;
 
 	/* rewrite iface to indicate direction (dag0 -> d0X where X is direction) */
 	head->nic[1] = head->nic[3];
