@@ -188,15 +188,16 @@ static int push_packet(struct CI* CI, write_head* whead, cap_head* head, unsigne
 		return -1;
 	}
 
-	if ( show_packets ){
+	if ( __builtin_expect(show_packets, 0) ){
 		print_packet(stderr, head);
 	}
+
+	whead->consumer = recipient;
 
 	// prevent the reader from operating on the same chunk of memory.
 	pthread_mutex_lock(&CI->mutex);
 	{
 		whead->free++; //marks the post that it has been written
-		whead->consumer = recipient;
 		CI->buffer_usage++;
 
 		if ( whead->free>1 ){ //Control buffer overrun
