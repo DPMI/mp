@@ -54,6 +54,7 @@ struct consumer {
 	int index;
 
 	enum state state;                  /* state of this consumer */
+	int want_ethhead;                  // 1 if consumer want the ethernet header or 0 if just the payload (implies want_sendhead)
 	int want_sendhead;                 // 1 if consumer want the sendheader or 0 if just the payload
 	int sendcount;                     // number of packets recieved but not sent
 	uint16_t dropCount;                // number of drops during CONSUMERn collection time.

@@ -85,9 +85,12 @@ void send_packet(struct consumer* con){
 	const u_char* data = con->sendptrref;
 	size_t data_size = payload_size;
 
-	if ( con->want_sendhead ){
+	if ( con->want_ethhead ){
 		data -= header_size;
 		data_size += header_size;
+	} else if ( con->want_sendhead ){
+		data -= sizeof(struct sendhead);
+		data_size += sizeof(struct sendhead);
 	}
 
 	ret = stream_write(con->stream, data, data_size);
@@ -200,6 +203,7 @@ void* sender_capfile(struct thread_data* td, void* ptr){
 
 	struct consumer con;
 	consumer_init(&con, 0, sendmem[0]); /* in local mode only 1 stream is created, so it is safe to "steal" memory from consumer 0 */
+	con.want_ethhead = 0;
 	con.want_sendhead = 0;
 
 	//if ( (ret=createstream(&con.stream, &dest, NULL, mampid_get(MPinfo->id), MPinfo->comment)) != 0 ){
