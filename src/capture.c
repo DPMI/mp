@@ -222,7 +222,7 @@ static int fill_caphead(cap_head* head, const char* iface, const char* MAMPid){
 	/* reset caphead to it won't contain any garbage */
 	memset(head, 0, sizeof(cap_head));
 
-	strncpy(head->nic, iface, 4);
+	strncpy(head->nic, iface, 8);
 	strncpy(head->mampid, MAMPid, 8);
 
 	/* force nullterminator */
