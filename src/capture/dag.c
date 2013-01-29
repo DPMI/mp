@@ -41,19 +41,19 @@ static int process_packet(struct dag_context* cap, dag_record_t* dr, unsigned ch
 	/**
 	 *     For ethernet:
 	 *
-	 *
-	 *      dr            +------------ wire length ----------+
-	 *       |            |                                   |
-	 *       v            v                                   v
-	 *       +------------+---+------------\/\/\----------+---+- - +
-	 *       |    DAG     | S |                           | F |
-	 *       |  Header    | D |           Payload         | C |    |
-	 *       |            | F |                           | S |
-	 *       +------------+---+------------\/\/\----------+---+- - +
-	 *                    ^                                        ^
-	 *                    |                                        |
-	 *                    +----------- Record length --------------+
-	 *                    |              (aligned)
+	 *   dag record
+	 *       |    offset ---+     +-------- Wire length -------+
+	 *       | (do not use) |     |                            |
+	 *       v              v     v                            v
+	 *       +------------+---+---+---------\/\/\----------+---+- - +
+	 *       |    DAG     |   | P |                        | F |
+	 *       |  Header    |   | a |        Payload         | C |    |
+	 *       |            |   | d |                        | S |
+	 *       +------------+---+---+---------\/\/\----------+---+- - +
+	 *       ^            ^                                         ^
+	 *       |            |                                         |
+	 *       +------------)------------ Record length --------------+
+	 *                    |               (aligned)
 	 *                    |
 	 *    Payload --------+
 	 */
@@ -61,18 +61,10 @@ static int process_packet(struct dag_context* cap, dag_record_t* dr, unsigned ch
 	const size_t rlen = ntohs(dr->rlen);                      /* DAG record length (aligned) */
 	const size_t wlen = ntohs(dr->wlen);                      /* DAG wire length */
 	const size_t pload_len = min(rlen-dag_record_size, wlen); /* payload length */
-	const char* payload = ((const char *) dr) + dag_record_size;
+	const char* payload = ((const char *)dr) + dag_record_size;
 
-	size_t discarded_bytes = 0;
-	if ( dr->type == TYPE_ETH ) {
-		discarded_bytes = 4; /* discard SFD and checksum */ /* checksum should be 4 bytes? --ext 2012-09-11 */
-		payload += 2;        /* first byte is Start Frame Delimiter (SFD), not sure about the second --ext 2012-09-11 */
-	}
-
-	/* when and why? --ext 2011-06-14 */
-	if (payload == NULL && pload_len != 0) {
-		//++pload_null_errs;
-		return 0;
+	if ( dr->type == TYPE_ETH ){
+		payload += 2;         /* skip offset and padding */
 	}
 
 	if (dr->flags.trunc) {
@@ -96,11 +88,7 @@ static int process_packet(struct dag_context* cap, dag_record_t* dr, unsigned ch
 			return 0;
 	}
 
-	const size_t data_len = min(min(pload_len, wlen - discarded_bytes), PKT_CAPSIZE);
-	const size_t padding = PKT_CAPSIZE - data_len;
-
-	memcpy(dst, payload, data_len);
-	memset(dst + data_len, 0, padding);
+	memcpy(dst, payload, pload_len);
 
 	/* copied from /software/palDesktop/measurementpoint/src/v06/mp_fullsize (I assume it works) */ {
 		unsigned long long int ts = dr->ts;
@@ -111,8 +99,8 @@ static int process_packet(struct dag_context* cap, dag_record_t* dr, unsigned ch
 		head->ts.tv_psec *= 250;       // DAG counter is based on 250ps increments..
 	}
 
-	head->len    = wlen - discarded_bytes;
-	head->caplen = data_len;
+	head->len    = wlen - 4; /* do not include FCS in len */
+	head->caplen = pload_len;
 
 	/* rewrite iface to indicate direction (dag0 -> d0X where X is direction) */
 	head->nic[1] = head->nic[3];
@@ -122,9 +110,12 @@ static int process_packet(struct dag_context* cap, dag_record_t* dr, unsigned ch
 	return head->len;
 }
 
-static int setup_device(struct CI* CI, const char* config){
+static int setup_device(struct CI* CI){
 	char dev[256];
 	snprintf(dev, 256, "/dev/%s", CI->iface);
+
+	char config[256];
+	snprintf(config, sizeof(config), "slen=%d %s", snaplen(), dag_config);
 
 	logmsg(verbose, CAPTURE, "\tdevice: %s\n", dev);
 	logmsg(verbose, CAPTURE, "\tconfig: \"%s\"\n", config);
@@ -143,7 +134,7 @@ static int setup_device(struct CI* CI, const char* config){
 		return 0;
 	}
 
-	if ( dag_configure(CI->sd, (char*)config) < 0 ) {
+	if ( dag_configure(CI->sd, config) < 0 ) {
 		int e = errno;
 		logmsg(stderr, CAPTURE, "dag_configure() on interface %s returned %d: %s\n", dev, e, strerror(e));
 		return 0;
@@ -166,7 +157,7 @@ static int read_packet_rxtx(struct dag_context* cap, unsigned char* dst, struct 
 	const size_t rlen = ntohs(dr->rlen);
 
 	/* not enough data in buffer */
-	if ( diff < rlen ){
+	if ( diff < (int)rlen ){
 		cap->top = dag_advance_stream(cap->fd, RX_STREAM, &cap->bottom);
 		return 0; /* process eventual packages in the next batch */
 	}
@@ -327,7 +318,7 @@ void* dag_capture(void* ptr){
 
 	logmsg(verbose, CAPTURE, "CI[%d] initializing capture on %s using DAGv2 (memory at %p).\n", CI->id, cap.base.iface, &datamem[CI->id]);
 
-	if ( !setup_device(CI, dag_config) ){
+	if ( !setup_device(CI) ){
 		/* error already show */
 		return NULL;
 	}
@@ -412,7 +403,7 @@ void* dag_legacy_capture(void* ptr){
 
 	logmsg(verbose, CAPTURE, "CI[%d] initializing capture on %s using DAGv1 (memory at %p).\n", CI->id, cap.base.iface, &datamem[CI->id]);
 
-	if ( !setup_device(CI, dag_config) ){
+	if ( !setup_device(CI) ){
 		/* error already show */
 		return NULL;
 	}

@@ -119,6 +119,11 @@ struct CI {
 void consumer_init(struct consumer* con, int index, unsigned char* buffer);
 void consumer_init_all();
 
+/**
+ * Get selected snaplen.
+ */
+int snaplen();
+
 /* // Global variables. */
 struct consumer MAsd[MAX_FILTERS];
 

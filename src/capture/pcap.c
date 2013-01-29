@@ -55,7 +55,7 @@ static int read_packet_pcap(struct pcap_context* ctx, unsigned char* dst, struct
 
 static void init_live(struct pcap_context* cap){
 	logmsg(verbose, CAPTURE, "  pcap live capture (timeout: %dms)\n", pcap_timeout);
-	cap->handle = pcap_open_live (cap->base.iface, BUFSIZ, 1, pcap_timeout, cap->errbuf);   /* open device for reading */
+	cap->handle = pcap_open_live (cap->base.iface, snaplen(), 1, pcap_timeout, cap->errbuf);   /* open device for reading */
 }
 
 static void init_offline(struct pcap_context* cap){
