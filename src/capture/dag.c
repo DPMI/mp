@@ -145,12 +145,17 @@ static int setup_device(struct CI* CI){
 }
 
 #ifdef HAVE_DRIVER_DAG
+
+static void dagcapture_fill_buffer(struct dag_context* cap){
+	cap->top = dag_advance_stream(cap->fd, RX_STREAM, &cap->bottom);
+}
+
 static int read_packet_rxtx(struct dag_context* cap, unsigned char* dst, struct cap_header* head){
 	const ptrdiff_t diff = cap->top - cap->bottom;
 
 	/* no packet in buffer */
 	if ( diff < dag_record_size ){
-		cap->top = dag_advance_stream(cap->fd, RX_STREAM, &cap->bottom);
+		dagcapture_fill_buffer(cap);
 		return 0; /* process eventual packages in the next batch */
 	}
 
@@ -159,7 +164,7 @@ static int read_packet_rxtx(struct dag_context* cap, unsigned char* dst, struct 
 
 	/* not enough data in buffer */
 	if ( diff < (int)rlen ){
-		cap->top = dag_advance_stream(cap->fd, RX_STREAM, &cap->bottom);
+		dagcapture_fill_buffer(cap);
 		return 0; /* process eventual packages in the next batch */
 	}
 
