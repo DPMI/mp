@@ -197,7 +197,7 @@ void consumer_init(struct consumer* con, int index, unsigned char* buffer){
 	con->shead=(struct sendhead*)(buffer+sizeof(struct ethhdr)); // Set pointer to the sendhead, i.e. mp transmission protocol
 	con->shead->sequencenr=htons(0x0000);    // Initialize the sequencenr to zero.
 	con->shead->nopkts=htons(0);                    // Initialize the number of packet to zero
-	con->shead->flush=htons(0);                     // Initialize the flush indicator.
+	con->shead->flags=htonl(0);                     // Initialize the flush indicator.
 	con->shead->version.major=htons(CAPUTILS_VERSION_MAJOR); // Specify the file format used, major number
 	con->shead->version.minor=htons(CAPUTILS_VERSION_MINOR); // Specify the file format used, minor number
 	/*shead[i]->losscounter=htons(0); */

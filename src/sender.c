@@ -76,6 +76,7 @@ void send_packet(struct consumer* con){
 
 	assert(payload_size > 0);
 
+	con->shead->flags = htonl(con->shead->flags);
 	con->shead->nopkts = htonl(con->sendcount);
 	/*con->shead->losscounter=htons((globalDropcount+memDropcount)-dropCount[whead->consumer]); */
 	con->dropCount = globalDropcount + memDropcount;
@@ -109,8 +110,9 @@ void send_packet(struct consumer* con){
 		}
 	}
 
-	//Update the sequence number.
+	//Update the sequence number and reset
 	con->shead->sequencenr = htonl((seqnr+1) % 0xFFFF);
+	con->shead->flags = 0;
 
 	/* update stats */
 	MPstats->written_count += con->sendcount;
@@ -358,9 +360,8 @@ static void flushBuffer(int i, int terminate){
 
 	logmsg(stderr, SENDER, "Consumer %d needs to be flushed, contains %d pkts\n", i, con->sendcount);
 
-	con->shead->flush = htons(terminate);
+	con->shead->flags = SENDER_FLUSH;
 	send_packet(con);
-	con->shead->flush = htons(0);
 }
 
 static void flushAll(int terminate){

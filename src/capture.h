@@ -28,6 +28,7 @@
 #include <caputils/caputils.h>
 #include <caputils/marc.h>
 #include <caputils/log.h>
+#include <caputils/send.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <semaphore.h>
