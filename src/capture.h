@@ -138,7 +138,7 @@ extern int memDropcount;                   // Total amount of PDUs that were dro
 extern struct CI* _CI; /* DO _*NOT*_ USE! For backwards compability ONLY! */
 
 // allocate capture buffer.
-u_char datamem[CI_NIC][PKT_BUFFER][(PKT_CAPSIZE+sizeof(write_head)+sizeof(cap_head))];
+extern u_char datamem[CI_NIC][PKT_BUFFER][(PKT_CAPSIZE+sizeof(write_head)+sizeof(cap_head))];
 
 // allocate sendbuffer
 u_char sendmem[MAX_FILTERS][sizeof(struct ethhdr)+sizeof(struct sendhead)+maxSENDSIZE*(sizeof(cap_head)+PKT_CAPSIZE)];

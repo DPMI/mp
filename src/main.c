@@ -411,6 +411,9 @@ static int init_capture(){
 		format_setup(&CI[i].format, FORMAT_DATE_STR | FORMAT_DATE_LOCALTIME | FORMAT_LAYER_APPLICATION);
 	}
 
+	/* reset memory */
+	memset(datamem, 0, sizeof(datamem));
+
 	return 0;
 }
 

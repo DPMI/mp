@@ -50,6 +50,8 @@
 
 extern int show_packets;
 
+u_char datamem[CI_NIC][PKT_BUFFER][(PKT_CAPSIZE+sizeof(write_head)+sizeof(cap_head))] = {{{0,}}};
+
 static int push_packet(struct CI* CI, write_head* whead, cap_head* head, unsigned char* packet_buffer){
 	const int recipient = filter(CI->iface, packet_buffer, head);
 	if ( recipient == -1 ){ /* no match */
