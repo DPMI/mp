@@ -57,6 +57,7 @@ static int push_packet(struct CI* CI, write_head* whead, cap_head* head, unsigne
 	}
 
 	if ( __builtin_expect(show_packets, 0) ){
+		logmsg(stderr, SENDER, "PKT ");
 		format_pkg(stderr, &CI->format, head);
 	}
 
