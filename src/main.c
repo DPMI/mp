@@ -408,6 +408,7 @@ static int init_capture(){
 		CI[i].iface = NULL;
 		CI[i].accuracy = 0;
 		pthread_mutex_init(&CI[i].mutex, NULL);
+		format_setup(&CI[i].format, FORMAT_DATE_STR | FORMAT_DATE_LOCALTIME | FORMAT_LAYER_APPLICATION);
 	}
 
 	return 0;

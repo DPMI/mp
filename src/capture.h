@@ -27,6 +27,7 @@
 #include "thread.h"
 #include <caputils/caputils.h>
 #include <caputils/marc.h>
+#include <caputils/log.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <semaphore.h>
@@ -111,6 +112,7 @@ struct CI {
 	pthread_mutex_t mutex;
 
 	/* Statistics */
+	struct format format;
 	long packet_count;
 	long matched_count;
 	int buffer_usage;    /* How many bytes of the buffer is used? */
