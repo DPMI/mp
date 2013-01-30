@@ -113,9 +113,11 @@ struct CI {
 
 	/* Statistics */
 	struct format format;
-	long packet_count;
-	long matched_count;
-	int buffer_usage;    /* How many bytes of the buffer is used? */
+	long packet_count;          /* Total number of received packets */
+	long matched_count;         /* Total number of matched packets */
+	long dropped_count;         /* Total number of dropped packets */
+	int buffer_usage;           /* How many bytes of the buffer is used? */
+	int seq_drop;               /* How many packets in (current) sequence has been dropped */
 };
 
 void consumer_init(struct consumer* con, int index, unsigned char* buffer);
@@ -138,7 +140,7 @@ extern int memDropcount;                   // Total amount of PDUs that were dro
 extern struct CI* _CI; /* DO _*NOT*_ USE! For backwards compability ONLY! */
 
 // allocate capture buffer.
-u_char datamem[CI_NIC][PKT_BUFFER][(PKT_CAPSIZE+sizeof(write_head)+sizeof(cap_head))];
+extern u_char datamem[CI_NIC][PKT_BUFFER][(PKT_CAPSIZE+sizeof(write_head)+sizeof(cap_head))];
 
 // allocate sendbuffer
 u_char sendmem[MAX_FILTERS][sizeof(struct ethhdr)+sizeof(struct sendhead)+maxSENDSIZE*(sizeof(cap_head)+PKT_CAPSIZE)];

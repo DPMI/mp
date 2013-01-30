@@ -112,7 +112,7 @@ AS_IF([test -z "$PKT_BUFFER"],
 
 AC_ARG_VAR([PKT_CAPSIZE], [Maximum size of a captured packet in bytes. @<:@default=1514@:>@])
 AS_IF([test -z "$PKT_CAPSIZE"],
-	[AC_DEFINE([PKT_CAPSIZE], 1514, [Maximum size of a captured packet])],
+	[AC_DEFINE([PKT_CAPSIZE], 1516, [Maximum size of a captured packet])],
 	[AC_DEFINE_UNQUOTED([PKT_CAPSIZE], $PKT_CAPSIZE, [Maximum size of a captured packet])]
 )
 

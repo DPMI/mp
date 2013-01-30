@@ -50,6 +50,8 @@
 
 extern int show_packets;
 
+u_char datamem[CI_NIC][PKT_BUFFER][(PKT_CAPSIZE+sizeof(write_head)+sizeof(cap_head))] = {{{0,}}};
+
 static int push_packet(struct CI* CI, write_head* whead, cap_head* head, unsigned char* packet_buffer){
 	const int recipient = filter(CI->iface, packet_buffer, head);
 	if ( recipient == -1 ){ /* no match */
@@ -61,23 +63,24 @@ static int push_packet(struct CI* CI, write_head* whead, cap_head* head, unsigne
 		format_pkg(stderr, &CI->format, head);
 	}
 
-	whead->consumer = recipient;
-
-	// prevent the reader from operating on the same chunk of memory.
-	pthread_mutex_lock(&CI->mutex);
-	{
-		whead->free++; //marks the post that it has been written
-		CI->buffer_usage++;
-
-		if ( whead->free>1 ){ //Control buffer overrun
-			logmsg(stderr, CAPTURE, "CI[%d] OVERWRITING: %ld @ %d for the %d time \n", CI->id, pthread_self(), CI->writepos, whead->free);
-			logmsg(stderr, CAPTURE, "CI[%d] bufferUsage=%d\n", CI->id, CI->buffer_usage);
+	if ( __builtin_expect(whead->free == 1, 0) ){ //Control buffer overrun
+		if ( CI->seq_drop == 0){
+			logmsg(stderr, CAPTURE, "CI[%d] Buffer full, dropping packet(s). writepos=%d, bufferUsage=%d\n", CI->id, CI->writepos, CI->buffer_usage);
 		}
+		CI->dropped_count++;
+		CI->seq_drop++;
+		return -1;
+	} else if ( __builtin_expect(CI->seq_drop > 1, 0) ){
+		logmsg(stderr, CAPTURE, "CI[%d] .. %d packets was dropped.\n", CI->id, CI->seq_drop);
 	}
-	pthread_mutex_unlock(&CI->mutex);
 
 	/* increment write position */
 	CI->writepos = (CI->writepos+1) % PKT_BUFFER;
+	CI->seq_drop = 0;
+	__sync_add_and_fetch(&CI->buffer_usage, 1);
+
+	whead->consumer = recipient;     /* store recipient */
+	whead->free = 1;                 /* marks the post that it has been written. This must always be the last action as the sender might kick in otherwise  */
 
 	/* flag that another packet is ready */
 	if ( sem_post(CI->semaphore) != 0 ){
