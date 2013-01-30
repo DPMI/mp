@@ -113,9 +113,11 @@ struct CI {
 
 	/* Statistics */
 	struct format format;
-	long packet_count;
-	long matched_count;
-	int buffer_usage;    /* How many bytes of the buffer is used? */
+	long packet_count;          /* Total number of received packets */
+	long matched_count;         /* Total number of matched packets */
+	long dropped_count;         /* Total number of dropped packets */
+	int buffer_usage;           /* How many bytes of the buffer is used? */
+	int seq_drop;               /* How many packets in (current) sequence has been dropped */
 };
 
 void consumer_init(struct consumer* con, int index, unsigned char* buffer);

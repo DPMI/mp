@@ -64,12 +64,19 @@ static int push_packet(struct CI* CI, write_head* whead, cap_head* head, unsigne
 	}
 
 	if ( __builtin_expect(whead->free == 1, 0) ){ //Control buffer overrun
-		logmsg(stderr, CAPTURE, "CI[%d] Buffer full, dropping packet. writepos=%d, bufferUsage=%d\n", CI->id, CI->writepos, CI->buffer_usage);
+		if ( CI->seq_drop == 0){
+			logmsg(stderr, CAPTURE, "CI[%d] Buffer full, dropping packet(s). writepos=%d, bufferUsage=%d\n", CI->id, CI->writepos, CI->buffer_usage);
+		}
+		CI->dropped_count++;
+		CI->seq_drop++;
 		return -1;
+	} else if ( __builtin_expect(CI->seq_drop > 1, 0) ){
+		logmsg(stderr, CAPTURE, "CI[%d] .. %d packets was dropped.\n", CI->id, CI->seq_drop);
 	}
 
 	/* increment write position */
 	CI->writepos = (CI->writepos+1) % PKT_BUFFER;
+	CI->seq_drop = 0;
 	__sync_add_and_fetch(&CI->buffer_usage, 1);
 
 	whead->consumer = recipient;     /* store recipient */

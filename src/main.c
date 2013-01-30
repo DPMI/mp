@@ -404,7 +404,9 @@ static int init_capture(){
 		CI[i].semaphore = NULL;
 		CI[i].packet_count = 0;
 		CI[i].matched_count = 0;
+		CI[i].dropped_count = 0;
 		CI[i].buffer_usage = 0;
+		CI[i].seq_drop = 0;
 		CI[i].iface = NULL;
 		CI[i].accuracy = 0;
 		pthread_mutex_init(&CI[i].mutex, NULL);
