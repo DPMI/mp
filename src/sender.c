@@ -172,23 +172,18 @@ void copy_to_sendbuffer(struct consumer* dst, unsigned char* src, int* readPtr, 
 	assert(readPtr);
 	assert(CI);
 
-	pthread_mutex_lock(&CI->mutex);
-	{
-		assert(whead->free > 0);
-		assert(CI->buffer_usage > 0);
-
-		/* mark as free */
-		whead->free = 0;
-		CI->buffer_usage--;
-
-		/* copy packet */
-		memcpy(dst->sendpointer, head, packet_size);
-		memset(head, 0, sizeof(cap_head) + PKT_CAPSIZE);
-	}
-	pthread_mutex_unlock(&CI->mutex);
-
 	/* increment read position */
-	*readPtr = (readPos+1) % PKT_BUFFER ;
+	*readPtr = (readPos+1) % PKT_BUFFER;
+	const int __attribute__((unused)) BU = __sync_fetch_and_sub(&CI->buffer_usage, 1);
+
+	assert(whead->free > 0);
+	assert(BU > 0);
+
+	/* copy packet */
+	memcpy(dst->sendpointer, head, packet_size);
+
+	/* mark as free */
+	whead->free = 0;
 
 	/* update sendpointer */
 	dst->sendpointer += packet_size;

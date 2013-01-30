@@ -68,19 +68,12 @@ static int push_packet(struct CI* CI, write_head* whead, cap_head* head, unsigne
 		return -1;
 	}
 
-	whead->consumer = recipient;
-
-	// prevent the reader from operating on the same chunk of memory.
-	pthread_mutex_lock(&CI->mutex);
-	{
-		whead->free++; //marks the post that it has been written
-		CI->buffer_usage++;
-
-	}
-	pthread_mutex_unlock(&CI->mutex);
-
 	/* increment write position */
 	CI->writepos = (CI->writepos+1) % PKT_BUFFER;
+	__sync_add_and_fetch(&CI->buffer_usage, 1);
+
+	whead->consumer = recipient;     /* store recipient */
+	whead->free = 1;                 /* marks the post that it has been written. This must always be the last action as the sender might kick in otherwise  */
 
 	/* flag that another packet is ready */
 	if ( sem_post(CI->semaphore) != 0 ){
