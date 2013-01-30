@@ -63,6 +63,11 @@ static int push_packet(struct CI* CI, write_head* whead, cap_head* head, unsigne
 		format_pkg(stderr, &CI->format, head);
 	}
 
+	if ( __builtin_expect(whead->free == 1, 0) ){ //Control buffer overrun
+		logmsg(stderr, CAPTURE, "CI[%d] Buffer full, dropping packet. writepos=%d, bufferUsage=%d\n", CI->id, CI->writepos, CI->buffer_usage);
+		return -1;
+	}
+
 	whead->consumer = recipient;
 
 	// prevent the reader from operating on the same chunk of memory.
@@ -71,10 +76,6 @@ static int push_packet(struct CI* CI, write_head* whead, cap_head* head, unsigne
 		whead->free++; //marks the post that it has been written
 		CI->buffer_usage++;
 
-		if ( whead->free>1 ){ //Control buffer overrun
-			logmsg(stderr, CAPTURE, "CI[%d] OVERWRITING: %ld @ %d for the %d time \n", CI->id, pthread_self(), CI->writepos, whead->free);
-			logmsg(stderr, CAPTURE, "CI[%d] bufferUsage=%d\n", CI->id, CI->buffer_usage);
-		}
 	}
 	pthread_mutex_unlock(&CI->mutex);
 
