@@ -317,11 +317,13 @@ static void CIstatus1(){
 
 	char* dst = stat.CIstats;
 	for( int i=0; i < noCI; i++){
+		const float BU = (float)_CI[i].buffer_usage / PKT_BUFFER;
+
 		/* OMFG! This string is executed as SQL in MArCd */
 		dst += sprintf(dst,", CI%d='%s', PKT%d='%ld', BU%d='%d' ",
 		               i, _CI[i].iface,
 		               i, _CI[i].packet_count,
-		               i, _CI[i].buffer_usage);
+		               i, (int)(BU*100));
 	}
 
 	int ret;
@@ -345,10 +347,11 @@ static void CIstatus2(){
 	stat->noCI = noCI;
 
 	for( int i=0; i < noCI; i++){
+		const float BU = (float)_CI[i].buffer_usage / PKT_BUFFER;
 		strncpy(stat->CI[i].iface, _CI[i].iface, 8);
 		stat->CI[i].packet_count  = htonl(_CI[i].packet_count);
 		stat->CI[i].matched_count = htonl(_CI[i].matched_count);
-		stat->CI[i].buffer_usage  = htonl(_CI[i].buffer_usage);
+		stat->CI[i].buffer_usage  = htonl((int)(BU*1000)); /* sent as 1000 steps so receiver can parse percent with one decimal */
 	}
 
 	int ret;
@@ -377,11 +380,12 @@ static void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
 	       "\t%ld Packets matched filters.\n",
 	       mampid_get(MPinfo->id), mprules_count(), noCI, MPstats->packet_count, MPstats->matched_count);
 	for( int i=0; i < noCI; i++){
-		fprintf(verbose, "\tCI[%d]=%s  PKT[%d]=%ld  MCH[%d]=%ld  BU[%d]=%d\n",
+		const float BU = (float)_CI[i].buffer_usage / PKT_BUFFER;
+		fprintf(stderr, "\tCI[%d]=%s  PKT[%d]=%ld  MCH[%d]=%ld  BU[%d]=%.1f%%\n",
 		        i, _CI[i].iface,
 		        i, _CI[i].packet_count,
 		        i, _CI[i].matched_count,
-		        i, _CI[i].buffer_usage);
+		        i, BU*100.0f);
 	}
 
 	if ( mprules_count() == 0 ){
