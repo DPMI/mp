@@ -67,6 +67,7 @@ static int push_packet(struct CI* CI, write_head* whead, cap_head* head, unsigne
 		if ( CI->seq_drop == 0){
 			logmsg(stderr, CAPTURE, "CI[%d] Buffer full, dropping packet(s). writepos=%d, bufferUsage=%d\n", CI->id, CI->writepos, CI->buffer_usage);
 		}
+		MPstats->dropped_count++;
 		CI->dropped_count++;
 		CI->seq_drop++;
 		return -1;

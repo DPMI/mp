@@ -77,12 +77,14 @@ extern const struct MPinfo {
 	struct ether_addr hwaddr;          /* MA interface hwaddr */
 } *MPinfo;
 
-extern struct MPstats {
-long packet_count;   /* number of received packages */
-long matched_count;  /* number of packages with matched a filter */
-long sent_count;     /* number of capture packages sent (contains many packages) */
-long written_count;  /* number of actual packages sent */
-} *MPstats;
+struct MPstats {
+	long packet_count;   /* number of received packages */
+	long matched_count;  /* number of packages with matched a filter */
+	long dropped_count;  /* number of packages with matched a filter */
+	long sent_count;     /* number of capture packages sent (contains many packages) */
+	long written_count;  /* number of actual packages sent */
+};
+extern struct MPstats* MPstats;
 
 enum CIDriver {
 	DRIVER_UNKNOWN,
@@ -117,7 +119,7 @@ struct CI {
 	long packet_count;          /* Total number of received packets */
 	long matched_count;         /* Total number of matched packets */
 	long dropped_count;         /* Total number of dropped packets */
-	int buffer_usage;           /* How many bytes of the buffer is used? */
+	volatile int buffer_usage;  /* How many bytes of the buffer is used? */
 	int seq_drop;               /* How many packets in (current) sequence has been dropped */
 };
 

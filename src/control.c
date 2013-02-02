@@ -306,44 +306,20 @@ void* control(struct thread_data* td, void* prt){
 	return NULL;
 }
 
-static void CIstatus1(){
-	struct MPstatus stat;
-	memset(&stat, 0, sizeof(struct MPstatus));
-	stat.type = MP_STATUS_EVENT;
-	mampid_set(stat.MAMPid, MPinfo->id);
-	stat.noFilters = htonl(mprules_count());
-	stat.matched   = htonl(MPstats->matched_count);
-	stat.noCI      = htonl(noCI);
-
-	char* dst = stat.CIstats;
-	for( int i=0; i < noCI; i++){
-		const float BU = (float)_CI[i].buffer_usage / PKT_BUFFER;
-
-		/* OMFG! This string is executed as SQL in MArCd */
-		dst += sprintf(dst,", CI%d='%s', PKT%d='%ld', BU%d='%d' ",
-		               i, _CI[i].iface,
-		               i, _CI[i].packet_count,
-		               i, (int)(BU*100));
-	}
-
-	int ret;
-	if ( (ret=marc_push_event(client, (MPMessage*)&stat, NULL)) != 0 ){
-		logmsg(stderr, CONTROL, "marc_push_event() returned %d: %s\n", ret, strerror(ret));
-	}
-}
-
-static void CIstatus2(){
+static void CIstatusExtended(){
 	MPMessage msg;
-	struct MPstatus2* stat = (struct MPstatus2*)&msg.status2;
+	struct MPstatusExtended* stat = &msg.status;
 
 	memset(stat, 0, sizeof(MPMessage));
-	stat->type = MP_STATUS2_EVENT;
+	stat->type = MP_STATUS3_EVENT;
+	stat->version = 1;
 	mampid_set(stat->MAMPid, MPinfo->id);
 
 	stat->packet_count = htonl(MPstats->packet_count);
 	stat->matched_count = htonl(MPstats->matched_count);
+	stat->dropped_count = htonl(0 /*MPstats->dropped_count*/);
 	stat->status = 0;
-	stat->noFilters = htonl(mprules_count());
+	stat->noFilters = mprules_count();
 	stat->noCI = noCI;
 
 	for( int i=0; i < noCI; i++){
@@ -351,6 +327,7 @@ static void CIstatus2(){
 		strncpy(stat->CI[i].iface, _CI[i].iface, 8);
 		stat->CI[i].packet_count  = htonl(_CI[i].packet_count);
 		stat->CI[i].matched_count = htonl(_CI[i].matched_count);
+		stat->CI[i].dropped_count = htonl(_CI[i].dropped_count);
 		stat->CI[i].buffer_usage  = htonl((int)(BU*1000)); /* sent as 1000 steps so receiver can parse percent with one decimal */
 	}
 
@@ -366,26 +343,24 @@ static void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
 		return;
 	}
 
-	/* Legacy status event */
-	CIstatus1();
-
-	/* Extended status report */
-	CIstatus2();
+	CIstatusExtended();
 
 	/* Logging */
 	logmsg(stderr, CONTROL, "Status report for %s\n"
 	       "\t%zd Filters present\n"
 	       "\t%d Capture Interfaces.\n"
 	       "\t%ld Packets received.\n"
-	       "\t%ld Packets matched filters.\n",
-	       mampid_get(MPinfo->id), mprules_count(), noCI, MPstats->packet_count, MPstats->matched_count);
+	       "\t%ld Packets matched filters.\n"
+	       "\t%d Packets dropped.\n",
+	       mampid_get(MPinfo->id), mprules_count(), noCI, MPstats->packet_count, MPstats->matched_count, 0 /* MPstats->dropped_count */);
 	for( int i=0; i < noCI; i++){
 		const float BU = (float)_CI[i].buffer_usage / PKT_BUFFER;
-		fprintf(stderr, "\tCI[%d]=%s  PKT[%d]=%ld  MCH[%d]=%ld  BU[%d]=%.1f%%\n",
-		        i, _CI[i].iface,
-		        i, _CI[i].packet_count,
-		        i, _CI[i].matched_count,
-		        i, BU*100.0f);
+		fprintf(stderr, "\tCI[%d]=%s  PKT=%ld  MCH=%ld  DRP=%ld BU=%.1f%% (%d of %d)\n", i,
+		        _CI[i].iface,
+		        _CI[i].packet_count,
+		        _CI[i].matched_count,
+		        _CI[i].dropped_count,
+		        BU*100.0f, _CI[i].buffer_usage, PKT_BUFFER);
 	}
 
 	if ( mprules_count() == 0 ){
