@@ -315,21 +315,25 @@ static void CIstatusExtended(){
 	stat->version = 1;
 	mampid_set(stat->MAMPid, MPinfo->id);
 
-	stat->packet_count = htonl(MPstats->packet_count);
-	stat->matched_count = htonl(MPstats->matched_count);
-	stat->dropped_count = htonl(0 /*MPstats->dropped_count*/);
-	stat->status = 0;
-	stat->noFilters = mprules_count();
-	stat->noCI = noCI;
-
 	for( int i=0; i < noCI; i++){
 		const float BU = (float)_CI[i].buffer_usage / PKT_BUFFER;
+		__sync_add_and_fetch(&MPstats->packet_count,  _CI[i].packet_count);
+		__sync_add_and_fetch(&MPstats->matched_count, _CI[i].matched_count);
+		__sync_add_and_fetch(&MPstats->dropped_count, _CI[i].dropped_count);
+
 		strncpy(stat->CI[i].iface, _CI[i].iface, 8);
 		stat->CI[i].packet_count  = htonl(_CI[i].packet_count);
 		stat->CI[i].matched_count = htonl(_CI[i].matched_count);
 		stat->CI[i].dropped_count = htonl(_CI[i].dropped_count);
 		stat->CI[i].buffer_usage  = htonl((int)(BU*1000)); /* sent as 1000 steps so receiver can parse percent with one decimal */
 	}
+
+	stat->packet_count  = htonl(MPstats->packet_count);
+	stat->matched_count = htonl(MPstats->matched_count);
+	stat->dropped_count = htonl(MPstats->dropped_count);
+	stat->status = 0;
+	stat->noFilters = mprules_count();
+	stat->noCI = noCI;
 
 	int ret;
 	if ( (ret=marc_push_event(client, (MPMessage*)stat, NULL)) != 0 ){

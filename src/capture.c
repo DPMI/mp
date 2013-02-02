@@ -67,7 +67,6 @@ static int push_packet(struct CI* CI, write_head* whead, cap_head* head, unsigne
 		if ( CI->seq_drop == 0){
 			logmsg(stderr, CAPTURE, "CI[%d] Buffer full, dropping packet(s). writepos=%d, bufferUsage=%d\n", CI->id, CI->writepos, CI->buffer_usage);
 		}
-		MPstats->dropped_count++;
 		CI->dropped_count++;
 		CI->seq_drop++;
 		return -1;
@@ -148,7 +147,6 @@ int capture_loop(struct CI* CI, struct capture_context* cap){
 		}
 
 		/* stats */
-		MPstats->packet_count++;
 		CI->packet_count++;
 
 		/* return -1 when no filter matches */
@@ -157,7 +155,6 @@ int capture_loop(struct CI* CI, struct capture_context* cap){
 		}
 
 		/* stats */
-		MPstats->matched_count++;
 		CI->matched_count++;
 	}
 

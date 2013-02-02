@@ -69,19 +69,19 @@ static int process_packet(struct dag_context* cap, dag_record_t* dr, unsigned ch
 
 	if (dr->flags.trunc) {
 		logmsg(stderr, CAPTURE, "Truncated record on %s d=%c, packet dropped\n", head->nic, dr->flags.iface+48);
-		MPstats->dropped_count++;
+		__sync_add_and_fetch(&MPstats->dropped_count, 1);
 		return 0;
 	}
 
 	if (dr->flags.rxerror) {
 		logmsg(stderr, CAPTURE, "RX error on %s d=%c, packet dropped\n", head->nic, dr->flags.iface+48);
-		MPstats->dropped_count++;
+		__sync_add_and_fetch(&MPstats->dropped_count, 1);
 		return 0;
 	}
 
 	if (dr->flags.dserror) {
 		logmsg(stderr, CAPTURE, "DS error (internal error) on %s d=%c, packet dropped\n", head->nic, dr->flags.iface+48);
-		MPstats->dropped_count++;
+		__sync_add_and_fetch(&MPstats->dropped_count, 1);
 		return 0;
 	}
 
