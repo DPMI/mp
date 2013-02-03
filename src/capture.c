@@ -147,7 +147,6 @@ int capture_loop(struct CI* CI, struct capture_context* cap){
 		}
 
 		/* stats */
-		MPstats->packet_count++;
 		CI->packet_count++;
 
 		/* return -1 when no filter matches */
@@ -156,7 +155,6 @@ int capture_loop(struct CI* CI, struct capture_context* cap){
 		}
 
 		/* stats */
-		MPstats->matched_count++;
 		CI->matched_count++;
 	}
 
