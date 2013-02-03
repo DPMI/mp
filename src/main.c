@@ -436,17 +436,23 @@ int setup_capture(){
 
 		if ( strncmp("pcap", CI[i].iface, 4) == 0 ){
 			CI[i].driver = DRIVER_PCAP;
+			memmove(CI[i].iface, &CI[i].iface[4], strlen(&CI[i].iface[4])+1); /* plus terminating */
 		} else if (strncmp("dag", CI[i].iface, 3)==0) {
 			CI[i].driver = DRIVER_DAG;
-		} else {
+		} else if (strncmp("raw", CI[i].iface, 3)==0) {
 			CI[i].driver = DRIVER_RAW;
+			memmove(CI[i].iface, &CI[i].iface[3], strlen(&CI[i].iface[3])+1); /* plus terminating */
+		} else {
+#ifdef HAVE_DRIVER_PCAP
+			CI[i].driver = DRIVER_PCAP;
+#else
+			CI[i].driver = DRIVER_RAW;
+#endif
 		}
 
 		switch ( CI[i].driver ){
 		case DRIVER_PCAP:
 #ifdef HAVE_DRIVER_PCAP
-			memmove(CI[i].iface, &CI[i].iface[4], strlen(&CI[i].iface[4])+1); /* plus terminating */
-
 			func = pcap_capture;
 #else /* HAVE_DRIVER_PCAP */
 			logmsg(stderr, MAIN, "This MP lacks support for libpcap (rebuild with --with-pcap)\n");
