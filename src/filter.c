@@ -181,7 +181,7 @@ int mprules_add(const struct filter* filter){
 			break;
 		case STREAM_ADDR_ETHERNET:
 		{
-			struct ethhdr *ethhead = (struct ethhdr*)sendmem[dst->index];
+			struct ethhdr *ethhead = dst->ethhead;
 			memcpy(ethhead->h_dest, &rule->filter.dest.ether_addr, ETH_ALEN);
 		}
 		break;
@@ -233,7 +233,7 @@ int mprules_add(const struct filter* filter){
 
 			/* if the destination need to be flushed the seqnum needs to be increased by
 			 * one as an additional frame will be sent */
-			if ( old->sendpointer - old->sendptrref > 0 ){
+			if ( old->sendcount > 0 ){
 				seqnum++;
 			}
 

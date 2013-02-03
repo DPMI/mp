@@ -13,6 +13,21 @@ enum state {
 
 /**
  * MP send destination.
+ *
+ * Buffer
+ * ------
+ *
+ *        begin            end
+ * memory   |               |
+ *      |   +----packets----+
+ *      v   v               v
+ *      +---+---------------+---\/\/\/\/----+
+ *      |   |     DATA      |     UNUSED    |
+ *      +---+---------------+---\/\/\/\/----+
+ *        ^
+ *        |
+ *    headers (eth & send)
+ *
  */
 struct destination {
 	struct stream* stream;             // libcap_utils stream
@@ -23,16 +38,22 @@ struct destination {
 	int want_ethhead;                  // 1 if consumer want the ethernet header or 0 if just the payload (implies want_sendhead)
 	int want_sendhead;                 // 1 if consumer want the sendheader or 0 if just the payload
 	int sendcount;                     // number of packets in buffer
-	void* sendpointer;                 // pointer to next packet in sendmem
-	void* sendptrref;                  // pointer to first packet in sendmem
 	struct sendhead* shead;            // pointer to sendheader.
 	struct ethhdr* ethhead;            // pointer to ethernet header
 	struct timespec last_sent;         // timestamp of the last flush
+
+	struct {
+		void* memory;                    // beginning of buffer
+		void* begin;                     // pointer to first packet
+		void* end;                       // pointer to next (unwritten) packet
+	} buffer;
 };
 
 void destination_stop(struct destination* dst);
-void destination_init(struct destination* dst, int index, unsigned char* buffer);
+void destination_init(struct destination* dst, int index);
+void destination_free(struct destination* dst);
 void destination_init_all();
+void destination_free_all();
 
 extern struct destination MAsd[MAX_FILTERS];
 

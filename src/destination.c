@@ -29,27 +29,40 @@ void destination_stop(struct destination* dst){
 	dst->state = STOP;
 }
 
-void destination_init(struct destination* dst, int index, unsigned char* buffer){
+void destination_init(struct destination* dst, int index){
+	static const size_t header_size = sizeof(struct ethhdr) + sizeof(struct sendhead);
+
 	dst->stream = NULL;
 	dst->index = index;
 	dst->state = IDLE;
 	dst->sendcount = 0;
 
 	/* setup packet buffer */
-	const size_t header_size = sizeof(struct ethhdr) + sizeof(struct sendhead);
-	dst->sendpointer = buffer + header_size;   // Set sendpointer to first place in sendmem where the packets will be stored.
-	dst->sendptrref  = dst->sendpointer;       // Grab a copy of the pointer, simplifies treatment when we sent the packets.
+	const size_t buffer_size = MPinfo->MTU + sizeof(struct ethhdr);
+	dst->buffer.memory = malloc(buffer_size);
+	dst->buffer.begin  = dst->buffer.memory + header_size;
+	dst->buffer.end    = dst->buffer.begin;
 
 	/* setup pointers */
-	dst->ethhead=(struct ethhdr*)buffer;
-	dst->shead = (struct sendhead*)(buffer+sizeof(struct ethhdr));
+	dst->ethhead=(struct ethhdr*)dst->buffer.memory;
+	dst->shead = (struct sendhead*)(dst->buffer.memory + sizeof(struct ethhdr));
 
 	setup_ethernet(dst->ethhead);
 	setup_sendheader(dst->shead);
 }
 
+void destination_free(struct destination* dst){
+	free(dst->buffer.memory);
+}
+
 void destination_init_all(){
 	for( int i = 0; i < MAX_FILTERS; i++) {
-		destination_init(&MAsd[i], i, sendmem[i]);
+		destination_init(&MAsd[i], i);
+	}
+}
+
+void destination_free_all(){
+	for( int i = 0; i < MAX_FILTERS; i++) {
+		destination_free(&MAsd[i]);
 	}
 }

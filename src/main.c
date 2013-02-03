@@ -475,6 +475,8 @@ int main (int argc, char **argv){
 		ret = local_mode(&sigmask, &semaphore, &filter, destination);
 	}
 
+	destination_free_all();
+
 	/* only show stats on clean exit */
 	if ( ret != 0 ){
 		return ret;

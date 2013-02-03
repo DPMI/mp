@@ -71,7 +71,7 @@ int wait_for_capture(sem_t* sem){
 
 void send_packet(struct destination* dst){
 	const size_t header_size = sizeof(struct ethhdr) + sizeof(struct sendhead);
-	const size_t payload_size = dst->sendpointer - dst->sendptrref;
+	const size_t payload_size = dst->buffer.end - dst->buffer.begin;
 	const size_t packet_full_size = header_size + payload_size; /* includes ethernet, sendheader and payload */
 	const uint32_t seqnr = ntohl(dst->shead->sequencenr);
 
@@ -82,7 +82,7 @@ void send_packet(struct destination* dst){
 
 	int ret;
 
-	const u_char* data = dst->sendptrref;
+	const u_char* data = dst->buffer.begin;
 	size_t data_size = payload_size;
 
 	if ( dst->want_ethhead ){
@@ -111,13 +111,14 @@ void send_packet(struct destination* dst){
 	//Update the sequence number and reset
 	dst->shead->sequencenr = htonl((seqnr+1) % 0xFFFF);
 	dst->shead->flags = 0;
+	dst->sendcount = 0;
 
 	/* update stats */
 	MPstats->written_count += dst->sendcount;
 	MPstats->sent_count++;
 
-	dst->sendcount = 0;                  // Clear the number of packets in this sendbuffer
-	dst->sendpointer = dst->sendptrref;  // Restore the pointer to the first spot where the next packet will be placed.
+	/* restore packet buffer */
+	dst->buffer.end = dst->buffer.begin;
 }
 
 static int oldest_packet(int nics, sem_t* semaphore){
@@ -173,13 +174,13 @@ void copy_to_sendbuffer(struct destination* dst, struct write_header* whead, str
 	CI->readpos = (CI->readpos+1) % PKT_BUFFER;
 
 	/* copy packet */
-	memcpy(dst->sendpointer, head, packet_size);
+	memcpy(dst->buffer.end, head, packet_size);
 
 	/* mark as free */
 	whead->used = 0;
 
 	/* update sendpointer */
-	dst->sendpointer += packet_size;
+	dst->buffer.end += packet_size;
 	dst->sendcount += 1;
 }
 
@@ -189,7 +190,7 @@ void* sender_capfile(struct thread_data* td, void* ptr){
 	logmsg(stderr, SENDER, "Initializing (local mode).\n");
 
 	struct destination dst;
-	destination_init(&dst, 0, sendmem[0]); /* in local mode only 1 stream is created, so it is safe to "steal" memory from destination 0 */
+	destination_init(&dst, 0);
 	dst.want_ethhead = 0;
 	dst.want_sendhead = 0;
 
@@ -229,7 +230,7 @@ static void flush_senders(){
 
 	for ( int i = 0; i < MAX_FILTERS; i++ ){
 		struct destination* dst = &MAsd[i];
-		const size_t payload_size = dst->sendpointer - dst->sendptrref;
+		const size_t payload_size = dst->buffer.end - dst->buffer.begin;
 
 		if ( payload_size > 0 ){
 			const int need_flush = dst->state != BUSY && payload_size > 0;
@@ -289,7 +290,7 @@ static void fill_senders(const send_proc_t* proc){
 	struct destination* dst    = &MAsd[whead->destination];
 
 	/* calculate size of sendbuffer and compare with MTU */
-	const size_t payload_size = dst->sendpointer - dst->sendptrref;
+	const size_t payload_size = dst->buffer.end - dst->buffer.begin;
 	const int larger_mtu = payload_size + head->caplen + header_size > MPinfo->MTU;
 
 	/* if the current packet doesn't fit flush first */
@@ -352,7 +353,7 @@ static void flushBuffer(int i, int terminate){
 		return;
 	}
 
-	logmsg(stderr, SENDER, "Destination %d needs to be flushed, contains %d pkts (%zd bytes)\n", i, dst->sendcount, dst->sendpointer - dst->sendptrref);
+	logmsg(stderr, SENDER, "Destination %d needs to be flushed, contains %d pkts (%zd bytes)\n", i, dst->sendcount, dst->buffer.end - dst->buffer.begin);
 
 	dst->shead->flags = SENDER_FLUSH;
 	send_packet(dst);

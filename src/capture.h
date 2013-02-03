@@ -144,9 +144,6 @@ extern struct CI* _CI; /* DO _*NOT*_ USE! For backwards compability ONLY! */
 // allocate capture buffer.
 extern u_char datamem[CI_NIC][PKT_BUFFER][(PKT_CAPSIZE+sizeof(write_head)+sizeof(cap_head))];
 
-// allocate sendbuffer
-u_char sendmem[MAX_FILTERS][sizeof(struct ethhdr)+sizeof(struct sendhead)+maxSENDSIZE*(sizeof(cap_head)+PKT_CAPSIZE)];
-
 // Threads
 typedef void* (*capture_func)(void*);
 void* capture(void*); //capture thread
