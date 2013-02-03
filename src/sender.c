@@ -77,7 +77,7 @@ void send_packet(struct destination* dst){
 
 	assert(payload_size > 0);
 
-	dst->shead->flags = htonl(dst->shead->flags);
+	dst->shead->flags  = htonl(dst->shead->flags);
 	dst->shead->nopkts = htonl(dst->sendcount);
 
 	int ret;
@@ -95,7 +95,7 @@ void send_packet(struct destination* dst){
 
 	ret = stream_write(dst->stream, data, data_size);
 
-	logmsg(verbose, SENDER, "SendThread [filter: %d] sending %zd bytes with %d packets\n", dst->filter->filter_id, data_size, ntohl(dst->shead->nopkts));
+	logmsg(verbose, SENDER, "Filter %d sending %zd bytes with %d packets\n", dst->filter->filter_id, data_size, ntohl(dst->shead->nopkts));
 	if ( debug_flag ){
 		if ( ret == 0 ){
 			logmsg(verbose, SENDER, "\tcaputils-%d.%d\n", ntohs(dst->shead->version.major), ntohs(dst->shead->version.minor));
@@ -116,9 +116,8 @@ void send_packet(struct destination* dst){
 	MPstats->written_count += dst->sendcount;
 	MPstats->sent_count++;
 
-	dst->sendcount = 0;// Clear the number of packets in this sendbuffer
-	memset(dst->sendptrref, 0, data_size); //Clear the memory location, for the packet data.
-	dst->sendpointer=dst->sendptrref; // Restore the pointer to the first spot where the next packet will be placed.
+	dst->sendcount = 0;                  // Clear the number of packets in this sendbuffer
+	dst->sendpointer = dst->sendptrref;  // Restore the pointer to the first spot where the next packet will be placed.
 }
 
 static int oldest_packet(int nics, sem_t* semaphore){
@@ -189,10 +188,10 @@ void* sender_capfile(struct thread_data* td, void* ptr){
 
 	logmsg(stderr, SENDER, "Initializing (local mode).\n");
 
-	struct destination con;
-	destination_init(&con, 0, sendmem[0]); /* in local mode only 1 stream is created, so it is safe to "steal" memory from destination 0 */
-	con.want_ethhead = 0;
-	con.want_sendhead = 0;
+	struct destination dst;
+	destination_init(&dst, 0, sendmem[0]); /* in local mode only 1 stream is created, so it is safe to "steal" memory from destination 0 */
+	dst.want_ethhead = 0;
+	dst.want_sendhead = 0;
 
 	//if ( (ret=createstream(&con.stream, &dest, NULL, mampid_get(MPinfo->id), MPinfo->comment)) != 0 ){
 	//  logmsg(stderr, SENDER, "  createstream() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
@@ -215,8 +214,8 @@ void* sender_capfile(struct thread_data* td, void* ptr){
 		unsigned char* raw_buffer = datamem[oldest][CI->readpos];
 		struct write_header* whead = (write_head*)raw_buffer;
 
-		copy_to_sendbuffer(&con, whead, CI);
-		send_packet(&con);
+		copy_to_sendbuffer(&dst, whead, CI);
+		send_packet(&dst);
 	}
 
 	logmsg(stderr, SENDER, "Finished (local).\n");
@@ -261,6 +260,7 @@ static void flush_senders(){
 			if ( (ret=stream_close(dst->stream)) != 0 ){
 				logmsg(stderr, SENDER, "stream_close() returned 0x%08x: %s\n", ret, caputils_error_string(ret));
 			}
+			dst->stream = NULL;
 			dst->state = IDLE;
 		}
 	}
@@ -283,10 +283,10 @@ static void fill_senders(const send_proc_t* proc){
 	}
 
 	struct CI* CI = &_CI[oldest];
-	unsigned char* raw_buffer = datamem[oldest][CI->readpos];
+	unsigned char* raw_buffer  = datamem[oldest][CI->readpos];
 	struct write_header* whead = (write_head*)raw_buffer;
-	struct cap_header* head = whead->cp;
-	struct destination* dst = &MAsd[whead->destination];
+	struct cap_header* head    = whead->cp;
+	struct destination* dst    = &MAsd[whead->destination];
 
 	/* calculate size of sendbuffer and compare with MTU */
 	const size_t payload_size = dst->sendpointer - dst->sendptrref;
