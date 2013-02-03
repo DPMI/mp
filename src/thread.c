@@ -93,11 +93,14 @@ int thread_create_sync(pthread_t* thread, const pthread_attr_t* attr, start_rout
 		return saved;
 	}
 
-	/* destroy semaphore */
+	const int status = td->status;
+
+	/* release resources */
 	sem_destroy(&td->flag);
+	free(td);
 
 	/* finished */
-	return td->status;
+	return status;
 }
 
 void thread_init_finished(struct thread_data* td, int status){
