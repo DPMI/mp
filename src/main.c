@@ -105,8 +105,6 @@ pthread_t controlPID;              // thread id for the control thread
 int volatile terminateThreads = 0;		     //used for signaling thread to terminate
 int noCI = 0;
 int ENCRYPT = 0;
-int globalDropcount = 0;
-int memDropcount = 0;
 int dag_mode = 0; /* 0: rxtx 1: wiretap */
 const char* dag_config = "varlen";
 

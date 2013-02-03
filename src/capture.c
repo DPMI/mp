@@ -184,7 +184,6 @@ void consumer_init(struct consumer* con, int index, unsigned char* buffer){
 	con->stream = NULL;
 	con->index = index;
 	con->state = IDLE;
-	con->dropCount=0;
 
 	con->ethhead=(struct ethhdr*)buffer; // pointer to ethernet header.
 	con->ethhead->h_proto=htons(ETHERTYPE_MP);    // Set the protocol field of the ethernet header.
@@ -198,7 +197,6 @@ void consumer_init(struct consumer* con, int index, unsigned char* buffer){
 	con->shead->flags=htonl(0);                     // Initialize the flush indicator.
 	con->shead->version.major=htons(CAPUTILS_VERSION_MAJOR); // Specify the file format used, major number
 	con->shead->version.minor=htons(CAPUTILS_VERSION_MINOR); // Specify the file format used, minor number
-	/*shead[i]->losscounter=htons(0); */
 
 	con->sendpointer=buffer+sizeof(struct ethhdr)+sizeof(struct sendhead);            // Set sendpointer to first place in sendmem where the packets will be stored.
 	con->sendptrref=con->sendpointer;          // Grab a copy of the pointer, simplifies treatment when we sent the packets.

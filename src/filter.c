@@ -146,7 +146,6 @@ int mprules_add(const struct filter* filter){
 		rule->consumer = con;
 		rule->filter.consumer = con->index;
 		con->filter = &rule->filter;
-		con->dropCount = globalDropcount + memDropcount;
 		con->want_ethhead  = stream_addr_type(&rule->filter.dest) == STREAM_ADDR_ETHERNET; /* only ethernet streams need ethernet header */
 		con->want_sendhead = stream_addr_type(&rule->filter.dest) != STREAM_ADDR_CAPFILE;  /* all but capfiles need sendheader */
 

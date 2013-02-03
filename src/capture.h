@@ -59,7 +59,6 @@ struct consumer {
 	int want_ethhead;                  // 1 if consumer want the ethernet header or 0 if just the payload (implies want_sendhead)
 	int want_sendhead;                 // 1 if consumer want the sendheader or 0 if just the payload
 	int sendcount;                     // number of packets recieved but not sent
-	uint16_t dropCount;                // number of drops during CONSUMERn collection time.
 	void* sendpointer;                 // pointer to packet in sendmem
 	void* sendptrref;                  // pointer to packet in sendmem, REFERENCE!!!
 	struct sendhead* shead;            // pointer to sendheaders.
@@ -137,9 +136,6 @@ struct consumer MAsd[MAX_FILTERS];
 extern int volatile terminateThreads;      // used for signaling thread to terminate
 extern int noCI;                           // Number of Capture Interfaces
 extern int ENCRYPT;                        // If set to >0 then it will encrypt IP addresses...?
-extern int globalDropcount;                // Total amount of PDUs that were dropped by Interface.
-extern int memDropcount;                   // Total amount of PDUs that were dropped between CI and Sender.
-
 extern struct CI* _CI; /* DO _*NOT*_ USE! For backwards compability ONLY! */
 
 // allocate capture buffer.
