@@ -129,15 +129,6 @@ static int output_wrapper_v(FILE* fp, const char* fmt, va_list ap){
 
 void* control(struct thread_data* td, void* prt){
 	int ret;
-	sigset_t saved;
-
-	/* unblock SIGUSR1 */
-	{
-		sigset_t sigmask;
-		sigfillset(&sigmask);
-		sigdelset(&sigmask, SIGUSR1);
-		pthread_sigmask(SIG_SETMASK, &sigmask, &saved);
-	}
 
 	/* redirect output */
 	marc_set_output_handler(output_wrapper_n, output_wrapper_v, stderr, verbose);
@@ -180,13 +171,15 @@ void* control(struct thread_data* td, void* prt){
 		return NULL;
 	}
 
-	/* restore sigmask */
-	{
-		pthread_sigmask(SIG_SETMASK, &saved, NULL);
-	}
-
 	/* setup status ALRM handler */
 	{
+		/* unblock SIGALRM in case it was blocked (LinuxThreads seems to inhibit this behaviour) */
+		sigset_t sigmask;
+		sigemptyset(&sigmask);
+		sigaddset(&sigmask, SIGALRM);
+		pthread_sigmask(SIG_UNBLOCK, &sigmask, NULL);
+
+		/* timer */
 		struct itimerval difftime;
 		difftime.it_interval.tv_sec = STATUS_INTERVAL;
 		difftime.it_interval.tv_usec = 0;
