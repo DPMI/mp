@@ -174,6 +174,13 @@ void* control(struct thread_data* td, void* prt){
 
 	/* setup status ALRM handler */
 	{
+		/* unblock SIGALRM in case it was blocked (LinuxThreads seems to inhibit this behaviour) */
+		sigset_t sigmask;
+		sigemptyset(&sigmask);
+		sigaddset(&sigmask, SIGALRM);
+		pthread_sigmask(SIG_UNBLOCK, &sigmask, NULL);
+
+		/* timer */
 		struct itimerval difftime;
 		difftime.it_interval.tv_sec = STATUS_INTERVAL;
 		difftime.it_interval.tv_usec = 0;
