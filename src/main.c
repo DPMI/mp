@@ -631,11 +631,6 @@ static void cleanup(int sig) {
 		logmsg(stderr, MAIN, "Recevied termination signal again, aborting.\n");
 		abort();
 	}
-
-	/* tell control thread to stop */
-	if ( controlPID){
-		pthread_kill(controlPID, SIGUSR1);
-	}
 }
 
 /* // Function for connecting to tcpserver */
