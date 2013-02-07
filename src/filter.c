@@ -25,6 +25,7 @@
 #include "filter.h"
 #include "log.h"
 
+#include <caputils/capture.h>
 #include <caputils/filter.h>
 #include <stdlib.h>
 #include <limits.h>
@@ -116,6 +117,19 @@ struct rule* mprules(){
 	return rules;
 }
 
+static void truncate_caplen(struct filter* filter, int want_ethhdr, int want_sendhead){
+	const size_t header_size =
+		sizeof(struct ethhdr) * want_ethhdr +
+		sizeof(struct sendhead) * want_sendhead +
+		sizeof(struct cap_header);
+
+	if ( filter->caplen + header_size > MPinfo->MTU ){
+		const size_t max_caplen = MPinfo->MTU - header_size;
+		logmsg(stderr, FILTER, "caplen (%d) to large for this MP, truncating to %zd\n", filter->caplen, max_caplen);
+		filter->caplen = max_caplen;
+	}
+}
+
 int mprules_add(const struct filter* filter){
 	long ret = 0;
 
@@ -148,6 +162,9 @@ int mprules_add(const struct filter* filter){
 		con->filter = &rule->filter;
 		con->want_ethhead  = stream_addr_type(&rule->filter.dest) == STREAM_ADDR_ETHERNET; /* only ethernet streams need ethernet header */
 		con->want_sendhead = stream_addr_type(&rule->filter.dest) != STREAM_ADDR_CAPFILE;  /* all but capfiles need sendheader */
+
+		/* ensure caplen is small enough to fit at least one packet in a frame */
+		truncate_caplen(&rule->filter, con->want_ethhead, con->want_sendhead);
 
 		/* mark consumer as used */
 		con->state = BUSY;
