@@ -143,6 +143,7 @@ void* control(struct thread_data* td, void* prt){
 	info.client_port = port;
 	info.max_filters = MAX_FILTERS;
 	info.noCI = noCI;
+	info.ma_mtu = MPinfo->MTU;
 	info.version.caputils.major = cv.major;
 	info.version.caputils.minor = cv.minor;
 	info.version.caputils.micro = cv.micro;
