@@ -299,6 +299,7 @@ static void fill_senders(const send_proc_t* proc, int readPos[]){
 
 	/* if the current packet doesn't fit flush first */
 	if ( larger_mtu ){
+		assert(payload_size > 0 && con->sendcount > 0 && "packet didn't fit into frame but frame is empty");
 		send_packet(con);
 	}
 
