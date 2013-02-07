@@ -26,7 +26,11 @@
 
 #include "thread.h"
 #include <caputils/caputils.h>
+#include <caputils/version.h>
 #include <caputils/marc.h>
+#ifdef CAPUTILS_0_7_14
+#include <caputils/send.h>
+#endif
 #include <stdint.h>
 #include <stdio.h>
 #include <semaphore.h>

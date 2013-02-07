@@ -208,7 +208,11 @@ void* control(struct thread_data* td, void* prt){
 		}
 
 		/* get next message */
+#ifdef CAPUTILS_0_7_14
+		switch ( (ret=marc_poll_event(client, &event, &size, NULL, NULL, &timeout)) ){
+#else
 		switch ( (ret=marc_poll_event(client, &event, &size, NULL, &timeout)) ){
+#endif
 		case EAGAIN: /* delivered if using a timeout */
 		case EINTR:  /* interuped */
 			if ( auth_retry >= 0 ){
@@ -299,8 +303,13 @@ void* control(struct thread_data* td, void* prt){
 }
 
 static void CIstatus1(){
+#ifdef CAPUTILS_0_7_14
+	struct MPstatusLegacy stat;
+	memset(&stat, 0, sizeof(struct MPstatusLegacy));
+#else
 	struct MPstatus stat;
 	memset(&stat, 0, sizeof(struct MPstatus));
+#endif
 	stat.type = MP_STATUS_EVENT;
 	mampid_set(stat.MAMPid, MPinfo->id);
 	stat.noFilters = htonl(mprules_count());
@@ -324,10 +333,18 @@ static void CIstatus1(){
 
 static void CIstatus2(){
 	MPMessage msg;
-	struct MPstatus2* stat = (struct MPstatus2*)&msg.status2;
+#ifdef CAPUTILS_0_7_14
+	struct MPstatusLegacyExt* stat = &msg.legacy_ext_status;
+#else
+	struct MPstatus2* stat = &msg.status2;
+#endif
 
 	memset(stat, 0, sizeof(MPMessage));
+#ifdef CAPUTILS_0_7_14
+	stat->type = MP_STATUS2_OLD_EVENT;
+#else
 	stat->type = MP_STATUS2_EVENT;
+#endif
 	mampid_set(stat->MAMPid, MPinfo->id);
 
 	stat->packet_count = htonl(MPstats->packet_count);

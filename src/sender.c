@@ -359,9 +359,15 @@ static void flushBuffer(int i, int terminate){
 
 	logmsg(stderr, SENDER, "Consumer %d needs to be flushed, contains %d pkts\n", i, con->sendcount);
 
-	con->shead->flush = htons(terminate);
+#ifdef CAPUTILS_0_7_14
+	con->shead->flags = htonl(terminate ? SENDER_FLUSH : 0);
 	send_packet(con);
-	con->shead->flush = htons(0);
+	con->shead->flags = htonl(0);
+#else
+	con->shead->flush = htonl(terminate);
+	send_packet(con);
+	con->shead->flush = htonl(0);
+#endif
 }
 
 static void flushAll(int terminate){
