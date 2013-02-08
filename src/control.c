@@ -311,11 +311,16 @@ static void CIstatusExtended(){
 	stat->version = 1;
 	mampid_set(stat->MAMPid, MPinfo->id);
 
+	/* reset counters */
+	MPstats->packet_count = 0;
+	MPstats->matched_count = 0;
+	MPstats->dropped_count = 0;
+
 	for( int i=0; i < noCI; i++){
 		const float BU = (float)_CI[i].buffer_usage / PKT_BUFFER;
-		__sync_add_and_fetch(&MPstats->packet_count,  _CI[i].packet_count);
-		__sync_add_and_fetch(&MPstats->matched_count, _CI[i].matched_count);
-		__sync_add_and_fetch(&MPstats->dropped_count, _CI[i].dropped_count);
+		MPstats->packet_count  += _CI[i].packet_count;
+		MPstats->matched_count += _CI[i].matched_count;
+		MPstats->dropped_count += _CI[i].dropped_count;
 
 		strncpy(stat->CI[i].iface, _CI[i].iface, 8);
 		stat->CI[i].packet_count  = htonl(_CI[i].packet_count);
@@ -345,14 +350,27 @@ static void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
 
 	CIstatusExtended();
 
+	/* Compare with previous stats */
+	static struct MPstats prev = {0,};
+	struct MPstats delta = {
+		.packet_count  = MPstats->packet_count  - prev.packet_count,
+		.matched_count = MPstats->matched_count - prev.matched_count,
+		.dropped_count = MPstats->dropped_count - prev.dropped_count,
+	};
+	prev = *MPstats;
+
 	/* Logging */
 	logmsg(stderr, CONTROL, "Status report for %s\n"
 	       "\t%zd Filters present\n"
 	       "\t%d Capture Interfaces.\n"
-	       "\t%ld Packets received.\n"
-	       "\t%ld Packets matched filters.\n"
-	       "\t%d Packets dropped.\n",
-	       mampid_get(MPinfo->id), mprules_count(), noCI, MPstats->packet_count, MPstats->matched_count, 0 /* MPstats->dropped_count */);
+	       "\t%ld Packets received (%ld new).\n"
+	       "\t%ld Packets matched (%ld new).\n"
+	       "\t%ld Packets dropped (%ld new).\n",
+	       mampid_get(MPinfo->id), mprules_count(), noCI,
+	       MPstats->packet_count, delta.packet_count,
+	       MPstats->matched_count, delta.matched_count,
+	       MPstats->dropped_count, delta.dropped_count);
+
 	for( int i=0; i < noCI; i++){
 		const float BU = (float)_CI[i].buffer_usage / PKT_BUFFER;
 		fprintf(stderr, "\tCI[%d]=%s  PKT=%ld  MCH=%ld  DRP=%ld BU=%.1f%% (%d of %d)\n", i,
