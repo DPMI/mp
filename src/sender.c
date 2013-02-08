@@ -295,7 +295,7 @@ static void fill_senders(const send_proc_t* proc, int readPos[]){
 
 	/* calculate size of sendbuffer and compare with MTU */
 	const size_t payload_size = con->sendpointer - con->sendptrref;
-	const int larger_mtu = payload_size + head->caplen + header_size >= MPinfo->MTU;
+	const int larger_mtu = payload_size + head->caplen + header_size > MPinfo->MTU;
 
 	/* if the current packet doesn't fit flush first */
 	if ( larger_mtu ){
