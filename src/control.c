@@ -237,7 +237,9 @@ void* control(struct thread_data* td, void* prt){
 			return NULL;
 		}
 
-		logmsg(verbose, CONTROL, "Got message %d (%zd bytes) from MArCd.\n", event.type, size);
+		if ( debug_flag ){
+			logmsg(verbose, CONTROL, "Got message %d (%zd bytes) from MArCd.\n", event.type, size);
+		}
 
 		/* act */
 		switch (event.type) { /* ntohl not needed, called by marc_poll_event */
