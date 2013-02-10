@@ -153,6 +153,10 @@ static void ma_nic(const char* arg) {
 	close(s);
 }
 
+void set_local_mampid(mampid_t mampid){
+	mampid_set(MPinfoI.id, mampid);
+}
+
 static void set_ci(const char* iface) {
 	if ( iflag == CI_NIC ){
 		logmsg(stderr, MAIN, "Cannot specify more than %d capture interface(s)\n", CI_NIC);

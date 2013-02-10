@@ -42,13 +42,14 @@
 
 static void CIstatus(int sig); // Runs when ever a ALRM signal is received.
 static void distress(int sig); /* SIGSEGV, fatal */
+void set_local_mampid(mampid_t mampid);
 
 static marc_context_t client = NULL;
 extern int port;
 
 static void mp_auth(struct MPauth* event){
 	if( strlen(event->MAMPid) > 0 ){
-		mampid_set((char*)MPinfo->id, event->MAMPid);
+		set_local_mampid(event->MAMPid);
 		logmsg(stdout, CONTROL, "MP has been authorized as \"%s\".\n", MPinfo->id);
 	} else {
 		logmsg(stdout, CONTROL, "This is a unauthorized MP.\n");
