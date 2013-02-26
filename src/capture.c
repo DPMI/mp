@@ -119,8 +119,13 @@ int add_capture(const char* iface){
 		return 0;
 	}
 
+	/* initialize driver */
+	size_t t;
+	CI[noCI].driver = ci_driver_from_iface(iface, &t);
+	CI[noCI].iface = strdup(iface + t);
+
+	/* initialize fields */
 	CI[noCI].id = noCI;
-	CI[noCI].driver = DRIVER_UNKNOWN;
 	CI[noCI].sd = -1;
 	CI[noCI].flag = NULL;
 	CI[noCI].semaphore = NULL;
@@ -128,7 +133,6 @@ int add_capture(const char* iface){
 	CI[noCI].matched_count = 0;
 	CI[noCI].dropped_count = 0;
 	CI[noCI].seq_drop = 0;
-	CI[noCI].iface = strdup(iface);
 	CI[noCI].accuracy = 0;
 	pthread_mutex_init(&CI[noCI].mutex, NULL);
 	format_setup(&CI->format, FORMAT_DATE_STR | FORMAT_DATE_LOCALTIME | FORMAT_LAYER_APPLICATION);
@@ -159,14 +163,6 @@ int setup_capture(sem_t* semaphore){
 		CI[i].semaphore = semaphore;
 		CI[i].flag = &flag;
 		func = NULL;
-
-		if ( strncmp("pcap", CI[i].iface, 4) == 0 ){
-			CI[i].driver = DRIVER_PCAP;
-		} else if (strncmp("dag", CI[i].iface, 3)==0) {
-			CI[i].driver = DRIVER_DAG;
-		} else {
-			CI[i].driver = DRIVER_RAW;
-		}
 
 		switch ( CI[i].driver ){
 		case DRIVER_PCAP:
@@ -331,5 +327,29 @@ int buffer_utilization(struct CI* CI){
 		return w -r ;
 	} else {
 		return PKT_BUFFER - r + w;
+	}
+}
+
+enum CIDriver ci_driver_from_iface(const char* iface, size_t* offset){
+	size_t tmp;
+	if ( !offset ){
+		offset = &tmp;
+	}
+
+	*offset = 0;
+	if ( strncmp("pcap", iface, 4) == 0 ){
+		*offset = 4;
+		return DRIVER_PCAP;
+	} else if (strncmp("dag", iface, 3)==0) {
+		return DRIVER_DAG;
+	} else if (strncmp("raw", iface, 3)==0) {
+		*offset = 3;
+		return DRIVER_RAW;
+	} else {
+#ifdef HAVE_DRIVER_PCAP
+		return DRIVER_PCAP;
+#else
+		return DRIVER_RAW;
+#endif
 	}
 }

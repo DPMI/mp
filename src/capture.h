@@ -70,6 +70,18 @@ enum CIDriver {
 	DRIVER_DAG,
 };
 
+/**
+ * Guess driver from interface name.
+ *  - dagN     -> DRIVER_DAG
+ *  - pcap[:]* -> DRIVER_PCAP
+ *  - raw[:]*  -> DRIVER_RAW
+ *  - *        -> DRIVER_PCAP (if present) OR DRIVER_RAW
+ * @param iface [in]
+ * @param offset [out] If non-null it returns the offset to the actual
+ *                     interface name (without prefix)
+ */
+enum CIDriver ci_driver_from_iface(const char* iface, size_t* offset);
+
 struct write_header //Used for marking a packet as read or written in the shared memory
 {
 	int used;           /* 1 if block is used. */
