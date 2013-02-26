@@ -149,7 +149,6 @@ void set_td(const char* arg){
 
 int setup_capture(sem_t* semaphore){
 	int ret = 0;
-	void* (*func)(void*) = NULL;
 	sem_t flag;
 
 	logmsg(verbose, MAIN, "Creating capture_threads.\n");
@@ -159,58 +158,14 @@ int setup_capture(sem_t* semaphore){
 	/* reset memory */
 	memset(datamem, 0, sizeof(datamem));
 
+	/* launch all capture threads */
 	for (int i=0; i < noCI; i++) {
 		CI[i].semaphore = semaphore;
 		CI[i].flag = &flag;
-		func = NULL;
 
-		switch ( CI[i].driver ){
-		case DRIVER_PCAP:
-#ifdef HAVE_DRIVER_PCAP
-			memmove(CI[i].iface, &CI[i].iface[4], strlen(&CI[i].iface[4])+1); /* plus terminating */
+		const capture_func func = ci_get_function(CI[i].driver);
+		if ( !func ) return EINVAL; /* error already shown */
 
-			func = pcap_capture;
-#else /* HAVE_DRIVER_PCAP */
-			logmsg(stderr, MAIN, "This MP lacks support for libpcap (rebuild with --with-pcap)\n");
-			return EINVAL;
-#endif /* HAVE_DRIVER_PCAP */
-
-			break;
-
-		case DRIVER_RAW:
-#ifdef HAVE_DRIVER_RAW
-			func = capture;
-#elif defined(HAVE_DRIVER_PCAP)
-			func = pcap_capture; /* fallback on pcap */
-#else
-			logmsg(stderr, MAIN, "This MP lacks support for raw packet capture (use libpcap or DAG instead or rebuild with --with-raw)\n");
-			return EINVAL;
-#endif /* HAVE_DRIVER_RAW */
-
-			break;
-
-		case DRIVER_DAG:
-#ifdef HAVE_DAG
-#ifdef HAVE_DRIVER_DAG
-			func = dag_capture;
-#else /* HAVE_DRIVER_DAG */
-			func = dag_legacy_capture;
-#endif
-
-#else /* HAVE_DAG */
-			logmsg(stderr, MAIN, "This MP lacks support for Endace DAG (rebuild with --with-dag)\n");
-			return EINVAL;
-#endif
-			break;
-
-		case DRIVER_UNKNOWN:
-			abort(); /* cannot happen, defaults to RAW */
-			break;
-		}
-	}
-
-	/* launch all capture threads */
-	for (int i=0; i < noCI; i++) {
 		if ( (ret=pthread_create(&CI[i].thread, NULL, func, &CI[i])) != 0 ) {
 			logmsg(stderr, MAIN, "Error creating capture thread.");
 			return ret;
@@ -351,5 +306,44 @@ enum CIDriver ci_driver_from_iface(const char* iface, size_t* offset){
 #else
 		return DRIVER_RAW;
 #endif
+	}
+}
+
+capture_func ci_get_function(enum CIDriver driver){
+	switch ( driver ){
+	case DRIVER_PCAP:
+#ifdef HAVE_DRIVER_PCAP
+		return pcap_capture;
+#else /* HAVE_DRIVER_PCAP */
+		logmsg(stderr, CAPTURE, "This MP lacks support for libpcap (rebuild with --with-pcap)\n");
+		return NULL;
+#endif /* HAVE_DRIVER_PCAP */
+		break;
+
+	case DRIVER_RAW:
+#ifdef HAVE_DRIVER_RAW
+		return capture;
+#else
+		logmsg(stderr, MAIN, "This MP lacks support for raw packet capture (use libpcap or DAG instead or rebuild with --with-raw)\n");
+		return NULL;
+#endif /* HAVE_DRIVER_RAW */
+		break;
+
+	case DRIVER_DAG:
+#ifdef HAVE_DAG
+#ifdef HAVE_DRIVER_DAG
+		return dag_capture;
+#else /* HAVE_DRIVER_DAG */
+		return dag_legacy_capture;
+#endif
+#else /* HAVE_DAG */
+		logmsg(stderr, MAIN, "This MP lacks support for Endace DAG (rebuild with --with-dag)\n");
+		return NULL;
+#endif
+		break;
+
+	default:
+		abort(); /* cannot happen, defaults to PCAP or RAW */
+		break;
 	}
 }

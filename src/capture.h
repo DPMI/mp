@@ -148,11 +148,17 @@ extern u_char datamem[CI_NIC][PKT_BUFFER][(PKT_CAPSIZE+sizeof(write_head)+sizeof
 u_char sendmem[MAX_FILTERS][sizeof(struct ethhdr)+sizeof(struct sendhead)+maxSENDSIZE*(sizeof(cap_head)+PKT_CAPSIZE)];
 
 // Threads
+typedef void* (*capture_func)(void*);
 void* capture(void*); //capture thread
 void* pcap_capture(void*); //PCAP capture thread
 void* dag_capture(void*);
 void* dag_legacy_capture(void*);
 void* control(struct thread_data* td, void*); // Control thread
+
+/**
+ * Get capture function based on driver.
+ */
+capture_func ci_get_function(enum CIDriver driver);
 
 /**
  * Match packet against available filter. Will fill in head->caplen.
