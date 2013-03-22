@@ -318,7 +318,7 @@ static void CIstatusExtended(){
 	MPstats->dropped_count = 0;
 
 	for( int i=0; i < noCI; i++){
-		const float BU = (float)_CI[i].buffer_usage / PKT_BUFFER;
+		const float BU = (float)buffer_utilization(&_CI[i]) / PKT_BUFFER;
 		MPstats->packet_count  += _CI[i].packet_count;
 		MPstats->matched_count += _CI[i].matched_count;
 		MPstats->dropped_count += _CI[i].dropped_count;
@@ -373,13 +373,14 @@ static void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
 	       MPstats->dropped_count, delta.dropped_count);
 
 	for( int i=0; i < noCI; i++){
-		const float BU = (float)_CI[i].buffer_usage / PKT_BUFFER;
+		const int u = buffer_utilization(&_CI[i]);
+		const float BU = (float)u / PKT_BUFFER;
 		fprintf(stderr, "\tCI[%d]=%s  PKT=%ld  MCH=%ld  DRP=%ld BU=%.1f%% (%d of %d)\n", i,
 		        _CI[i].iface,
 		        _CI[i].packet_count,
 		        _CI[i].matched_count,
 		        _CI[i].dropped_count,
-		        BU*100.0f, _CI[i].buffer_usage, PKT_BUFFER);
+		        BU*100.0f, u, PKT_BUFFER);
 	}
 
 	if ( mprules_count() == 0 ){

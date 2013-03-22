@@ -65,7 +65,7 @@ static int push_packet(struct CI* CI, write_head* whead, cap_head* head, unsigne
 
 	if ( __builtin_expect(whead->used, 0) ){ //Control buffer overrun
 		if ( CI->seq_drop == 0){
-			logmsg(stderr, CAPTURE, "CI[%d] Buffer full, dropping packet(s). writepos=%d, bufferUsage=%d\n", CI->id, CI->writepos, CI->buffer_usage);
+			logmsg(stderr, CAPTURE, "CI[%d] Buffer full, dropping packet(s). writepos=%d, bufferUsage=%d\n", CI->id, CI->writepos, buffer_utilization(CI));
 		}
 		CI->dropped_count++;
 		CI->seq_drop++;
@@ -77,7 +77,6 @@ static int push_packet(struct CI* CI, write_head* whead, cap_head* head, unsigne
 	/* increment write position */
 	CI->writepos = (CI->writepos+1) % PKT_BUFFER;
 	CI->seq_drop = 0;
-	__sync_add_and_fetch(&CI->buffer_usage, 1);
 
 	whead->consumer = recipient;     /* store recipient */
 	whead->used = 1;                 /* marks the post that it has been written. This must always be the last action as the sender might kick in otherwise  */
@@ -206,5 +205,16 @@ void consumer_init(struct consumer* con, int index, unsigned char* buffer){
 void consumer_init_all(){
 	for( int i = 0; i < MAX_FILTERS; i++) {
 		consumer_init(&MAsd[i], i, sendmem[i]);
+	}
+}
+
+int buffer_utilization(struct CI* CI){
+	const int r = CI->readpos;
+	const int w = CI->writepos;
+
+	if ( w >= r ){
+		return w -r ;
+	} else {
+		return PKT_BUFFER - r + w;
 	}
 }

@@ -172,9 +172,6 @@ void copy_to_sendbuffer(struct consumer* dst, unsigned char* src, struct CI* CI)
 
 	/* increment read position */
 	CI->readpos = (CI->readpos+1) % PKT_BUFFER;
-	const int __attribute__((unused)) BU = __sync_fetch_and_sub(&CI->buffer_usage, 1);
-
-	assert(BU > 0);
 
 	/* copy packet */
 	memcpy(dst->sendpointer, head, packet_size);
