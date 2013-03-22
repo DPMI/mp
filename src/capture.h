@@ -107,6 +107,7 @@ struct CI {
 
 	int sd;
 	int writepos;
+	int readpos;
 	u_char* datamem;
 	sem_t* flag;
 	sem_t* semaphore;
