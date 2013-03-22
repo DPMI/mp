@@ -192,8 +192,10 @@ void* control(struct thread_data* td, void* prt){
 		setitimer(ITIMER_REAL, &difftime, NULL);
 	}
 
-	/* Catch SIGSEGV to send a distress signal to MArCd */
+	/* Catch various signals to send a distress signal to MArCd */
 	signal(SIGSEGV, distress);
+	signal(SIGBUS, distress);
+	signal(SIGILL, distress);
 
 	thread_init_finished(td, 0);
 

@@ -562,6 +562,7 @@ int main (int argc, char **argv){
 	main_thread = pthread_self();
 	signal(SIGINT, cleanup);
 	signal(SIGTERM, cleanup);
+	signal(SIGHUP, cleanup);
 
 	sigset_t all;
 	sigset_t sigmask;
