@@ -120,7 +120,7 @@ void send_packet(struct consumer* con){
 	con->sendpointer=con->sendptrref; // Restore the pointer to the first spot where the next packet will be placed.
 }
 
-static int oldest_packet(int nics, int readPos[], sem_t* semaphore){
+static int oldest_packet(int nics, sem_t* semaphore){
 	int oldest = -1;
 	while( oldest == -1 ){       // Loop while we havent gotten any pkts.
 		if ( terminateThreads>0 ) {
@@ -132,12 +132,13 @@ static int oldest_packet(int nics, int readPos[], sem_t* semaphore){
 		timeOldest.tv_psec = UINT64_MAX;
 
 		for( int i = 0; i < nics; i++){
-			unsigned char* raw_buffer = datamem[i][readPos[i]];
+			const int readpos = _CI[i].readpos;
+			unsigned char* raw_buffer = datamem[i][readpos];
 			write_head* whead   = (write_head*)raw_buffer;
 			cap_head* head      = (cap_head*)(raw_buffer + sizeof(write_head));
 
 			/* This consumer has no packages yet */
-			if( whead->free == 0 ) {
+			if( whead->used == 0 ) {
 				continue;
 			}
 
@@ -160,29 +161,23 @@ static int oldest_packet(int nics, int readPos[], sem_t* semaphore){
 	return oldest;
 }
 
-void copy_to_sendbuffer(struct consumer* dst, unsigned char* src, int* readPtr, struct CI* CI){
-	int readPos = *readPtr;
-
+void copy_to_sendbuffer(struct consumer* dst, unsigned char* src, struct CI* CI){
 	write_head* whead   = (write_head*)src;
 	cap_head* head      = (cap_head*)(src + sizeof(write_head));
 	const size_t packet_size = sizeof(cap_head)+head->caplen;
 
 	assert(dst);
-	assert(readPtr);
 	assert(CI);
+	assert(whead->used);
 
 	/* increment read position */
-	*readPtr = (readPos+1) % PKT_BUFFER;
-	const int __attribute__((unused)) BU = __sync_fetch_and_sub(&CI->buffer_usage, 1);
-
-	assert(whead->free > 0);
-	assert(BU > 0);
+	CI->readpos = (CI->readpos+1) % PKT_BUFFER;
 
 	/* copy packet */
 	memcpy(dst->sendpointer, head, packet_size);
 
 	/* mark as free */
-	whead->free = 0;
+	whead->used = 0;
 
 	/* update sendpointer */
 	dst->sendpointer += packet_size;
@@ -191,7 +186,6 @@ void copy_to_sendbuffer(struct consumer* dst, unsigned char* src, int* readPtr, 
 
 void* sender_capfile(struct thread_data* td, void* ptr){
 	send_proc_t* proc = (send_proc_t*)ptr;
-	int readPos[CI_NIC] = {0,};        /* read pointers */
 
 	logmsg(stderr, SENDER, "Initializing (local mode).\n");
 
@@ -210,16 +204,17 @@ void* sender_capfile(struct thread_data* td, void* ptr){
 	thread_init_finished(td, 0);
 
 	while( terminateThreads == 0 ){
-		int oldest = oldest_packet(proc->nics, readPos, proc->semaphore);
+		int oldest = oldest_packet(proc->nics, proc->semaphore);
 
 		/* couldn't find a packet, gave up waiting. we are probably terminating. */
 		if ( oldest == -1 ){
 			continue;
 		}
 
-		unsigned char* raw_buffer = datamem[oldest][readPos[oldest]];
+		struct CI* CI = &_CI[oldest];
+		unsigned char* raw_buffer = datamem[oldest][CI->readpos];
 
-		copy_to_sendbuffer(&con, raw_buffer, &readPos[oldest], &_CI[oldest]);
+		copy_to_sendbuffer(&con, raw_buffer, CI);
 		send_packet(&con);
 	}
 
@@ -270,10 +265,10 @@ static void flush_senders(){
 	}
 }
 
-static void fill_senders(const send_proc_t* proc, int readPos[]){
+static void fill_senders(const send_proc_t* proc){
 	static const size_t header_size = sizeof(struct ethhdr) + sizeof(struct cap_header) + sizeof(struct sendhead);
 
-	const int oldest = oldest_packet(proc->nics, readPos, proc->semaphore);
+	const int oldest = oldest_packet(proc->nics, proc->semaphore);
 
 	/* couldn't find a packet, gave up waiting. we are probably terminating. */
 	if ( oldest == -1 ){
@@ -286,7 +281,8 @@ static void fill_senders(const send_proc_t* proc, int readPos[]){
 		return;
 	}
 
-	unsigned char* raw_buffer = datamem[oldest][readPos[oldest]];
+	struct CI* CI = &_CI[oldest];
+	unsigned char* raw_buffer = datamem[oldest][CI->readpos];
 	write_head* whead   = (write_head*)raw_buffer;
 	cap_head* head      = (cap_head*)(raw_buffer + sizeof(write_head));
 	struct consumer* con = &MAsd[whead->consumer];
@@ -302,13 +298,12 @@ static void fill_senders(const send_proc_t* proc, int readPos[]){
 	}
 
 	/* copy packet into buffer */
-	copy_to_sendbuffer(con, raw_buffer, &readPos[oldest], &_CI[oldest]);
+	copy_to_sendbuffer(con, raw_buffer, CI);
 }
 
 void* sender_caputils(struct thread_data* td, void *ptr){
 	send_proc_t* proc = (send_proc_t*)ptr;    /* Extract the parameters that we got from our master, i.e. parent process.. */
 	const int nics = proc->nics;              /* The number of active CIs */
-	int readPos[MAX_FILTERS] = {0,};          /* array of memory positions */
 
 	logmsg(stderr, SENDER, "Initializing. There are %d captures.\n", nics);
 
@@ -327,7 +322,7 @@ void* sender_caputils(struct thread_data* td, void *ptr){
 	/* sender loop */
 	while( terminateThreads == 0 ){
 		flush_senders();
-		fill_senders(proc, readPos);
+		fill_senders(proc);
 	}
 
 	logmsg(verbose, SENDER, "Flushing sendbuffers.\n");

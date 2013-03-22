@@ -94,7 +94,7 @@ enum CIDriver {
 
 struct write_header //Used for marking a packet as read or written in the shared memory
 {
-	int free;
+	int used;           /* 1 if block is used. */
 	int consumer;
 };
 typedef struct write_header write_head;
@@ -107,6 +107,7 @@ struct CI {
 
 	int sd;
 	int writepos;
+	int readpos;
 	u_char* datamem;
 	sem_t* flag;
 	sem_t* semaphore;
@@ -118,7 +119,6 @@ struct CI {
 	long packet_count;          /* Total number of received packets */
 	long matched_count;         /* Total number of matched packets */
 	long dropped_count;         /* Total number of dropped packets */
-	volatile int buffer_usage;  /* How many bytes of the buffer is used? */
 	int seq_drop;               /* How many packets in (current) sequence has been dropped */
 };
 
@@ -129,6 +129,12 @@ void consumer_init_all();
  * Get selected snaplen.
  */
 int snaplen();
+
+/**
+ * Calculate current buffer utilization.
+ */
+int buffer_utilization(struct CI* CI);
+
 
 /* // Global variables. */
 struct consumer MAsd[MAX_FILTERS];
