@@ -138,7 +138,7 @@ static int oldest_packet(int nics, sem_t* semaphore){
 			cap_head* head      = (cap_head*)(raw_buffer + sizeof(write_head));
 
 			/* This consumer has no packages yet */
-			if( whead->free == 0 ) {
+			if( whead->used == 0 ) {
 				continue;
 			}
 
@@ -168,19 +168,19 @@ void copy_to_sendbuffer(struct consumer* dst, unsigned char* src, struct CI* CI)
 
 	assert(dst);
 	assert(CI);
+	assert(whead->used);
 
 	/* increment read position */
 	CI->readpos = (CI->readpos+1) % PKT_BUFFER;
 	const int __attribute__((unused)) BU = __sync_fetch_and_sub(&CI->buffer_usage, 1);
 
-	assert(whead->free > 0);
 	assert(BU > 0);
 
 	/* copy packet */
 	memcpy(dst->sendpointer, head, packet_size);
 
 	/* mark as free */
-	whead->free = 0;
+	whead->used = 0;
 
 	/* update sendpointer */
 	dst->sendpointer += packet_size;

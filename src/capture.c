@@ -63,7 +63,7 @@ static int push_packet(struct CI* CI, write_head* whead, cap_head* head, unsigne
 		format_pkg(stderr, &CI->format, head);
 	}
 
-	if ( __builtin_expect(whead->free == 1, 0) ){ //Control buffer overrun
+	if ( __builtin_expect(whead->used, 0) ){ //Control buffer overrun
 		if ( CI->seq_drop == 0){
 			logmsg(stderr, CAPTURE, "CI[%d] Buffer full, dropping packet(s). writepos=%d, bufferUsage=%d\n", CI->id, CI->writepos, CI->buffer_usage);
 		}
@@ -80,7 +80,7 @@ static int push_packet(struct CI* CI, write_head* whead, cap_head* head, unsigne
 	__sync_add_and_fetch(&CI->buffer_usage, 1);
 
 	whead->consumer = recipient;     /* store recipient */
-	whead->free = 1;                 /* marks the post that it has been written. This must always be the last action as the sender might kick in otherwise  */
+	whead->used = 1;                 /* marks the post that it has been written. This must always be the last action as the sender might kick in otherwise  */
 
 	/* flag that another packet is ready */
 	if ( sem_post(CI->semaphore) != 0 ){

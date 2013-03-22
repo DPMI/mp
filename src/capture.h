@@ -94,7 +94,7 @@ enum CIDriver {
 
 struct write_header //Used for marking a packet as read or written in the shared memory
 {
-	int free;
+	int used;           /* 1 if block is used. */
 	int consumer;
 };
 typedef struct write_header write_head;
