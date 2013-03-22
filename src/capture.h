@@ -50,7 +50,10 @@ enum state {
 	STOP,
 };
 
-struct consumer {
+/**
+ * MP send destination.
+ */
+struct destination {
 	struct stream* stream;
 	struct filter* filter;
 	int index;
@@ -95,7 +98,7 @@ enum CIDriver {
 struct write_header //Used for marking a packet as read or written in the shared memory
 {
 	int used;           /* 1 if block is used. */
-	int consumer;
+	int destination;    /* destination index */
 	struct cap_header cp[0];
 };
 typedef struct write_header write_head;
@@ -123,8 +126,8 @@ struct CI {
 	int seq_drop;               /* How many packets in (current) sequence has been dropped */
 };
 
-void consumer_init(struct consumer* con, int index, unsigned char* buffer);
-void consumer_init_all();
+void destination_init(struct destination* dst, int index, unsigned char* buffer);
+void destination_init_all();
 
 /**
  * Get selected snaplen.
@@ -138,7 +141,7 @@ int buffer_utilization(struct CI* CI);
 
 
 /* // Global variables. */
-struct consumer MAsd[MAX_FILTERS];
+struct destination MAsd[MAX_FILTERS];
 
 extern int volatile terminateThreads;      // used for signaling thread to terminate
 extern int noCI;                           // Number of Capture Interfaces

@@ -68,39 +68,39 @@ int wait_for_capture(sem_t* sem){
 	return 0;
 }
 
-void send_packet(struct consumer* con){
+void send_packet(struct destination* dst){
 	const size_t header_size = sizeof(struct ethhdr) + sizeof(struct sendhead);
-	const size_t payload_size = con->sendpointer - con->sendptrref;
+	const size_t payload_size = dst->sendpointer - dst->sendptrref;
 	const size_t packet_full_size = header_size + payload_size; /* includes ethernet, sendheader and payload */
-	const uint32_t seqnr = ntohl(con->shead->sequencenr);
+	const uint32_t seqnr = ntohl(dst->shead->sequencenr);
 
 	assert(payload_size > 0);
 
-	con->shead->flags = htonl(con->shead->flags);
-	con->shead->nopkts = htonl(con->sendcount);
+	dst->shead->flags = htonl(dst->shead->flags);
+	dst->shead->nopkts = htonl(dst->sendcount);
 
 	int ret;
 
-	const u_char* data = con->sendptrref;
+	const u_char* data = dst->sendptrref;
 	size_t data_size = payload_size;
 
-	if ( con->want_ethhead ){
+	if ( dst->want_ethhead ){
 		data -= header_size;
 		data_size += header_size;
-	} else if ( con->want_sendhead ){
+	} else if ( dst->want_sendhead ){
 		data -= sizeof(struct sendhead);
 		data_size += sizeof(struct sendhead);
 	}
 
-	ret = stream_write(con->stream, data, data_size);
+	ret = stream_write(dst->stream, data, data_size);
 
-	logmsg(verbose, SENDER, "SendThread [filter: %d] sending %zd bytes with %d packets\n", con->filter->filter_id, data_size, ntohl(con->shead->nopkts));
+	logmsg(verbose, SENDER, "SendThread [filter: %d] sending %zd bytes with %d packets\n", dst->filter->filter_id, data_size, ntohl(dst->shead->nopkts));
 	if ( debug_flag ){
 		if ( ret == 0 ){
-			logmsg(verbose, SENDER, "\tcaputils-%d.%d\n", ntohs(con->shead->version.major), ntohs(con->shead->version.minor));
-			logmsg(verbose, SENDER, "\tdst: %s\n", stream_addr_ntoa(&con->filter->dest));
+			logmsg(verbose, SENDER, "\tcaputils-%d.%d\n", ntohs(dst->shead->version.major), ntohs(dst->shead->version.minor));
+			logmsg(verbose, SENDER, "\tdst: %s\n", stream_addr_ntoa(&dst->filter->dest));
 			logmsg(verbose, SENDER, "\tPacket length = %zd bytes, Eth %zd, Send %zd, Cap %zd bytes\n", packet_full_size, sizeof(struct ethhdr), sizeof(struct sendhead), sizeof(struct cap_header));
-			logmsg(verbose, SENDER, "\tSeqnr  = %04lx \t nopkts = %04d\n", (unsigned long int)seqnr, ntohl(con->shead->nopkts));
+			logmsg(verbose, SENDER, "\tSeqnr  = %04lx \t nopkts = %04d\n", (unsigned long int)seqnr, ntohl(dst->shead->nopkts));
 		} else {
 			logmsg(stderr,  SENDER, "\tstream_write() returned %d: %s\n", ret, strerror(ret));
 			logmsg(verbose, SENDER, "\tPacket length = %zd bytes, Eth %zd, Send %zd, Cap %zd bytes\n", packet_full_size, sizeof(struct ethhdr), sizeof(struct sendhead), sizeof(struct cap_header));
@@ -108,16 +108,16 @@ void send_packet(struct consumer* con){
 	}
 
 	//Update the sequence number and reset
-	con->shead->sequencenr = htonl((seqnr+1) % 0xFFFF);
-	con->shead->flags = 0;
+	dst->shead->sequencenr = htonl((seqnr+1) % 0xFFFF);
+	dst->shead->flags = 0;
 
 	/* update stats */
-	MPstats->written_count += con->sendcount;
+	MPstats->written_count += dst->sendcount;
 	MPstats->sent_count++;
 
-	con->sendcount = 0;// Clear the number of packets in this sendbuffer
-	memset(con->sendptrref, 0, data_size); //Clear the memory location, for the packet data.
-	con->sendpointer=con->sendptrref; // Restore the pointer to the first spot where the next packet will be placed.
+	dst->sendcount = 0;// Clear the number of packets in this sendbuffer
+	memset(dst->sendptrref, 0, data_size); //Clear the memory location, for the packet data.
+	dst->sendpointer=dst->sendptrref; // Restore the pointer to the first spot where the next packet will be placed.
 }
 
 static int oldest_packet(int nics, sem_t* semaphore){
@@ -137,7 +137,7 @@ static int oldest_packet(int nics, sem_t* semaphore){
 			write_head* whead   = (write_head*)raw_buffer;
 			cap_head* head      = whead->cp;
 
-			/* This consumer has no packages yet */
+			/* This destination has no packages yet */
 			if( whead->used == 0 ) {
 				continue;
 			}
@@ -161,7 +161,7 @@ static int oldest_packet(int nics, sem_t* semaphore){
 	return oldest;
 }
 
-void copy_to_sendbuffer(struct consumer* dst, write_head* whead, struct CI* CI){
+void copy_to_sendbuffer(struct destination* dst, write_head* whead, struct CI* CI){
 	const cap_head* head = whead->cp;
 	const size_t packet_size = sizeof(cap_head) + head->caplen;
 
@@ -188,8 +188,8 @@ void* sender_capfile(struct thread_data* td, void* ptr){
 
 	logmsg(stderr, SENDER, "Initializing (local mode).\n");
 
-	struct consumer con;
-	consumer_init(&con, 0, sendmem[0]); /* in local mode only 1 stream is created, so it is safe to "steal" memory from consumer 0 */
+	struct destination con;
+	destination_init(&con, 0, sendmem[0]); /* in local mode only 1 stream is created, so it is safe to "steal" memory from destination 0 */
 	con.want_ethhead = 0;
 	con.want_sendhead = 0;
 
@@ -228,17 +228,17 @@ static void flush_senders(){
 	clock_gettime(CLOCK_REALTIME, &now);
 
 	for ( int i = 0; i < MAX_FILTERS; i++ ){
-		struct consumer* con = &MAsd[i];
-		const size_t payload_size = con->sendpointer - con->sendptrref;
+		struct destination* dst = &MAsd[i];
+		const size_t payload_size = dst->sendpointer - dst->sendptrref;
 
 		if ( payload_size > 0 ){
-			const int need_flush = con->state != BUSY && payload_size > 0;
+			const int need_flush = dst->state != BUSY && payload_size > 0;
 
 			/* calculate time since last send. If it was long ago (longer than
 			 * MAX_PACKET_AGE) the send buffer is flushed even if it doesn't contain
 			 * enough payload for a full packet. */
-			signed long int sec = (now.tv_sec - con->last_sent.tv_sec) * 1000;
-			signed long int msec = (now.tv_nsec - con->last_sent.tv_nsec);
+			signed long int sec = (now.tv_sec - dst->last_sent.tv_sec) * 1000;
+			signed long int msec = (now.tv_nsec - dst->last_sent.tv_nsec);
 			msec /= 1000000; /* please keep this division a separate statement. It ensures
 			                  * that the subtraction above is stored as a signed value. If
 			                  * the division is put together the subtraction will be
@@ -248,19 +248,19 @@ static void flush_senders(){
 			const int old_age = age >= MAX_PACKET_AGE;
 
 			if ( need_flush || old_age ){
-				send_packet(con);
-				con->last_sent = now;
+				send_packet(dst);
+				dst->last_sent = now;
 			}
 		}
 
-		/* stop consumers flagged for termination */
-		if ( con->state == STOP ){
+		/* stop destinations flagged for termination */
+		if ( dst->state == STOP ){
 			int ret;
-			logmsg(verbose, SENDER, "Closing stream %d\n", con->index);
-			if ( (ret=stream_close(con->stream)) != 0 ){
+			logmsg(verbose, SENDER, "Closing stream %d\n", dst->index);
+			if ( (ret=stream_close(dst->stream)) != 0 ){
 				logmsg(stderr, SENDER, "stream_close() returned 0x%08x: %s\n", ret, caputils_error_string(ret));
 			}
-			con->state = IDLE;
+			dst->state = IDLE;
 		}
 	}
 }
@@ -285,20 +285,20 @@ static void fill_senders(const send_proc_t* proc){
 	unsigned char* raw_buffer = datamem[oldest][CI->readpos];
 	write_head* whead   = (write_head*)raw_buffer;
 	cap_head* head      = whead->cp;
-	struct consumer* con = &MAsd[whead->consumer];
+	struct destination* dst = &MAsd[whead->destination];
 
 	/* calculate size of sendbuffer and compare with MTU */
-	const size_t payload_size = con->sendpointer - con->sendptrref;
+	const size_t payload_size = dst->sendpointer - dst->sendptrref;
 	const int larger_mtu = payload_size + head->caplen + header_size > MPinfo->MTU;
 
 	/* if the current packet doesn't fit flush first */
 	if ( larger_mtu ){
-		assert(payload_size > 0 && con->sendcount > 0 && "packet didn't fit into frame but frame is empty");
-		send_packet(con);
+		assert(payload_size > 0 && dst->sendcount > 0 && "packet didn't fit into frame but frame is empty");
+		send_packet(dst);
 	}
 
 	/* copy packet into buffer */
-	copy_to_sendbuffer(con, whead, CI);
+	copy_to_sendbuffer(dst, whead, CI);
 }
 
 void* sender_caputils(struct thread_data* td, void *ptr){
@@ -339,22 +339,22 @@ void* sender_caputils(struct thread_data* td, void *ptr){
  *                  terminating.
  */
 static void flushBuffer(int i, int terminate){
-	struct consumer* con = &MAsd[i];
+	struct destination* dst = &MAsd[i];
 
-	/* no consumer */
-	if ( !con || con->state == IDLE ){
+	/* no destination */
+	if ( !dst || dst->state == IDLE ){
 		return;
 	}
 
 	/* nothing to flush */
-	if ( con->sendcount == 0 ){
+	if ( dst->sendcount == 0 ){
 		return;
 	}
 
-	logmsg(stderr, SENDER, "Consumer %d needs to be flushed, contains %d pkts (%zd bytes)\n", i, con->sendcount, con->sendpointer - con->sendptrref);
+	logmsg(stderr, SENDER, "Destination %d needs to be flushed, contains %d pkts (%zd bytes)\n", i, dst->sendcount, dst->sendpointer - dst->sendptrref);
 
-	con->shead->flags = SENDER_FLUSH;
-	send_packet(con);
+	dst->shead->flags = SENDER_FLUSH;
+	send_packet(dst);
 }
 
 static void flushAll(int terminate){
