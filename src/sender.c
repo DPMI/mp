@@ -135,8 +135,8 @@ static int oldest_packet(int nics, sem_t* semaphore){
 		for( int i = 0; i < nics; i++){
 			const int readpos = _CI[i].readpos;
 			unsigned char* raw_buffer = datamem[i][readpos];
-			write_head* whead   = (write_head*)raw_buffer;
-			cap_head* head      = whead->cp;
+			const struct write_header* whead = (write_head*)raw_buffer;
+			const struct cap_header* head = whead->cp;
 
 			/* This destination has no packages yet */
 			if( whead->used == 0 ) {
@@ -162,8 +162,8 @@ static int oldest_packet(int nics, sem_t* semaphore){
 	return oldest;
 }
 
-void copy_to_sendbuffer(struct destination* dst, write_head* whead, struct CI* CI){
-	const cap_head* head = whead->cp;
+void copy_to_sendbuffer(struct destination* dst, struct write_header* whead, struct CI* CI){
+	const struct cap_header* head = whead->cp;
 	const size_t packet_size = sizeof(cap_head) + head->caplen;
 
 	assert(dst);
@@ -213,7 +213,7 @@ void* sender_capfile(struct thread_data* td, void* ptr){
 
 		struct CI* CI = &_CI[oldest];
 		unsigned char* raw_buffer = datamem[oldest][CI->readpos];
-		write_head* whead   = (write_head*)raw_buffer;
+		struct write_header* whead = (write_head*)raw_buffer;
 
 		copy_to_sendbuffer(&con, whead, CI);
 		send_packet(&con);
@@ -284,8 +284,8 @@ static void fill_senders(const send_proc_t* proc){
 
 	struct CI* CI = &_CI[oldest];
 	unsigned char* raw_buffer = datamem[oldest][CI->readpos];
-	write_head* whead   = (write_head*)raw_buffer;
-	cap_head* head      = whead->cp;
+	struct write_header* whead = (write_head*)raw_buffer;
+	struct cap_header* head = whead->cp;
 	struct destination* dst = &MAsd[whead->destination];
 
 	/* calculate size of sendbuffer and compare with MTU */

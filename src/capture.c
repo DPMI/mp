@@ -129,9 +129,9 @@ int capture_loop(struct CI* CI, struct capture_context* cap){
 	while(terminateThreads==0){
 		/* calculate pointers into writebuffer */
 		unsigned char* raw_buffer = datamem[CI->id][CI->writepos];
-		write_head* whead   = (write_head*)raw_buffer;
-		cap_head* head      = whead->cp;
-		unsigned char* packet_buffer = raw_buffer + sizeof(write_head) + sizeof(cap_head);
+		struct write_header* whead = (write_head*)raw_buffer;
+		struct cap_header* head = whead->cp;
+		unsigned char* packet_buffer = (unsigned char*)head->payload;
 
 		/* fill details into capture header */
 		fill_caphead(head, CI->iface, MPinfo->id);
