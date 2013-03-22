@@ -4,7 +4,7 @@ m4_define([__VERSION_MICRO__], [11])
 m4_define([__VERSION_SUFFIX__], [-git])
 
 AC_PREREQ([2.61])
-AC_INIT([mp], m4_join([],m4_join([.], __VERSION_MAJOR__, __VERSION_MINOR__, __VERSION_MICRO__), __VERSION_SUFFIX__), [dsv@bth.se])
+AC_INIT([mp], m4_join([],m4_join([.], __VERSION_MAJOR__, __VERSION_MINOR__, __VERSION_MICRO__), __VERSION_SUFFIX__), [https://github.com/DPMI/mp/issues])
 
 VERSION_MAJOR=__VERSION_MAJOR__
 VERSION_MINOR=__VERSION_MINOR__

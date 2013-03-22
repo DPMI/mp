@@ -107,6 +107,7 @@ int noCI = 0;
 int ENCRYPT = 0;
 int dag_mode = 0; /* 0: rxtx 1: wiretap */
 const char* dag_config = "varlen";
+char commandline[4096];                    /* a copy of commandline arguments given */
 
 int snaplen(){
 	return cur_snaplen;
@@ -536,12 +537,28 @@ int setup_capture(){
 	return 0;
 }
 
+static void store_commandline(int argc, char* argv[]){
+	commandline[0] = 0;
+	char* dst = commandline;
+	int n = sizeof(commandline);
+	for ( int i = 1; i < argc; i++ ){
+		int ret = snprintf(dst, n, "%s ", argv[i]);
+		if ( ret < 0 ) return;
+
+		n -= ret;
+		dst += ret;
+	}
+}
+
 int main (int argc, char **argv){
 	{
 		static char line[] = "---------------------------------------------------------------------------------------------"; /* "should be long enough for anybody" */
 		int n = fprintf(stdout, "Measurement Point " VERSION " (caputils-%s)\n", caputils_version(NULL));
 		fprintf(stdout, "%.*s\n", n-1, line);
 	}
+
+	/* store commandline arguments for distress bugreport message */
+	store_commandline(argc, argv);
 
 	// Init semaphore
 	if ( sem_init(&semaphore, 0, 0) != 0 ){
@@ -562,6 +579,7 @@ int main (int argc, char **argv){
 	main_thread = pthread_self();
 	signal(SIGINT, cleanup);
 	signal(SIGTERM, cleanup);
+	signal(SIGHUP, cleanup);
 
 	sigset_t all;
 	sigset_t sigmask;

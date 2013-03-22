@@ -30,13 +30,11 @@
 #include <caputils/marc.h>
 #include <stdlib.h>
 #include <string.h>
-//#//include <stdarg.h>
-//#//include <strings.h>
 #include <signal.h>
 #include <ctype.h>
-//#//include <assert.h>
 #include <errno.h>
 #include <stdarg.h>
+#include <dlfcn.h>
 
 #define STATUS_INTERVAL 60
 
@@ -192,8 +190,10 @@ void* control(struct thread_data* td, void* prt){
 		setitimer(ITIMER_REAL, &difftime, NULL);
 	}
 
-	/* Catch SIGSEGV to send a distress signal to MArCd */
+	/* Catch various signals to send a distress signal to MArCd */
 	signal(SIGSEGV, distress);
+	signal(SIGBUS, distress);
+	signal(SIGILL, distress);
 
 	thread_init_finished(td, 0);
 
@@ -399,7 +399,32 @@ static void distress(int sig){
 	}
 	fatal_error_in_progress = 1;
 
-	logmsg(stderr, CONTROL, "Catched SIGSEGV, sending distress signal to MArCd before dying.\n");
+	logmsg(stderr, CONTROL, "\n\n\n-----------------------------------------------------------------------------------------------\n");
+
+	if ( sig > 0 ){
+		logmsg(stderr, CONTROL, "Got fatal signal (%d), sending distress signal to MArCd before dying.\n", sig);
+	} else {
+		logmsg(stderr, CONTROL, "Assertion fired, sending distress signal to MArCd before dying.\n");
+	}
+
+	extern char commandline[];
+	logmsg(stderr, CONTROL, "  This is a bug. Please report it to \n");
+	logmsg(stderr, CONTROL, "  " PACKAGE_BUGREPORT "\n");
+	logmsg(stderr, CONTROL, "\n");
+	logmsg(stderr, CONTROL, "  Make sure you include:\n");
+	logmsg(stderr, CONTROL, "    - the full message,\n");
+	logmsg(stderr, CONTROL, "    - a short description of what happened,\n");
+	logmsg(stderr, CONTROL, "    - compiler version (e.g. gcc --version),\n");
+	logmsg(stderr, CONTROL, "    - libc version (e.g. ldd --version),\n");
+	logmsg(stderr, CONTROL, "    - kernel version (e.g. uname -a),\n");
+	logmsg(stderr, CONTROL, "    - MP-" VERSION " (caputils-%s)\n",  caputils_version(NULL));
+	logmsg(stderr, CONTROL, "    - commandline: %s\n", commandline);
+	logmsg(stderr, CONTROL, "    - if possible, use gdb and execute `bt' and `info threads'.\n");
+	logmsg(stderr, CONTROL, "\n");
+	logmsg(stderr, CONTROL, "  If using git please include the output of the following commands:\n");
+	logmsg(stderr, CONTROL, "    - git status --short --porcelain\n");
+	logmsg(stderr, CONTROL, "    - git rev-parse --short HEAD\n");
+	logmsg(stderr, CONTROL, "    - git rev-parse --abbrev-ref HEAD\n");
 
 	event.type = MP_CONTROL_DISTRESS;
 	mampid_set(event.MAMPid, MPinfo->id);
@@ -409,6 +434,26 @@ static void distress(int sig){
 	}
 
 	/* if distress is called, it is a fatal error so lets die here. */
-	signal(sig, SIG_DFL);
-	raise(sig);
+	if ( sig != 0 ){
+		signal(sig, SIG_DFL);
+		raise(sig);
+	}
+}
+
+/**
+ * Override assertion function from glibc to send distress signal to MArCd.
+ */
+void __assert_fail(const char* expr, const char* filename, unsigned int line, const char* func){
+	distress(0);
+
+	logmsg(stderr, CONTROL, "\n");
+	logmsg(stderr, CONTROL, "  Message:\n");
+
+	void (*real)(const char*, const char*, unsigned int, const char*) = dlsym(RTLD_NEXT, "__assert_fail");
+	if ( real ){
+		real(expr, filename, line, func);
+	} else {
+		fprintf(stderr, "mp:asdf %s:%d: %s: Assertion `%s' failed.\n", filename, line, func, expr);
+		abort();
+	}
 }
