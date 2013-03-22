@@ -30,13 +30,11 @@
 #include <caputils/marc.h>
 #include <stdlib.h>
 #include <string.h>
-//#//include <stdarg.h>
-//#//include <strings.h>
 #include <signal.h>
 #include <ctype.h>
-//#//include <assert.h>
 #include <errno.h>
 #include <stdarg.h>
+#include <dlfcn.h>
 
 #define STATUS_INTERVAL 60
 
@@ -411,6 +409,26 @@ static void distress(int sig){
 	}
 
 	/* if distress is called, it is a fatal error so lets die here. */
-	signal(sig, SIG_DFL);
-	raise(sig);
+	if ( sig != 0 ){
+		signal(sig, SIG_DFL);
+		raise(sig);
+	}
+}
+
+/**
+ * Override assertion function from glibc to send distress signal to MArCd.
+ */
+void __assert_fail(const char* expr, const char* filename, unsigned int line, const char* func){
+	distress(0);
+
+	logmsg(stderr, CONTROL, "\n");
+	logmsg(stderr, CONTROL, "  Message:\n");
+
+	void (*real)(const char*, const char*, unsigned int, const char*) = dlsym(RTLD_NEXT, "__assert_fail");
+	if ( real ){
+		real(expr, filename, line, func);
+	} else {
+		fprintf(stderr, "mp:asdf %s:%d: %s: Assertion `%s' failed.\n", filename, line, func, expr);
+		abort();
+	}
 }

@@ -20,7 +20,7 @@ libcapture_a_SOURCES += src/capture/dag.c
 endif
 
 mp_CFLAGS = -I ${top_srcdir}/src -Wall ${libcap_utils_CFLAGS} ${PTHREAD_CFLAGS} ${PCAP_CFLAGS} ${DAG_CFLAGS}
-mp_LDADD = libcapture.a ${libcap_utils_LIBS} ${PTHREAD_LIBS} ${PCAP_LIBS} ${DAG_LIBS}
+mp_LDADD = libcapture.a -ldl ${libcap_utils_LIBS} ${PTHREAD_LIBS} ${PCAP_LIBS} ${DAG_LIBS}
 mp_SOURCES = \
 	src/configfile.c src/configfile.h \
 	src/control.c \
