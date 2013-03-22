@@ -96,6 +96,7 @@ struct write_header //Used for marking a packet as read or written in the shared
 {
 	int used;           /* 1 if block is used. */
 	int consumer;
+	struct cap_header cp[0];
 };
 typedef struct write_header write_head;
 

@@ -130,7 +130,7 @@ int capture_loop(struct CI* CI, struct capture_context* cap){
 		/* calculate pointers into writebuffer */
 		unsigned char* raw_buffer = datamem[CI->id][CI->writepos];
 		write_head* whead   = (write_head*)raw_buffer;
-		cap_head* head      = (cap_head*)(raw_buffer + sizeof(write_head));
+		cap_head* head      = whead->cp;
 		unsigned char* packet_buffer = raw_buffer + sizeof(write_head) + sizeof(cap_head);
 
 		/* fill details into capture header */
