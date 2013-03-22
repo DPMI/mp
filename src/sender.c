@@ -25,6 +25,7 @@
 #endif /* HAVE_CONFIG_H */
 
 #include "capture.h"
+#include "destination.h"
 #include "sender.h"
 #include "log.h"
 #include <errno.h>

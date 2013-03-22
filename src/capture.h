@@ -44,31 +44,6 @@
 
 #define maxSENDSIZE 70
 
-enum state {
-	IDLE,
-	BUSY,
-	STOP,
-};
-
-/**
- * MP send destination.
- */
-struct destination {
-	struct stream* stream;
-	struct filter* filter;
-	int index;
-
-	enum state state;                  /* state of this consumer */
-	int want_ethhead;                  // 1 if consumer want the ethernet header or 0 if just the payload (implies want_sendhead)
-	int want_sendhead;                 // 1 if consumer want the sendheader or 0 if just the payload
-	int sendcount;                     // number of packets recieved but not sent
-	void* sendpointer;                 // pointer to packet in sendmem
-	void* sendptrref;                  // pointer to packet in sendmem, REFERENCE!!!
-	struct sendhead* shead;            // pointer to sendheaders.
-	struct ethhdr* ethhead;            // pointer to ethernet header
-	struct timespec last_sent;         // timestamp of the last flush
-};
-
 extern const struct MPinfo {
 	char* iface;                       /* Name of the MA interface */
 	char* comment;                     /* MP comment */
@@ -126,9 +101,6 @@ struct CI {
 	int seq_drop;               /* How many packets in (current) sequence has been dropped */
 };
 
-void destination_init(struct destination* dst, int index, unsigned char* buffer);
-void destination_init_all();
-
 /**
  * Get selected snaplen.
  */
@@ -138,10 +110,6 @@ int snaplen();
  * Calculate current buffer utilization.
  */
 int buffer_utilization(struct CI* CI);
-
-
-/* // Global variables. */
-struct destination MAsd[MAX_FILTERS];
 
 extern int volatile terminateThreads;      // used for signaling thread to terminate
 extern int noCI;                           // Number of Capture Interfaces

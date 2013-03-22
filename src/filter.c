@@ -22,6 +22,7 @@
 #endif /* HAVE_CONFIG_H */
 
 #include "capture.h"
+#include "destination.h"
 #include "filter.h"
 #include "log.h"
 
