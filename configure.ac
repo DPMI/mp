@@ -35,6 +35,8 @@ AX_PTHREAD
 AX_BROKEN_SEM_TIMEDWAIT
 AM_CONDITIONAL(BUILD_SEM_TIMEDWAIT, [test "x$build_sem_timedwait" == "xyes"])
 AC_ARG_PROGRAM
+m4_ifdef([AM_PROG_AR], [AM_PROG_AR])
+m4_ifdef([AM_PROG_CC_C_O], [AM_PROG_CC_C_O])
 
 pkgconfdir="${sysconfdir}/mp"
 AC_SUBST(pkgconfdir)
