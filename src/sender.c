@@ -161,10 +161,9 @@ static int oldest_packet(int nics, sem_t* semaphore){
 	return oldest;
 }
 
-void copy_to_sendbuffer(struct consumer* dst, unsigned char* src, struct CI* CI){
-	write_head* whead   = (write_head*)src;
-	cap_head* head      = whead->cp;
-	const size_t packet_size = sizeof(cap_head)+head->caplen;
+void copy_to_sendbuffer(struct consumer* dst, write_head* whead, struct CI* CI){
+	const cap_head* head = whead->cp;
+	const size_t packet_size = sizeof(cap_head) + head->caplen;
 
 	assert(dst);
 	assert(CI);
@@ -213,8 +212,9 @@ void* sender_capfile(struct thread_data* td, void* ptr){
 
 		struct CI* CI = &_CI[oldest];
 		unsigned char* raw_buffer = datamem[oldest][CI->readpos];
+		write_head* whead   = (write_head*)raw_buffer;
 
-		copy_to_sendbuffer(&con, raw_buffer, CI);
+		copy_to_sendbuffer(&con, whead, CI);
 		send_packet(&con);
 	}
 
@@ -298,7 +298,7 @@ static void fill_senders(const send_proc_t* proc){
 	}
 
 	/* copy packet into buffer */
-	copy_to_sendbuffer(con, raw_buffer, CI);
+	copy_to_sendbuffer(con, whead, CI);
 }
 
 void* sender_caputils(struct thread_data* td, void *ptr){
