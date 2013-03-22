@@ -22,6 +22,7 @@
 #endif /* HAVE_CONFIG_H */
 
 #include "capture.h"
+#include "destination.h"
 #include "filter.h"
 #include "log.h"
 
@@ -43,7 +44,7 @@ extern int flush_flag;
 static struct rule* rules = NULL;
 static size_t rule_count = 0;
 
-static void stop_consumer(struct consumer* con);
+static void stop_destination(struct destination* con);
 
 int filter(const char* CI, void *pkt, struct cap_header *head){
 	/* fast path */
@@ -100,7 +101,7 @@ int filter(const char* CI, void *pkt, struct cap_header *head){
 	return destination;
 }
 
-static struct consumer* next_free_consumer(){
+static struct destination* next_free_destination(){
 	for ( int i = 0; i < MAX_FILTERS; i++ ){
 		if ( MAsd[i].state == IDLE ){
 			return &MAsd[i];
@@ -133,15 +134,15 @@ static void truncate_caplen(struct filter* filter, int want_ethhdr, int want_sen
 int mprules_add(const struct filter* filter){
 	long ret = 0;
 
-	struct consumer* con = next_free_consumer();
-	if( !con ){ // Problems, NO free consumers. Bail out!
-		logmsg(stderr, FILTER, "No free consumers! (max: %d)\n", MAX_FILTERS);
+	struct destination* dst = next_free_destination();
+	if( !dst ){ // Problems, NO free destinations. Bail out!
+		logmsg(stderr, FILTER, "No free destinations! (max: %d)\n", MAX_FILTERS);
 		return ENOBUFS;
 	}
 
 	/* allocate rule */
 	struct rule* rule = malloc(sizeof(struct rule));
-	rule->consumer = NULL;
+	rule->destination = NULL;
 	rule->next = NULL;
 	memcpy(&rule->filter, filter, sizeof(struct filter));
 
@@ -156,21 +157,21 @@ int mprules_add(const struct filter* filter){
 	}
 
 	if ( !discard_filter ){
-		/* setup consumer for this filter */
-		rule->consumer = con;
-		rule->filter.consumer = con->index;
-		con->filter = &rule->filter;
-		con->want_ethhead  = stream_addr_type(&rule->filter.dest) == STREAM_ADDR_ETHERNET; /* only ethernet streams need ethernet header */
-		con->want_sendhead = stream_addr_type(&rule->filter.dest) != STREAM_ADDR_CAPFILE;  /* all but capfiles need sendheader */
+		/* setup destination for this filter */
+		rule->destination = dst;
+		rule->filter.consumer = dst->index;
+		dst->filter = &rule->filter;
+		dst->want_ethhead  = stream_addr_type(&rule->filter.dest) == STREAM_ADDR_ETHERNET; /* only ethernet streams need ethernet header */
+		dst->want_sendhead = stream_addr_type(&rule->filter.dest) != STREAM_ADDR_CAPFILE;  /* all but capfiles need sendheader */
 
 		/* ensure caplen is small enough to fit at least one packet in a frame */
-		truncate_caplen(&rule->filter, con->want_ethhead, con->want_sendhead);
+		truncate_caplen(&rule->filter, dst->want_ethhead, dst->want_sendhead);
 
-		/* mark consumer as used */
-		con->state = BUSY;
+		/* mark destination as used */
+		dst->state = BUSY;
 
 		/* Open libcap stream */
-		if ( (ret=stream_create(&con->stream, &rule->filter.dest, MPinfo->iface, mampid_get(MPinfo->id), MPinfo->comment)) != 0 ){
+		if ( (ret=stream_create(&dst->stream, &rule->filter.dest, MPinfo->iface, mampid_get(MPinfo->id), MPinfo->comment)) != 0 ){
 			logmsg(stderr, FILTER, "stream_create() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
 			exit(1);
 		}
@@ -182,7 +183,7 @@ int mprules_add(const struct filter* filter){
 			break;
 		case STREAM_ADDR_ETHERNET:
 		{
-			struct ethhdr *ethhead = (struct ethhdr*)sendmem[con->index];
+			struct ethhdr *ethhead = (struct ethhdr*)sendmem[dst->index];
 			memcpy(ethhead->h_dest, &rule->filter.dest.ether_addr, ETH_ALEN);
 		}
 		break;
@@ -226,27 +227,27 @@ int mprules_add(const struct filter* filter){
 		const int index = cur->filter.consumer;
 		int seqnum = 0;
 
-		/* close old consumer (if the old consumer is -1 it means no actual stream
+		/* close old destination (if the old destination is -1 it means no actual stream
 		 * is bound, this can happen if for instance a discard destination is used) */
 		if ( index >= 0 ){
-			struct consumer* oldcon = &MAsd[index];
-			seqnum = oldcon->shead->sequencenr;
+			struct destination* old = &MAsd[index];
+			seqnum = old->shead->sequencenr;
 
-			/* if the consumer need to be flushed the seqnum needs to be increased by
+			/* if the destination need to be flushed the seqnum needs to be increased by
 			 * one as an additional frame will be sent */
-			if ( oldcon->sendpointer - oldcon->sendptrref > 0 ){
+			if ( old->sendpointer - old->sendptrref > 0 ){
 				seqnum++;
 			}
 
 			/* defer closing stream until sender has processed it */
-			oldcon->state = STOP;
+			old->state = STOP;
 		}
 
 		/* Update existing filter */
 		memcpy(&cur->filter, &rule->filter, sizeof(struct filter));
 
 		/* restore sequence number */
-		con->shead->sequencenr = seqnum;
+		dst->shead->sequencenr = seqnum;
 
 		return 1;
 	}
@@ -276,10 +277,9 @@ int mprules_del(const unsigned int filter_id){
 		if ( cur->filter.filter_id == filter_id ){ /* filter matches */
 			logmsg(verbose, FILTER, "Removing filter {%d}\n", filter_id);
 
-			/* stop consumer */
-			const int consumer = cur->filter.consumer;
-			struct consumer* con = &MAsd[consumer];
-			stop_consumer(con);
+			/* stop destination */
+			struct destination* con = cur->destination;
+			stop_destination(con);
 
 			/* unlink filter from list */
 			if ( prev ){
@@ -312,22 +312,22 @@ int mprules_clear(){
 }
 
 /**
- * Stop consumer.
+ * Stop destination.
  */
-static void stop_consumer(struct consumer* con){
-	/* no consumer */
-	if ( !con || con->state == IDLE ){
+static void stop_destination(struct destination* dst){
+	/* no destination */
+	if ( !dst || dst->state == IDLE ){
 		return;
 	}
 
 	/* no need to flush, it will be handled by the sender eventually */
 
 	long ret = 0;
-	if ( (ret=stream_close(con->stream)) != 0 ){
+	if ( (ret=stream_close(dst->stream)) != 0 ){
 		logmsg(stderr, FILTER, "stream_close() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
 	}
-	con->stream = NULL;
-	con->state = IDLE;
+	dst->stream = NULL;
+	dst->state = IDLE;
 
 	return;
 }

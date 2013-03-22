@@ -78,7 +78,7 @@ static int push_packet(struct CI* CI, write_head* whead, cap_head* head, unsigne
 	CI->writepos = (CI->writepos+1) % PKT_BUFFER;
 	CI->seq_drop = 0;
 
-	whead->consumer = recipient;     /* store recipient */
+	whead->destination = recipient;  /* store recipient */
 	whead->used = 1;                 /* marks the post that it has been written. This must always be the last action as the sender might kick in otherwise  */
 
 	/* flag that another packet is ready */
@@ -129,9 +129,9 @@ int capture_loop(struct CI* CI, struct capture_context* cap){
 	while(terminateThreads==0){
 		/* calculate pointers into writebuffer */
 		unsigned char* raw_buffer = datamem[CI->id][CI->writepos];
-		write_head* whead   = (write_head*)raw_buffer;
-		cap_head* head      = (cap_head*)(raw_buffer + sizeof(write_head));
-		unsigned char* packet_buffer = raw_buffer + sizeof(write_head) + sizeof(cap_head);
+		struct write_header* whead = (write_head*)raw_buffer;
+		struct cap_header* head = whead->cp;
+		unsigned char* packet_buffer = (unsigned char*)head->payload;
 
 		/* fill details into capture header */
 		fill_caphead(head, CI->iface, MPinfo->id);
@@ -177,35 +177,6 @@ int capture_init(struct capture_context* cap, const char* iface){
 	memset(cap, 0, sizeof(struct capture_context));
 	cap->iface = iface;
 	return 0;
-}
-
-void consumer_init(struct consumer* con, int index, unsigned char* buffer){
-	con->stream = NULL;
-	con->index = index;
-	con->state = IDLE;
-
-	con->ethhead=(struct ethhdr*)buffer; // pointer to ethernet header.
-	con->ethhead->h_proto=htons(ETHERTYPE_MP);    // Set the protocol field of the ethernet header.
-
-	/* set the ethernet source address to adress used by the MA iface. */
-	memcpy(con->ethhead->h_source, &MPinfo->hwaddr, ETH_ALEN);
-
-	con->shead=(struct sendhead*)(buffer+sizeof(struct ethhdr)); // Set pointer to the sendhead, i.e. mp transmission protocol
-	con->shead->sequencenr=htons(0x0000);    // Initialize the sequencenr to zero.
-	con->shead->nopkts=htons(0);                    // Initialize the number of packet to zero
-	con->shead->flags=htonl(0);                     // Initialize the flush indicator.
-	con->shead->version.major=htons(CAPUTILS_VERSION_MAJOR); // Specify the file format used, major number
-	con->shead->version.minor=htons(CAPUTILS_VERSION_MINOR); // Specify the file format used, minor number
-
-	con->sendpointer=buffer+sizeof(struct ethhdr)+sizeof(struct sendhead);            // Set sendpointer to first place in sendmem where the packets will be stored.
-	con->sendptrref=con->sendpointer;          // Grab a copy of the pointer, simplifies treatment when we sent the packets.
-	con->sendcount=0;                        // Initialize the number of pkt stored in the packet, used to determine when to send the packet.
-}
-
-void consumer_init_all(){
-	for( int i = 0; i < MAX_FILTERS; i++) {
-		consumer_init(&MAsd[i], i, sendmem[i]);
-	}
 }
 
 int buffer_utilization(struct CI* CI){

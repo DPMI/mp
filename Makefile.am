@@ -24,6 +24,7 @@ mp_LDADD = libcapture.a -ldl ${libcap_utils_LIBS} ${PTHREAD_LIBS} ${PCAP_LIBS} $
 mp_SOURCES = \
 	src/configfile.c src/configfile.h \
 	src/control.c \
+	src/destination.c src/destination.h \
 	src/filter.c src/filter.h \
 	src/local.c \
 	src/log.h \

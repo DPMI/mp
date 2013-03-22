@@ -31,6 +31,7 @@
 #endif /* HAVE_CONFIG_H */
 
 #include "capture.h"
+#include "destination.h"
 #include "filter.h"
 #include "sender.h"
 #include "log.h"
@@ -612,7 +613,7 @@ int main (int argc, char **argv){
 	}
 
 	show_configuration();
-	consumer_init_all();
+	destination_init_all();
 
 	int ret;
 	if ( !local ){

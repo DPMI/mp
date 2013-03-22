@@ -24,7 +24,7 @@ int mprules_clear();
 
 struct rule {
 	struct filter filter;
-	struct consumer* consumer;
+	struct destination* destination;
 	struct rule* next;
 };
 
