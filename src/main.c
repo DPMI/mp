@@ -159,6 +159,25 @@ void set_local_mampid(mampid_t mampid){
 	mampid_set(MPinfoI.id, mampid);
 }
 
+void update_local_mtu(){
+	struct ifreq ifr;
+	strncpy(ifr.ifr_name, MPinfo->iface, IFNAMSIZ);
+
+	int s = socket(AF_PACKET, SOCK_RAW, htons(ETHERTYPE_MP));
+	if ( s == -1 ){
+		return;
+	}
+
+	if(ioctl(s, SIOCGIFMTU,&ifr) == -1) {
+		return;
+	}
+
+	if ( (size_t)ifr.ifr_mtu != MPinfo->MTU ){
+		logmsg(stderr, MAIN, "MTU on MArC interface has changed from %zd to %d.\n", MPinfo->MTU, ifr.ifr_mtu);
+		MPinfoI.MTU = ifr.ifr_mtu;
+	}
+}
+
 static void set_ci(const char* iface) {
 	if ( iflag == CI_NIC ){
 		logmsg(stderr, MAIN, "Cannot specify more than %d capture interface(s)\n", CI_NIC);

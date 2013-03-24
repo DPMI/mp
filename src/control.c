@@ -41,6 +41,7 @@
 static void CIstatus(int sig); // Runs when ever a ALRM signal is received.
 static void distress(int sig); /* SIGSEGV, fatal */
 void set_local_mampid(mampid_t mampid);
+void update_local_mtu();
 
 static marc_context_t client = NULL;
 extern int port;
@@ -307,9 +308,12 @@ static void CIstatusExtended(){
 	MPMessage msg;
 	struct MPstatusExtended* stat = &msg.status;
 
+	update_local_mtu();
+
 	memset(stat, 0, sizeof(MPMessage));
 	stat->type = MP_STATUS3_EVENT;
-	stat->version = 1;
+	stat->version = 2;
+	stat->MTU = htons(MPinfo->MTU);
 	mampid_set(stat->MAMPid, MPinfo->id);
 
 	/* reset counters */
