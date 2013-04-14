@@ -283,7 +283,7 @@ static void show_configuration(){
 		logmsg(verbose, MAIN, "  Comment: %s\n", MPinfo->comment);
 
 		if ( destination ){
-			stream_addr_t addr;
+			stream_addr_t addr = STREAM_ADDR_INITIALIZER;
 			stream_addr_aton(&addr, destination, STREAM_ADDR_GUESS, 0);
 			logmsg(verbose, MAIN, "  Destination: %s\n", stream_addr_ntoa(&addr));
 		} else {
