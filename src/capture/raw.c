@@ -155,7 +155,7 @@ void* capture(void* ptr){
 	capture_init(&cap.base, CI->iface);
 
 	/* initialize raw capture */
-	logmsg(verbose, CAPTURE, "CI[%d] initializing capture on %s using RAW_SOCKET (memory at %p).\n", CI->id, cap.base.iface, &datamem[CI->id]);
+	logmsg(verbose, CAPTURE, "CI[%d] initializing capture on %s using RAW_SOCKET (memory at %p).\n", CI->id, cap.base.iface, CI->buffer);
 
 	/* open socket */
 	CI->sd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL));

@@ -322,7 +322,7 @@ void* dag_capture(void* ptr){
 	struct dag_context cap;
 	capture_init(&cap.base, CI->iface);
 
-	logmsg(verbose, CAPTURE, "CI[%d] initializing capture on %s using DAGv2 (memory at %p).\n", CI->id, cap.base.iface, &datamem[CI->id]);
+	logmsg(verbose, CAPTURE, "CI[%d] initializing capture on %s using DAGv2 (memory at %p).\n", CI->id, cap.base.iface, CI->buffer);
 
 	if ( !setup_device(CI) ){
 		/* error already show */

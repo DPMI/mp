@@ -133,8 +133,7 @@ static int oldest_packet(int nics, sem_t* semaphore){
 
 		for( int i = 0; i < nics; i++){
 			const int readpos = _CI[i].readpos;
-			unsigned char* raw_buffer = datamem[i][readpos];
-			const struct write_header* whead = (write_head*)raw_buffer;
+			const struct write_header* whead = CI_packet(&_CI[i], readpos);
 			const struct cap_header* head = whead->cp;
 
 			/* This destination has no packages yet */
@@ -211,8 +210,7 @@ void* sender_capfile(struct thread_data* td, void* ptr){
 		}
 
 		struct CI* CI = &_CI[oldest];
-		unsigned char* raw_buffer = datamem[oldest][CI->readpos];
-		struct write_header* whead = (write_head*)raw_buffer;
+		struct write_header* whead = CI_packet(CI, CI->readpos);
 
 		copy_to_sendbuffer(&dst, whead, CI);
 		send_packet(&dst);
@@ -285,8 +283,7 @@ static void fill_senders(const send_proc_t* proc){
 	}
 
 	struct CI* CI = &_CI[oldest];
-	unsigned char* raw_buffer  = datamem[oldest][CI->readpos];
-	struct write_header* whead = (write_head*)raw_buffer;
+	struct write_header* whead = CI_packet(CI, CI->readpos);
 	struct cap_header* head    = whead->cp;
 	struct destination* dst    = &MAsd[whead->destination];
 

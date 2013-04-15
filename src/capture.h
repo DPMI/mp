@@ -99,7 +99,8 @@ struct CI {
 	int sd;
 	int writepos;
 	int readpos;
-	u_char* datamem;
+	int offset;
+	unsigned char* buffer;
 	sem_t* flag;
 	sem_t* semaphore;
 	pthread_t thread;
@@ -127,6 +128,11 @@ int add_capture(const char* iface);
 void set_td(const char* arg);
 
 /**
+ * Get packet at position.
+ */
+struct write_header* CI_packet(struct CI* CI, int pos);
+
+/**
  * Get selected snaplen.
  */
 int snaplen();
@@ -140,9 +146,6 @@ extern int volatile terminateThreads;      // used for signaling thread to termi
 extern int noCI;                           // Number of Capture Interfaces
 extern int ENCRYPT;                        // If set to >0 then it will encrypt IP addresses...?
 extern struct CI* _CI; /* DO _*NOT*_ USE! For backwards compability ONLY! */
-
-// allocate capture buffer.
-extern u_char datamem[CI_NIC][PKT_BUFFER][(PKT_CAPSIZE+sizeof(write_head)+sizeof(cap_head))];
 
 // Threads
 typedef void* (*capture_func)(void*);
