@@ -29,6 +29,7 @@
 #include "timesync.h"
 
 #include <caputils/marc.h>
+#include <caputils/marc_dstat.h>
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
@@ -308,46 +309,65 @@ void* control(struct thread_data* td, void* prt){
 
 static void CIstatusExtended(){
 	MPMessage msg;
-	struct MPstatusExtended* stat = &msg.status;
+	struct MPDStat* dstat = &msg.dstat;
+	struct MPDStatHdr* cur = dstat->next;
 
 	update_local_mtu();
 
-	memset(stat, 0, sizeof(MPMessage));
-	stat->type = MP_STATUS3_EVENT;
-	stat->version = 2;
-	stat->MTU = htons(MPinfo->MTU);
-	mampid_set(stat->MAMPid, MPinfo->id);
+	/* generate marc dstat event */
+	memset(&msg, 0, sizeof(MPMessage));
+	dstat->type = MP_DSTAT_EVENT;
+	dstat->version = 1;
+	mampid_set(dstat->MAMPid, MPinfo->id);
+
+	/* append a summary */
+	struct MPDStat_Summary* sum = (struct MPDStat_Summary*)cur;
+	sum->type = htons(MP_DSTAT_SUMMARY);
+	sum->len = htons(sizeof(struct MPDStat_Summary));
+	cur = mp_dstat_nextw(cur);
 
 	/* reset counters */
 	MPstats->packet_count = 0;
 	MPstats->matched_count = 0;
 	MPstats->dropped_count = 0;
 
+	/* append interface headers */
 	for( int i=0; i < noCI; i++){
+		struct MPDStat_Iface* iface = (struct MPDStat_Iface*)cur;
+		iface->type = htons(MP_DSTAT_IFACE);
+		iface->len = htons(sizeof(struct MPDStat_Iface));
+		cur = mp_dstat_nextw(cur);
+
 		const float BU = (float)buffer_utilization(&_CI[i]) / PKT_BUFFER;
 		MPstats->packet_count  += _CI[i].packet_count;
 		MPstats->matched_count += _CI[i].matched_count;
 		MPstats->dropped_count += _CI[i].dropped_count;
 
-		strncpy(stat->CI[i].iface, _CI[i].iface, 8);
-		stat->CI[i].packet_count  = htonl(_CI[i].packet_count);
-		stat->CI[i].matched_count = htonl(_CI[i].matched_count);
-		stat->CI[i].dropped_count = htonl(_CI[i].dropped_count);
-		stat->CI[i].buffer_usage  = htonl((int)(BU*1000)); /* sent as 1000 steps so receiver can parse percent with one decimal */
+		strncpy(iface->iface, _CI[i].iface, 8);
+		iface->packet_count  = htonl(_CI[i].packet_count);
+		iface->matched_count = htonl(_CI[i].matched_count);
+		iface->dropped_count = htonl(_CI[i].dropped_count);
+		iface->buffer_usage  = htonl((int)(BU*1000)); /* sent as 1000 steps so receiver can parse percent with one decimal */
 		//		stat->CI[i].sync=0; /* -1, not synced, 0 - unknonw, 1 - synced */
 		//		logmsg(verbose,"CONTROL", "Status of device : %s ", _CI[i].iface);
 		timesync_status(&_CI[i]);
 	}
 
-	stat->packet_count  = htonl(MPstats->packet_count);
-	stat->matched_count = htonl(MPstats->matched_count);
-	stat->dropped_count = htonl(MPstats->dropped_count);
-	stat->status = 0;
-	stat->noFilters = mprules_count();
-	stat->noCI = noCI;
+	/* write summary */
+	sum->MTU = htonl(MPinfo->MTU);
+	sum->packet_count  = htonl(MPstats->packet_count);
+	sum->matched_count = htonl(MPstats->matched_count);
+	sum->dropped_count = htonl(MPstats->dropped_count);
+	sum->status = 0;
+	sum->noFilters = mprules_count();
+	sum->noCI = noCI;
+
+	/* finish with trailer */
+	cur->type = htons(MP_DSTAT_TRAILER);
+	cur->len = htons(sizeof(struct MPDStatHdr));
 
 	int ret;
-	if ( (ret=marc_push_event(client, (MPMessage*)stat, NULL)) != 0 ){
+	if ( (ret=marc_push_event(client, &msg, NULL)) != 0 ){
 		logmsg(stderr, CONTROL, "marc_push_event() returned %d: %s\n", ret, strerror(ret));
 	}
 }
@@ -393,7 +413,7 @@ static void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
 		        _CI[i].dropped_count,
 		        BU*100.0f, u, PKT_BUFFER);
 		// Handle syncronization status
-		
+
 		if(_CI[i].synchronized=='N'){
 		  fprintf(stderr,"\tNot Synchronized: ");
 		} else if (_CI[i].synchronized=='Y'){
@@ -408,7 +428,7 @@ static void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
 		fprintf(stderr,"\tCI:%s", last_tick);
 		/*
 		if(strncmp(_CI[i].iface,"dag",3)==0){
-		  
+
 		} else {
 
 		}
