@@ -49,6 +49,9 @@
 #include <netinet/ip_icmp.h>
 
 extern int show_packets;
+static struct CI CI[CI_NIC];
+struct CI* _CI = CI;
+static int tdflag = 0;          /* Number of T_delta definitions. */
 
 u_char datamem[CI_NIC][PKT_BUFFER][(PKT_CAPSIZE+sizeof(write_head)+sizeof(cap_head))] = {{{0,}}};
 
@@ -108,6 +111,98 @@ static void wait_for_auth(){
 		}
 		sleep(1); /** @todo should use a pthread cond. variable */
 	}
+}
+
+int add_capture(const char* iface){
+	if ( noCI == CI_NIC ){
+		logmsg(stderr, MAIN, "Cannot specify more than %d capture interface(s)\n", CI_NIC);
+		return 0;
+	}
+
+	/* initialize driver */
+	size_t t;
+	CI[noCI].driver = ci_driver_from_iface(iface, &t);
+	CI[noCI].iface = strdup(iface + t);
+
+	/* initialize fields */
+	CI[noCI].id = noCI;
+	CI[noCI].sd = -1;
+	CI[noCI].flag = NULL;
+	CI[noCI].semaphore = NULL;
+	CI[noCI].packet_count = 0;
+	CI[noCI].matched_count = 0;
+	CI[noCI].dropped_count = 0;
+	CI[noCI].seq_drop = 0;
+	CI[noCI].accuracy = 0;
+	pthread_mutex_init(&CI[noCI].mutex, NULL);
+	format_setup(&CI->format, FORMAT_DATE_STR | FORMAT_DATE_LOCALTIME | FORMAT_LAYER_APPLICATION);
+
+	noCI++;
+	return 1;
+}
+
+void set_td(const char* arg){
+	CI[tdflag].accuracy = atoi(arg);
+	tdflag++;
+}
+
+
+int setup_capture(sem_t* semaphore){
+	int ret = 0;
+	sem_t flag;
+
+	logmsg(verbose, MAIN, "Creating capture_threads.\n");
+
+	sem_init(&flag, 0, 0);
+
+	/* reset memory */
+	memset(datamem, 0, sizeof(datamem));
+
+	/* launch all capture threads */
+	for (int i=0; i < noCI; i++) {
+		CI[i].semaphore = semaphore;
+		CI[i].flag = &flag;
+
+		const capture_func func = ci_get_function(CI[i].driver);
+		if ( !func ) return EINVAL; /* error already shown */
+
+		if ( (ret=pthread_create(&CI[i].thread, NULL, func, &CI[i])) != 0 ) {
+			logmsg(stderr, MAIN, "Error creating capture thread.");
+			return ret;
+		}
+	}
+
+	/* await completion
+	 * not using flag_wait because it should wait a total of N secs and not N secs
+	 * per thread. */
+	{
+		struct timespec ts;
+		if ( clock_gettime(CLOCK_REALTIME, &ts) != 0 ){
+			int saved = errno;
+			logmsg(stderr, MAIN, "clock_gettime() returned %d: %s\n", saved, strerror(saved));
+			return saved;
+		}
+		ts.tv_sec += 20; /* 20s timeout */
+
+		for (int i=0; i < noCI; i++) {
+			if ( sem_timedwait(&flag, &ts) == 0 ){
+				continue;
+			}
+
+			int saved = errno;
+			switch ( saved ){
+			case ETIMEDOUT:
+			case EINTR:
+				break;
+			default:
+				logmsg(stderr, MAIN, "sem_timedwait() returned %d: %s\n", saved, strerror(saved));
+			}
+			return saved;
+		}
+	}
+
+	sem_destroy(&flag);
+	return 0;
 }
 
 int capture_loop(struct CI* CI, struct capture_context* cap){
@@ -187,5 +282,68 @@ int buffer_utilization(struct CI* CI){
 		return w -r ;
 	} else {
 		return PKT_BUFFER - r + w;
+	}
+}
+
+enum CIDriver ci_driver_from_iface(const char* iface, size_t* offset){
+	size_t tmp;
+	if ( !offset ){
+		offset = &tmp;
+	}
+
+	*offset = 0;
+	if ( strncmp("pcap", iface, 4) == 0 ){
+		*offset = 4;
+		return DRIVER_PCAP;
+	} else if (strncmp("dag", iface, 3)==0) {
+		return DRIVER_DAG;
+	} else if (strncmp("raw", iface, 3)==0) {
+		*offset = 3;
+		return DRIVER_RAW;
+	} else {
+#ifdef HAVE_DRIVER_PCAP
+		return DRIVER_PCAP;
+#else
+		return DRIVER_RAW;
+#endif
+	}
+}
+
+capture_func ci_get_function(enum CIDriver driver){
+	switch ( driver ){
+	case DRIVER_PCAP:
+#ifdef HAVE_DRIVER_PCAP
+		return pcap_capture;
+#else /* HAVE_DRIVER_PCAP */
+		logmsg(stderr, CAPTURE, "This MP lacks support for libpcap (rebuild with --with-pcap)\n");
+		return NULL;
+#endif /* HAVE_DRIVER_PCAP */
+		break;
+
+	case DRIVER_RAW:
+#ifdef HAVE_DRIVER_RAW
+		return capture;
+#else
+		logmsg(stderr, MAIN, "This MP lacks support for raw packet capture (use libpcap or DAG instead or rebuild with --with-raw)\n");
+		return NULL;
+#endif /* HAVE_DRIVER_RAW */
+		break;
+
+	case DRIVER_DAG:
+#ifdef HAVE_DAG
+#ifdef HAVE_DRIVER_DAG
+		return dag_capture;
+#else /* HAVE_DRIVER_DAG */
+		return dag_legacy_capture;
+#endif
+#else /* HAVE_DAG */
+		logmsg(stderr, MAIN, "This MP lacks support for Endace DAG (rebuild with --with-dag)\n");
+		return NULL;
+#endif
+		break;
+
+	default:
+		abort(); /* cannot happen, defaults to PCAP or RAW */
+		break;
 	}
 }

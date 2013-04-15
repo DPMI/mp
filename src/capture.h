@@ -70,6 +70,18 @@ enum CIDriver {
 	DRIVER_DAG,
 };
 
+/**
+ * Guess driver from interface name.
+ *  - dagN     -> DRIVER_DAG
+ *  - pcap[:]* -> DRIVER_PCAP
+ *  - raw[:]*  -> DRIVER_RAW
+ *  - *        -> DRIVER_PCAP (if present) OR DRIVER_RAW
+ * @param iface [in]
+ * @param offset [out] If non-null it returns the offset to the actual
+ *                     interface name (without prefix)
+ */
+enum CIDriver ci_driver_from_iface(const char* iface, size_t* offset);
+
 struct write_header //Used for marking a packet as read or written in the shared memory
 {
 	int used;           /* 1 if block is used. */
@@ -102,6 +114,19 @@ struct CI {
 };
 
 /**
+ * Start all capture interfaces.
+ *
+ * @param Sender semaphore.
+ */
+int setup_capture(sem_t* semaphore);
+
+/**
+ * Add a new capture interface.
+ */
+int add_capture(const char* iface);
+void set_td(const char* arg);
+
+/**
  * Get selected snaplen.
  */
 int snaplen();
@@ -123,11 +148,17 @@ extern u_char datamem[CI_NIC][PKT_BUFFER][(PKT_CAPSIZE+sizeof(write_head)+sizeof
 u_char sendmem[MAX_FILTERS][sizeof(struct ethhdr)+sizeof(struct sendhead)+maxSENDSIZE*(sizeof(cap_head)+PKT_CAPSIZE)];
 
 // Threads
+typedef void* (*capture_func)(void*);
 void* capture(void*); //capture thread
 void* pcap_capture(void*); //PCAP capture thread
 void* dag_capture(void*);
 void* dag_legacy_capture(void*);
 void* control(struct thread_data* td, void*); // Control thread
+
+/**
+ * Get capture function based on driver.
+ */
+capture_func ci_get_function(enum CIDriver driver);
 
 /**
  * Match packet against available filter. Will fill in head->caplen.

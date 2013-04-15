@@ -37,7 +37,7 @@ int ma_mode(sigset_t* sigmask, sem_t* semaphore){
 	}
 
 	/* initialize capture (blocking until all capture threads has finished) */
-	if ( (ret=setup_capture()) != 0 ){
+	if ( (ret=setup_capture(semaphore)) != 0 ){
 		logmsg(stderr, MAIN, "setup_capture() returned %d: %s\n", ret, strerror(ret));
 		return ret;
 	}
