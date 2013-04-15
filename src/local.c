@@ -29,6 +29,12 @@ int local_mode(sigset_t* sigmask, sem_t* semaphore, struct filter* filter, const
 		return EINVAL;
 	}
 
+	/* initialize capture */
+	if ( (ret=setup_capture(semaphore)) != 0 ){
+		logmsg(stderr, MAIN, "setup_capture() returned %d: %s\n", ret, strerror(ret));
+		return 1;
+	}
+
 	/* initialize sender */
 	if ( (ret=thread_create_sync(&senderPID, NULL, sender_caputils, &sender, "sender", NULL, SENDER_BARRIER_TIMEOUT)) != 0 ){
 		logmsg(stderr, MAIN, "thread_create_sync() [sender] returned %d: %s\n", ret, strerror(ret));
@@ -44,12 +50,6 @@ int local_mode(sigset_t* sigmask, sem_t* semaphore, struct filter* filter, const
 	}
 	filter_print(filter, verbose, 0);
 	mprules_add(filter);
-
-	/* initialize capture */
-	if ( (ret=setup_capture(semaphore)) != 0 ){
-		logmsg(stderr, MAIN, "setup_capture() returned %d: %s\n", ret, strerror(ret));
-		return 1;
-	}
 
 	pthread_sigmask(SIG_SETMASK, sigmask, NULL);
 
