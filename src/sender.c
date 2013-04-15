@@ -267,7 +267,7 @@ static void flush_senders(){
 }
 
 static void fill_senders(const send_proc_t* proc){
-	static const size_t header_size = sizeof(struct ethhdr) + sizeof(struct cap_header) + sizeof(struct sendhead);
+	static const size_t header_size = sizeof(struct cap_header) + sizeof(struct sendhead);
 
 	const int oldest = oldest_packet(proc->nics, proc->semaphore);
 
