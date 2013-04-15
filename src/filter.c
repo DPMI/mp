@@ -118,7 +118,6 @@ struct rule* mprules(){
 
 static void truncate_caplen(struct filter* filter, int want_ethhdr, int want_sendhead){
 	const size_t header_size =
-		sizeof(struct ethhdr) * want_ethhdr +
 		sizeof(struct sendhead) * want_sendhead +
 		sizeof(struct cap_header);
 
