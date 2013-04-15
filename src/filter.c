@@ -103,9 +103,7 @@ int filter(const char* CI, void *pkt, struct cap_header *head){
 
 static struct destination* next_free_destination(){
 	for ( int i = 0; i < MAX_FILTERS; i++ ){
-		if ( MAsd[i].state == IDLE ){
-			return &MAsd[i];
-		}
+		if ( MAsd[i].state == IDLE ) return &MAsd[i];
 	}
 	return NULL;
 }
@@ -120,7 +118,6 @@ struct rule* mprules(){
 
 static void truncate_caplen(struct filter* filter, int want_ethhdr, int want_sendhead){
 	const size_t header_size =
-		sizeof(struct ethhdr) * want_ethhdr +
 		sizeof(struct sendhead) * want_sendhead +
 		sizeof(struct cap_header);
 
@@ -135,8 +132,8 @@ int mprules_add(const struct filter* filter){
 	long ret = 0;
 
 	struct destination* dst = next_free_destination();
-	if( !dst ){ // Problems, NO free destinations. Bail out!
-		logmsg(stderr, FILTER, "No free destinations! (max: %d)\n", MAX_FILTERS);
+	if( !dst ){ // Problems, NO free destination. Bail out!
+		logmsg(stderr, FILTER, "No free destination buffer! (max: %d)\n", MAX_FILTERS);
 		return ENOBUFS;
 	}
 
@@ -147,7 +144,7 @@ int mprules_add(const struct filter* filter){
 	memcpy(&rule->filter, filter, sizeof(struct filter));
 
 	/* if the destination is /dev/null this triggers a fast-path where the packet is discarded */
-	int discard_filter = \
+	const int discard_filter = \
 		stream_addr_type(&rule->filter.dest) == STREAM_ADDR_CAPFILE &&
 		strcmp(rule->filter.dest.filename, "/dev/null") == 0;
 
@@ -183,7 +180,7 @@ int mprules_add(const struct filter* filter){
 			break;
 		case STREAM_ADDR_ETHERNET:
 		{
-			struct ethhdr *ethhead = (struct ethhdr*)sendmem[dst->index];
+			struct ethhdr *ethhead = dst->ethhead;
 			memcpy(ethhead->h_dest, &rule->filter.dest.ether_addr, ETH_ALEN);
 		}
 		break;
@@ -235,12 +232,12 @@ int mprules_add(const struct filter* filter){
 
 			/* if the destination need to be flushed the seqnum needs to be increased by
 			 * one as an additional frame will be sent */
-			if ( old->sendpointer - old->sendptrref > 0 ){
+			if ( old->sendcount > 0 ){
 				seqnum++;
 			}
 
 			/* defer closing stream until sender has processed it */
-			old->state = STOP;
+			destination_stop(old);
 		}
 
 		/* Update existing filter */
@@ -278,8 +275,8 @@ int mprules_del(const unsigned int filter_id){
 			logmsg(verbose, FILTER, "Removing filter {%d}\n", filter_id);
 
 			/* stop destination */
-			struct destination* con = cur->destination;
-			stop_destination(con);
+			struct destination* dst = cur->destination;
+			stop_destination(dst);
 
 			/* unlink filter from list */
 			if ( prev ){
