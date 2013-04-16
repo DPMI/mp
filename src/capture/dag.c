@@ -88,8 +88,7 @@ static int process_packet(struct dag_context* cap, dag_record_t* dr, unsigned ch
 		return 0;
 	}
 
-	/* Until datamem is allocated dynamically the largest possible packet to capture is PKT_CAPSIZE */
-	memcpy(dst, payload, min(pload_len, PKT_CAPSIZE));
+	memcpy(dst, payload, pload_len);
 
 	/* copied from /software/palDesktop/measurementpoint/src/v06/mp_fullsize (I assume it works) */ {
 		unsigned long long int ts = dr->ts;

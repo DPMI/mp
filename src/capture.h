@@ -135,7 +135,7 @@ struct write_header* CI_packet(struct CI* CI, int pos);
 /**
  * Get selected snaplen.
  */
-int snaplen();
+unsigned int snaplen();
 
 /**
  * Calculate current buffer utilization.

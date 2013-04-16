@@ -118,7 +118,7 @@ int add_capture(const char* iface){
 	}
 
 	const size_t per_packet = snaplen() + sizeof(struct cap_header) + sizeof(struct write_header);
-	const size_t buffer_size = per_packet * PKT_CAPSIZE;
+	const size_t buffer_size = per_packet * PKT_BUFFER;
 
 	/* initialize driver */
 	size_t t;

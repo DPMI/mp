@@ -106,7 +106,7 @@ int dag_mode = 0; /* 0: rxtx 1: wiretap */
 const char* dag_config = "varlen";
 char commandline[4096];                    /* a copy of commandline arguments given */
 
-int snaplen(){
+unsigned int snaplen(){
 	return cur_snaplen;
 }
 

@@ -116,12 +116,6 @@ AS_IF([test -z "$PKT_BUFFER"],
 	[AC_DEFINE_UNQUOTED([PKT_BUFFER], $PKT_BUFFER, [Size of capture buffer])]
 )
 
-AC_ARG_VAR([PKT_CAPSIZE], [Maximum size of a captured packet in bytes. @<:@default=1514@:>@])
-AS_IF([test -z "$PKT_CAPSIZE"],
-	[AC_DEFINE([PKT_CAPSIZE], 1516, [Maximum size of a captured packet])],
-	[AC_DEFINE_UNQUOTED([PKT_CAPSIZE], $PKT_CAPSIZE, [Maximum size of a captured packet])]
-)
-
 AC_ARG_VAR([CI_NO], [Number of parallel captures supported at runtime. @<:@default=2@:>@])
 AS_IF([test -z "$CI_NO"],
 	[AC_DEFINE([CI_NIC], 2, [Number of capture ifaces])],
