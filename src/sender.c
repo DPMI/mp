@@ -218,6 +218,8 @@ void* sender_capfile(struct thread_data* td, void* ptr){
 		send_packet(&dst);
 	}
 
+	destination_free(&dst);
+
 	logmsg(stderr, SENDER, "Finished (local).\n");
 	return NULL;
 }
