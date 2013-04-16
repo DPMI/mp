@@ -32,24 +32,26 @@ AC_PROG_CC_C_O
 AC_PROG_CC_C99
 AC_PROG_RANLIB
 AX_PTHREAD
-AX_BROKEN_SEM_TIMEDWAIT
-AM_CONDITIONAL(BUILD_SEM_TIMEDWAIT, [test "x$build_sem_timedwait" == "xyes"])
 AC_ARG_PROGRAM
 m4_ifdef([AM_PROG_AR], [AM_PROG_AR])
 m4_ifdef([AM_PROG_CC_C_O], [AM_PROG_CC_C_O])
 
+dnl Path configuration
 pkgconfdir="${sysconfdir}/mp"
 AC_SUBST(pkgconfdir)
 AX_DEFINE_DIR([PKGCONF_DIR], [pkgconfdir], [mp configuration files])
 
+dnl Required dependencies
 AC_SEARCH_LIBS([clock_gettime], [rt])
 PKG_CHECK_MODULES([libcap_utils], [libcap_utils-0.7 >= 0.7.14 libcap_marc-0.7])
 
+dnl Fallbacks for legacy environments
+AX_BROKEN_SEM_TIMEDWAIT
+AM_CONDITIONAL(BUILD_SEM_TIMEDWAIT, [test "x$build_sem_timedwait" == "xyes"])
+
+dnl Optional support for Endace DAG cards
 ax_dag="no"
 ax_dag_legacy="no"
-
-AC_ARG_WITH([raw],  [AS_HELP_STRING([--with-raw], [raw packet capture @<:@default=enabled@:>@])])
-AC_ARG_WITH([pcap], [AS_HELP_STRING([--with-pcap], [support for pcap (tcpdump) @<:@default=enabled@:>@])])
 AC_ARG_WITH([dag],  [AS_HELP_STRING([--with-dag@<:@=PATH@:>@], [support for endace DAG-cards @<:@default=disabled@:>@])], [
   AS_IF([test "x$withval" != "xno"], [
     ax_dag="yes"
@@ -65,11 +67,19 @@ AC_ARG_WITH([dag-legacy], [AS_HELP_STRING([--with-dag-legacy@<:@=PATH@:>@], [sup
   ])
 ])
 
-AS_IF([test "x$with_raw" != "xno"], [
-	AC_DEFINE([HAVE_DRIVER_RAW], 1, [Define to 1 if you want raw packet capture])
+dnl New and legacy DAG API is mutually exclusive.
+AS_IF([test "x$ax_dag" == "xyes" -a "x$ax_dag_legacy" == "xyes"], [
+	AC_MSG_ERROR([Cannot enable both new and legacy DAG API at the same time.])
 ])
+AM_CONDITIONAL(HAVE_DAG, [test "x$ax_dag" == "xyes" -o "x$ax_dag_legacy" == "xyes"])
+
+dnl Optional support for SOCK_RAW capture
+AC_ARG_WITH([raw],  [AS_HELP_STRING([--with-raw], [raw packet capture @<:@default=enabled@:>@])])
+AS_IF([test "x$with_raw" != "xno"], [AC_DEFINE([HAVE_DRIVER_RAW], 1, [Define to 1 if you want raw packet capture])])
 AM_CONDITIONAL(HAVE_RAW, [test "x$with_raw" != "xno"])
 
+dnl Optional support for PCAP
+AC_ARG_WITH([pcap], [AS_HELP_STRING([--with-pcap], [support for pcap (tcpdump) @<:@default=enabled@:>@])])
 AS_IF([test "x$with_pcap" != "xno"], [
 	AC_CHECK_HEADER([pcap.h], [
 		AC_CHECK_LIB([pcap], [pcap_close], [
@@ -93,12 +103,6 @@ AS_IF([test "x$enable_setcap_install" == "xyes"], [
 ])
 AM_CONDITIONAL(SETCAP, test x$enable_setcap_install = "xyes")
 AC_SUBST(program_transform_name)
-
-dnl New and legacy DAG API is mutually exclusive.
-AS_IF([test "x$ax_dag" == "xyes" -a "x$ax_dag_legacy" == "xyes"], [
-	AC_MSG_ERROR([Cannot enable both new and legacy DAG API at the same time.])
-])
-AM_CONDITIONAL(HAVE_DAG, [test "x$ax_dag" == "xyes" -o "x$ax_dag_legacy" == "xyes"])
 
 AC_ARG_VAR([MAX_AGE], [set the maximum time (in ms) a packet can be kept in the sender buffers. @<:@default=800@:>@])
 AS_IF([test -z "$MAX_AGE"],
