@@ -75,7 +75,7 @@ static void mp_filter(struct MPFilter* event, size_t bytes){
 	filter_unpack(&event->filter, &filter);
 
 	/* Make sure that the User doesnt request more information than we can give. */
-	filter.caplen = MIN(filter.caplen, PKT_CAPSIZE);
+	filter.caplen = MIN(filter.caplen, snaplen());
 
 	logmsg(stderr, CONTROL, "Updating filter {%d}\n", filter.filter_id);
 

@@ -120,11 +120,8 @@ static int read_packet_raw(struct raw_context* ctx, unsigned char* dst, struct c
 	struct timeval tv;
 	ioctl(sd, SIOCGSTAMP, &tv );
 
-	const size_t data_len = MIN(bytes, PKT_CAPSIZE);
-	const size_t padding = PKT_CAPSIZE - data_len;
-
+	const size_t data_len = MIN(bytes, snaplen());
 	memcpy(dst, ctx->buffer, data_len);
-	memset(dst + data_len, 0, padding);
 
 	head->ts.tv_sec   = tv.tv_sec;            // Store arrival time in seconds
 	head->ts.tv_psec  = tv.tv_usec * 1000000; // Write timestamp in picosec
@@ -155,7 +152,7 @@ void* capture(void* ptr){
 	capture_init(&cap.base, CI->iface);
 
 	/* initialize raw capture */
-	logmsg(verbose, CAPTURE, "CI[%d] initializing capture on %s using RAW_SOCKET (memory at %p).\n", CI->id, cap.base.iface, &datamem[CI->id]);
+	logmsg(verbose, CAPTURE, "CI[%d] initializing capture on %s using RAW_SOCKET (memory at %p).\n", CI->id, cap.base.iface, CI->buffer);
 
 	/* open socket */
 	CI->sd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL));

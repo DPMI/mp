@@ -88,8 +88,7 @@ static int process_packet(struct dag_context* cap, dag_record_t* dr, unsigned ch
 		return 0;
 	}
 
-	/* Until datamem is allocated dynamically the largest possible packet to capture is PKT_CAPSIZE */
-	memcpy(dst, payload, min(pload_len, PKT_CAPSIZE));
+	memcpy(dst, payload, pload_len);
 
 	/* copied from /software/palDesktop/measurementpoint/src/v06/mp_fullsize (I assume it works) */ {
 		unsigned long long int ts = dr->ts;
@@ -322,7 +321,7 @@ void* dag_capture(void* ptr){
 	struct dag_context cap;
 	capture_init(&cap.base, CI->iface);
 
-	logmsg(verbose, CAPTURE, "CI[%d] initializing capture on %s using DAGv2 (memory at %p).\n", CI->id, cap.base.iface, &datamem[CI->id]);
+	logmsg(verbose, CAPTURE, "CI[%d] initializing capture on %s using DAGv2 (memory at %p).\n", CI->id, cap.base.iface, CI->buffer);
 
 	if ( !setup_device(CI) ){
 		/* error already show */

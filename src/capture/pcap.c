@@ -9,6 +9,7 @@
 #include <string.h>
 #include <pcap.h>
 #include <errno.h>
+#include <assert.h>
 
 static const int pcap_timeout = 500;
 
@@ -38,16 +39,13 @@ static int read_packet_pcap(struct pcap_context* ctx, unsigned char* dst, struct
 		return -1;
 	}
 
-	const size_t data_len = MIN(pcaphead->caplen, PKT_CAPSIZE);
-	const size_t padding = PKT_CAPSIZE - data_len;
-
-	memcpy(dst, payload, data_len);
-	memset(dst + data_len, 0, padding);
+	assert(pcaphead->caplen <= snaplen());
+	memcpy(dst, payload, pcaphead->caplen);
 
 	head->ts.tv_sec   = pcaphead->ts.tv_sec;            // Store arrival time in seconds
 	head->ts.tv_psec  = pcaphead->ts.tv_usec * 1000000; // Write timestamp in picosec
-	head->len         = pcaphead->caplen;
-	head->caplen      = data_len;
+	head->len         = pcaphead->len;
+	head->caplen      = pcaphead->caplen;
 	/*head->flags       = 0;*/
 
 	return pcaphead->caplen;
@@ -104,7 +102,7 @@ void* pcap_capture(void* ptr){
 	struct pcap_context cap;
 	capture_init(&cap.base, CI->iface);
 
-	logmsg(verbose, CAPTURE, "CI[%d] initializing capture on %s using pcap (memory at %p).\n", CI->id, cap.base.iface, &datamem[CI->id]);
+	logmsg(verbose, CAPTURE, "CI[%d] initializing capture on %s using pcap (memory at %p).\n", CI->id, cap.base.iface, CI->buffer);
 
 	/* setup callbacks */
 	cap.base.init = (init_callback)init;

@@ -53,8 +53,6 @@ static struct CI CI[CI_NIC];
 struct CI* _CI = CI;
 static int tdflag = 0;          /* Number of T_delta definitions. */
 
-u_char datamem[CI_NIC][PKT_BUFFER][(PKT_CAPSIZE+sizeof(write_head)+sizeof(cap_head))] = {{{0,}}};
-
 static int push_packet(struct CI* CI, write_head* whead, cap_head* head, unsigned char* packet_buffer){
 	const int recipient = filter(CI->iface, packet_buffer, head);
 	if ( recipient == -1 ){ /* no match */
@@ -119,6 +117,9 @@ int add_capture(const char* iface){
 		return 0;
 	}
 
+	const size_t per_packet = snaplen() + sizeof(struct cap_header) + sizeof(struct write_header);
+	const size_t buffer_size = per_packet * PKT_BUFFER;
+
 	/* initialize driver */
 	size_t t;
 	CI[noCI].driver = ci_driver_from_iface(iface, &t);
@@ -127,6 +128,8 @@ int add_capture(const char* iface){
 	/* initialize fields */
 	CI[noCI].id = noCI;
 	CI[noCI].sd = -1;
+	CI[noCI].offset = per_packet;
+	CI[noCI].buffer = (unsigned char*)malloc(buffer_size);
 	CI[noCI].flag = NULL;
 	CI[noCI].semaphore = NULL;
 	CI[noCI].packet_count = 0;
@@ -146,6 +149,9 @@ void set_td(const char* arg){
 	tdflag++;
 }
 
+struct write_header* CI_packet(struct CI* CI, int pos){
+	return (struct write_header*)&CI->buffer[pos * CI->offset];
+}
 
 int setup_capture(sem_t* semaphore){
 	int ret = 0;
@@ -154,9 +160,6 @@ int setup_capture(sem_t* semaphore){
 	logmsg(verbose, MAIN, "Creating capture_threads.\n");
 
 	sem_init(&flag, 0, 0);
-
-	/* reset memory */
-	memset(datamem, 0, sizeof(datamem));
 
 	/* launch all capture threads */
 	for (int i=0; i < noCI; i++) {
@@ -223,8 +226,7 @@ int capture_loop(struct CI* CI, struct capture_context* cap){
 	CI->writepos = 0; /* Reset write-position in memory */
 	while(terminateThreads==0){
 		/* calculate pointers into writebuffer */
-		unsigned char* raw_buffer = datamem[CI->id][CI->writepos];
-		struct write_header* whead = (write_head*)raw_buffer;
+		struct write_header* whead = CI_packet(CI, CI->writepos);
 		struct cap_header* head = whead->cp;
 		unsigned char* packet_buffer = (unsigned char*)head->payload;
 
