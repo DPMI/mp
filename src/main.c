@@ -464,6 +464,10 @@ int main (int argc, char **argv){
 		verbose = fopen("/dev/null", "w");
 	}
 
+	if ( local ){
+		MPinfoI.MTU = BUFSIZ; /* sender/consumer requires MTU to be set */
+	}
+
 	show_configuration();
 	destination_init_all();
 
@@ -471,7 +475,6 @@ int main (int argc, char **argv){
 	if ( !local ){
 		ret = ma_mode(&sigmask, &semaphore);
 	} else {
-		MPinfoI.MTU = 4096; /* sender requires MTU to be set */
 		ret = local_mode(&sigmask, &semaphore, &filter, destination);
 	}
 
