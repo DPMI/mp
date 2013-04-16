@@ -110,7 +110,7 @@ AS_IF([test -z "$MAX_AGE"],
 	[AC_DEFINE_UNQUOTED([MAX_PACKET_AGE], $MAX_AGE, [Max packet age])]
 )
 
-AC_ARG_VAR([PKT_BUFFER], [Size of the capture buffer in bytes. @<:@default=10000@:>@])
+AC_ARG_VAR([PKT_BUFFER], [Number of packets in capture buffer. @<:@default=10000@:>@])
 AS_IF([test -z "$PKT_BUFFER"],
 	[AC_DEFINE([PKT_BUFFER], 10000, [Size of capture buffer])],
 	[AC_DEFINE_UNQUOTED([PKT_BUFFER], $PKT_BUFFER, [Size of capture buffer])]
