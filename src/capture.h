@@ -21,8 +21,8 @@
  functioncalls.
 ***************************************************************************/
 
-#ifndef CAPT
-#define CAPT
+#ifndef MP_CAPTURE_H
+#define MP_CAPTURE_H
 
 #include "thread.h"
 #include <caputils/caputils.h>
@@ -192,4 +192,4 @@ struct capture_context {
 int capture_init(struct capture_context* cap, const char* iface);
 int capture_loop(struct CI* CI, struct capture_context* cap);
 
-#endif
+#endif /* MP_CAPTURE_H */
