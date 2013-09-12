@@ -1,5 +1,5 @@
 AC_DEFUN([AX_BROKEN_SEM_TIMEDWAIT], [
-  saved_LIBS="$LDFLAGS"
+  saved_LIBS="$LIBS"
   LIBS="-lrt -pthread"
   AC_MSG_CHECKING([for broken sem_timedwait implementation])
   AC_RUN_IFELSE([
