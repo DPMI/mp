@@ -1,3 +1,7 @@
+dnl Test if sem_timedwait is following POSIX standard. This is required for old
+dnl versions of linux with LinuxThreads where the errno and return value isn't
+dnl set properly.
+
 AC_DEFUN([AX_BROKEN_SEM_TIMEDWAIT], [
   saved_LIBS="$LIBS"
   LIBS="-lrt -pthread"
