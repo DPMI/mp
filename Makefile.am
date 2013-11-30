@@ -1,6 +1,6 @@
 ACLOCAL_AMFLAGS = -I m4
 
-bin_PROGRAMS = mp
+bin_PROGRAMS = mp mp-smoke
 noinst_LIBRARIES = libcapture.a
 pkgconf_DATA = mp.conf.sample
 
@@ -36,6 +36,9 @@ mp_SOURCES = \
 if BUILD_SEM_TIMEDWAIT
 mp_SOURCES += lib/sem_timedwait.c
 endif
+
+mp_smoke_SOURCES = src/mpsmoke.c
+mp_smoke_LDADD = ${libcap_utils_LIBS}
 
 if SETCAP
 setcap:
