@@ -70,7 +70,6 @@ int wait_for_capture(sem_t* sem){
 }
 
 void send_packet(struct destination* dst){
-	const size_t header_size = sizeof(struct ethhdr) + sizeof(struct sendhead);
 	const size_t payload_size = dst->buffer.end - dst->buffer.begin;
 	const uint32_t seqnr = ntohl(dst->shead->sequencenr);
 
@@ -84,12 +83,17 @@ void send_packet(struct destination* dst){
 	const u_char* data = dst->buffer.begin;
 	size_t data_size = payload_size;
 
-	if ( dst->want_ethhead ){
-		data -= header_size;
-		data_size += header_size;
-	} else if ( dst->want_sendhead ){
+	/* send header is prepended to data and must be included in size */
+	if ( dst->want_sendhead ){
 		data -= sizeof(struct sendhead);
 		data_size += sizeof(struct sendhead);
+	}
+	assert(data_size <= MPinfo->MTU && "send_packet(..) payload size is greater than MTU");
+
+	/* ethernet streams requires ethernet header to be prepended */
+	if ( dst->want_ethhead ){
+		data -= sizeof(struct ethhdr);
+		data_size += sizeof(struct ethhdr);
 	}
 
 	ret = stream_write(dst->stream, data, data_size);
