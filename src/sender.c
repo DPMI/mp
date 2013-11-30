@@ -102,8 +102,19 @@ void send_packet(struct destination* dst){
 		if ( ret == 0 ){
 			logmsg(verbose, SENDER, "\tcaputils-%s\n", caputils_version(NULL));
 			logmsg(verbose, SENDER, "\tdst: %s\n", stream_addr_ntoa(&dst->filter->dest));
-			logmsg(verbose, SENDER, "\tPacket length = %zd bytes, Eth %zd, Send %zd, Cap %zd, MTU %zd bytes\n", frame_size, sizeof(struct ethhdr), sizeof(struct sendhead), sizeof(struct cap_header), MPinfo->MTU);
-			logmsg(verbose, SENDER, "\tSeqnr  = %04lx \t nopkts = %04d\n", (unsigned long int)seqnr, ntohl(dst->shead->nopkts));
+			logmsg(verbose, SENDER, "\tPacket (%zd bytes incl all headers):\n", frame_size);
+
+			if ( dst->want_ethhead ){
+				logmsg(verbose, SENDER, "\t\tEthernet (+%zd bytes)\n", sizeof(struct ethhdr));
+			}
+
+			if ( dst->want_sendhead ){
+				logmsg(verbose, SENDER, "\t\tSendheader [Seqnr=%04lx, nopkts=%04d] (+%zd bytes)\n", (unsigned long int)seqnr, ntohl(dst->shead->nopkts), sizeof(struct sendhead));
+			}
+
+			logmsg(verbose, SENDER, "\t\tPayload (+%zd bytes)\n", payload_size);
+			logmsg(verbose, SENDER, "\tsizeof(caphead): %zd bytes\n", sizeof(struct cap_header));
+			logmsg(verbose, SENDER, "\tMTU: %zd bytes\n", MPinfo->MTU);
 		} else {
 			logmsg(stderr,  SENDER, "\tstream_write() returned %d: %s\n", ret, strerror(ret));
 			logmsg(verbose, SENDER, "\tPacket length = %zd bytes, Eth %zd, Send %zd, Cap %zd bytes\n", frame_size, sizeof(struct ethhdr), sizeof(struct sendhead), sizeof(struct cap_header));
