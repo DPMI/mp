@@ -102,7 +102,7 @@ void send_packet(struct destination* dst){
 		if ( ret == 0 ){
 			logmsg(verbose, SENDER, "\tcaputils-%d.%d\n", ntohs(dst->shead->version.major), ntohs(dst->shead->version.minor));
 			logmsg(verbose, SENDER, "\tdst: %s\n", stream_addr_ntoa(&dst->filter->dest));
-			logmsg(verbose, SENDER, "\tPacket length = %zd bytes, Eth %zd, Send %zd, Cap %zd bytes\n", data_size, sizeof(struct ethhdr), sizeof(struct sendhead), sizeof(struct cap_header));
+			logmsg(verbose, SENDER, "\tPacket length = %zd bytes, Eth %zd, Send %zd, Cap %zd, MTU %zd bytes\n", data_size, sizeof(struct ethhdr), sizeof(struct sendhead), sizeof(struct cap_header), MPinfo->MTU);
 			logmsg(verbose, SENDER, "\tSeqnr  = %04lx \t nopkts = %04d\n", (unsigned long int)seqnr, ntohl(dst->shead->nopkts));
 		} else {
 			logmsg(stderr,  SENDER, "\tstream_write() returned %d: %s\n", ret, strerror(ret));
