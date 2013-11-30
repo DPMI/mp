@@ -78,8 +78,7 @@ void send_packet(struct destination* dst){
 	dst->shead->flags  = htonl(dst->shead->flags);
 	dst->shead->nopkts = htonl(dst->sendcount);
 
-	int ret;
-
+	/* see destination.h for buffer layout */
 	const u_char* data = dst->buffer.begin;
 	size_t data_size = payload_size;
 
@@ -96,7 +95,7 @@ void send_packet(struct destination* dst){
 		data_size += sizeof(struct ethhdr);
 	}
 
-	ret = stream_write(dst->stream, data, data_size);
+	int ret = stream_write(dst->stream, data, data_size);
 
 	logmsg(verbose, SENDER, "Filter %d sending %zd bytes with %d packets\n", dst->filter->filter_id, data_size, ntohl(dst->shead->nopkts));
 	if ( debug_flag ){
