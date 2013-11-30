@@ -100,7 +100,7 @@ void send_packet(struct destination* dst){
 	logmsg(verbose, SENDER, "Filter %d sending %zd bytes with %d packets\n", dst->filter->filter_id, frame_size, ntohl(dst->shead->nopkts));
 	if ( debug_flag ){
 		if ( ret == 0 ){
-			logmsg(verbose, SENDER, "\tcaputils-%d.%d\n", ntohs(dst->shead->version.major), ntohs(dst->shead->version.minor));
+			logmsg(verbose, SENDER, "\tcaputils-%s\n", caputils_version(NULL));
 			logmsg(verbose, SENDER, "\tdst: %s\n", stream_addr_ntoa(&dst->filter->dest));
 			logmsg(verbose, SENDER, "\tPacket length = %zd bytes, Eth %zd, Send %zd, Cap %zd, MTU %zd bytes\n", frame_size, sizeof(struct ethhdr), sizeof(struct sendhead), sizeof(struct cap_header), MPinfo->MTU);
 			logmsg(verbose, SENDER, "\tSeqnr  = %04lx \t nopkts = %04d\n", (unsigned long int)seqnr, ntohl(dst->shead->nopkts));
