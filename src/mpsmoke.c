@@ -47,7 +47,7 @@ static struct option longopts[] = {
 
 static void show_usage(){
 	printf("mp-smoke-%s - Diagnostics utility for MP\n", VERSION);
-	printf("usage: %s -i IFACE [-s SIZE] [-t INTERVAL]\n"
+	printf("usage: %s -i IFACE [-s SIZE] [-t INTERVAL] [ADDRESS]\n"
 	       "\n"
 	       "  -i, --iface=IFACE    Interface to send test packets on.\n"
 	       "  -s, --size=BYTES     Packet size (for payload) [default=max].\n"
@@ -165,8 +165,7 @@ int main(int argc, char* argv[]){
 	stream_t st = NULL;
 
 	/* parse address */
-	//if ( stream_addr_aton(&addr, "ff::00", STREAM_ADDR_GUESS, 0) != 0 ){
-	if ( stream_addr_aton(&addr, argv[argc-1], STREAM_ADDR_GUESS, 0) != 0 ){
+	if ( (ret=stream_addr_aton(&addr, optind < argc ? argv[optind] : "ff::00", STREAM_ADDR_ETHERNET, 0)) != 0 ){
 		fprintf(stderr, "%s: failed to parse destination address: %s\n", program_name, caputils_error_string(ret));
 		exit(1);
 	}
