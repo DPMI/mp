@@ -55,16 +55,16 @@ static void show_usage(){
 	       "  -h, --help           This text.\n",
 	       program_name);
 }
- 
+
 static uint32_t adler32(unsigned char *data, size_t len){
-	static const int MOD_ADLER = 65521;	
+	static const int MOD_ADLER = 65521;
 	uint32_t a = 1, b = 0;
-	
+
 	for ( unsigned int i = 0; i < len; ++i){
 		a = (a + data[i]) % MOD_ADLER;
 		b = (b + a) % MOD_ADLER;
 	}
-	
+
 	return (b << 16) | a;
 }
 
