@@ -167,14 +167,14 @@ int main(int argc, char* argv[]){
 	/* parse address */
 	//if ( stream_addr_aton(&addr, "ff::00", STREAM_ADDR_GUESS, 0) != 0 ){
 	if ( stream_addr_aton(&addr, argv[argc-1], STREAM_ADDR_GUESS, 0) != 0 ){
-		fprintf(stderr, "%s: failed to parse destination address: %s\n", program_name, strerror(errno));
+		fprintf(stderr, "%s: failed to parse destination address: %s\n", program_name, caputils_error_string(ret));
 		exit(1);
 	}
 
 	/* create output stream */
 	if ( (ret=stream_create(&st, &addr, iface, "mpsmoke", "mpsmoke test stream")) != 0 ){
-		fprintf(stderr, "%s: failed to create output stream: %s\n", program_name, strerror(errno));
-		exit(1);		
+		fprintf(stderr, "%s: failed to create output stream: %s\n", program_name, caputils_error_string(ret));
+		exit(1);
 	}
 
 	/* setup size
