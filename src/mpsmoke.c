@@ -165,7 +165,8 @@ int main(int argc, char* argv[]){
 	stream_t st = NULL;
 
 	/* parse address */
-	if ( stream_addr_aton(&addr, "ff::00", STREAM_ADDR_GUESS, 0) != 0 ){
+	//if ( stream_addr_aton(&addr, "ff::00", STREAM_ADDR_GUESS, 0) != 0 ){
+	if ( stream_addr_aton(&addr, argv[argc-1], STREAM_ADDR_GUESS, 0) != 0 ){
 		fprintf(stderr, "%s: failed to parse destination address: %s\n", program_name, strerror(errno));
 		exit(1);
 	}
