@@ -112,6 +112,16 @@ struct CI {
 	long matched_count;         /* Total number of matched packets */
 	long dropped_count;         /* Total number of dropped packets */
 	int seq_drop;               /* How many packets in (current) sequence has been dropped */
+
+  /* Time syncronization */
+  char synchronized;  /* Yes/No/Undefined */
+  int frequency;     /* Estimated clock freq */
+  time_t starttime;  /* When did the initial sync occur */
+  time_t citime;     /* What is the ci's current time */
+  time_t hosttime;   /* What is the hosts current time */
+  
+
+
 };
 
 /**

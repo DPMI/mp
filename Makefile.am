@@ -31,7 +31,8 @@ mp_SOURCES = \
 	src/ma.c src/ma.h \
 	src/main.c \
 	src/sender.c src/sender.h \
-	src/thread.c src/thread.h
+	src/thread.c src/thread.h \
+	src/timesync.c 
 
 if BUILD_SEM_TIMEDWAIT
 mp_SOURCES += lib/sem_timedwait.c

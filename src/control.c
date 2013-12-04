@@ -26,6 +26,7 @@
 #include "capture.h"
 #include "filter.h"
 #include "log.h"
+#include "timesync.h"
 
 #include <caputils/marc.h>
 #include <stdlib.h>
@@ -35,6 +36,7 @@
 #include <errno.h>
 #include <stdarg.h>
 #include <dlfcn.h>
+
 
 #define STATUS_INTERVAL 60
 
@@ -332,6 +334,9 @@ static void CIstatusExtended(){
 		stat->CI[i].matched_count = htonl(_CI[i].matched_count);
 		stat->CI[i].dropped_count = htonl(_CI[i].dropped_count);
 		stat->CI[i].buffer_usage  = htonl((int)(BU*1000)); /* sent as 1000 steps so receiver can parse percent with one decimal */
+		//		stat->CI[i].sync=0; /* -1, not synced, 0 - unknonw, 1 - synced */
+		//		logmsg(verbose,"CONTROL", "Status of device : %s ", _CI[i].iface);
+		timesync_status(&_CI[i]);
 	}
 
 	stat->packet_count  = htonl(MPstats->packet_count);
@@ -353,6 +358,7 @@ static void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
 		return;
 	}
 
+	//Populate statistics.
 	CIstatusExtended();
 
 	/* Compare with previous stats */
@@ -376,6 +382,7 @@ static void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
 	       MPstats->matched_count, delta.matched_count,
 	       MPstats->dropped_count, delta.dropped_count);
 
+	char* last_tick;
 	for( int i=0; i < noCI; i++){
 		const int u = buffer_utilization(&_CI[i]);
 		const float BU = (float)u / PKT_BUFFER;
@@ -385,6 +392,28 @@ static void CIstatus(int sig){ // Runs when ever a ALRM signal is received.
 		        _CI[i].matched_count,
 		        _CI[i].dropped_count,
 		        BU*100.0f, u, PKT_BUFFER);
+		// Handle syncronization status
+		
+		if(_CI[i].synchronized=='N'){
+		  fprintf(stderr,"\tNot Synchronized: ");
+		} else if (_CI[i].synchronized=='Y'){
+		  fprintf(stderr,"\tSynchronized: ");
+		} else {
+		  fprintf(stderr,"\tUndefined: ");
+		}
+		fprintf(stderr," Frequency %dHz \n",_CI[i].frequency);
+		last_tick = ctime(&_CI[i].hosttime);
+		fprintf(stderr,"\tHost:%s", last_tick);
+		last_tick = ctime(&_CI[i].citime);
+		fprintf(stderr,"\tCI:%s", last_tick);
+		/*
+		if(strncmp(_CI[i].iface,"dag",3)==0){
+		  
+		} else {
+
+		}
+		*/
+		fprintf(stderr,"\n");
 	}
 
 	if ( mprules_count() == 0 ){

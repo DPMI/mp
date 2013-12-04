@@ -4,6 +4,7 @@
 
 #include "capture.h"
 #include "log.h"
+#include "timesync.h"
 #include <dagapi.h>
 #include <sys/mman.h> /* for mmap */
 #include <arpa/inet.h> /* ntohs */
@@ -138,6 +139,9 @@ static int setup_device(struct CI* CI){
 		int e = errno;
 		logmsg(stderr, CAPTURE, "dag_configure() on interface %s returned %d: %s\n", dev, e, strerror(e));
 		return 0;
+	}
+	if (!timesync_init(CI)){
+	  logmsg(stderr,CAPTURE, "problem with timesync_init .\n");
 	}
 
 	return 1;
