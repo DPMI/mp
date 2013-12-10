@@ -23,77 +23,13 @@ email                : patrik.arlos@bth.se
 
 #include "timesync.h"
 #include "log.h"
+#include <string.h>
+
+#ifdef HAVE_DAG
 #include <dagapi.h>
 #include <dag_platform.h>
 #include <dagutil.h>
 #include <dagclarg.h>
-static int dagfd;
-static duckinf_t duckinf;
-static volatile uint8_t *iom;
-static unsigned duck_base;
-static void duckstatus(struct CI* myCI);
-static void ntpstatus(struct CI* myCI);
-
-
-int timesync_init(struct CI* myCI) {
-  logmsg(verbose, "TIMESYNC", "Init of %s .\n", myCI->iface);
-
-  int localerror;
-  dag_reg_t result[DAG_REG_MAX_ENTRIES];
-  unsigned regn;
-  dag_reg_t *regs;
-  duckinf.Set_Duck_Field = 0;
-  duckinf.Last_TSC = 0;
-
-  
-  if(strncmp(myCI->iface,"dag",3)==0){
-    dagfd=myCI->sd;
-    iom = dag_iom(dagfd);
-    /* Find DUCK */
-    regs = dag_regs(dagfd);
-    regn=0;
-    
-    if ((dag_reg_table_find(regs, 0, DAG_REG_DUCK, result, &regn)) || (!regn)) {
-      dagutil_panic("Dag does not support DUCK functions\n");
-      return(0);
-    } else {
-      duck_base = DAG_REG_ADDR(*result);
-    }
-    
-    
-    if((localerror = ioctl(dagfd, DAGIOCDUCK, &duckinf))){
-      dagutil_panic("DAGIOCDUCK failed with %d\n", localerror);
-    }
-    duckstatus(myCI);
-    
-  } else { /* Default to NTP if no DAG is found */
-    myCI->synchronized='U';
-    
-  }
-
-  return(1);
-}
-
-int timesync_status(struct CI* myCI){
-  logmsg(verbose, "TIMESYNC", "Status  %s .\n", myCI->iface);
-  int localerror;
-  
-  if(strncmp(myCI->iface,"dag",3)==0){
-    dagfd=myCI->sd;
-    iom=dag_iom(dagfd);
-    if((localerror = ioctl(dagfd, DAGIOCDUCK, &duckinf))){
-      dagutil_panic("DAGIOCDUCK failed with %d\n", localerror);
-      return(0);
-    }
-    duckstatus(myCI);
-  } else {
-    ntpstatus(myCI);
-  }
-
-
-  return(1);
-
-}
 
 enum {
   Duck_Command= 0x00,
@@ -106,8 +42,83 @@ enum {
 
 # define DUCK(OFF) (*(volatile unsigned *)(iom+duck_base+(OFF)))
 
+static int dagfd;
+static duckinf_t duckinf;
+static volatile uint8_t *iom;
+static unsigned duck_base;
+static void duckstatus(struct CI* myCI);
+#endif /* HAVE_DAG */
 
+static void ntpstatus(struct CI* myCI);
 
+int timesync_init(struct CI* myCI) {
+  logmsg(verbose, "TIMESYNC", "Init of %s .\n", myCI->iface);
+
+#ifdef HAVE_DAG
+  dag_reg_t result[DAG_REG_MAX_ENTRIES];
+  unsigned regn;
+  dag_reg_t *regs;
+  duckinf.Set_Duck_Field = 0;
+  duckinf.Last_TSC = 0;
+#endif /* HAVE_DAG */
+
+#ifdef HAVE_DAG
+  if(strncmp(myCI->iface,"dag",3)==0){
+    dagfd=myCI->sd;
+    iom = dag_iom(dagfd);
+    /* Find DUCK */
+    regs = dag_regs(dagfd);
+    regn=0;
+
+    if ((dag_reg_table_find(regs, 0, DAG_REG_DUCK, result, &regn)) || (!regn)) {
+      dagutil_panic("Dag does not support DUCK functions\n");
+      return(0);
+    } else {
+      duck_base = DAG_REG_ADDR(*result);
+    }
+
+    int localerror;
+    if((localerror = ioctl(dagfd, DAGIOCDUCK, &duckinf))){
+      dagutil_panic("DAGIOCDUCK failed with %d\n", localerror);
+    }
+    duckstatus(myCI);
+
+  } else { /* Default to NTP if no DAG is found */
+#else /* HAVE_DAG */
+	  myCI->synchronized='U';
+#endif /* HAVE_DAG */
+#ifdef HAVE_DAG
+  }
+#endif /* HAVE_DAG */
+
+  return(1);
+}
+
+int timesync_status(struct CI* myCI){
+  logmsg(verbose, "TIMESYNC", "Status  %s .\n", myCI->iface);
+
+#ifdef HAVE_DAG
+  if(strncmp(myCI->iface,"dag",3)==0){
+    dagfd=myCI->sd;
+    iom=dag_iom(dagfd);
+    int localerror;
+    if((localerror = ioctl(dagfd, DAGIOCDUCK, &duckinf))){
+      dagutil_panic("DAGIOCDUCK failed with %d\n", localerror);
+      return(0);
+    }
+    duckstatus(myCI);
+  } else {
+#else /* HAVE_DAG */
+    ntpstatus(myCI);
+#endif /* HAVE_DAG */
+#ifdef HAVE_DAG
+  }
+#endif /* HAVE_DAG */
+
+  return(1);
+}
+
+#ifdef HAVE_DAG
 static void duckstatus(struct CI* myCI) {
   unsigned val; //, mask, none;
   //time_t last;
@@ -235,7 +246,7 @@ static void duckstatus(struct CI* myCI) {
   */
   return;
 }
-
+#endif /* HAVE_DAG */
 
 void ntpstatus(struct CI* myCI){
   logmsg(stderr,"TIMESYNC","NTP synchronization not supported.\n");
