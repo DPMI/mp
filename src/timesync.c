@@ -1,19 +1,19 @@
-/*************************************************************************** 
-                         timesync.c  -  description                                                                                                                                        
-                             -------------------                                                                                                                                             
+/***************************************************************************
+                         timesync.c  -  description
+                             -------------------
 begin                : Wed Dec 2013
-copyright            : (C) 2013 by Patrik Arlos                                                                                                                                     
-email                : patrik.arlos@bth.se                                                                                                                                               
+copyright            : (C) 2013 by Patrik Arlos
+email                : patrik.arlos@bth.se
 ***************************************************************************/
-/***************************************************************************                                                                                                                
-*                                                                         *                                                                                                                  
-*   This program is free software; you can redistribute it and/or modify  *                                                                                                                  
-*   it under the terms of the GNU General Public License as published by  *                                                                                                                  
-*   the Free Software Foundation; either version 2 of the License, or     *                                                                                                                  
-*   (at your option) any later version.                                   *                                                                                                                  
-*                                                                         *                                                                                                                  
+/***************************************************************************
+*                                                                         *
+*   This program is free software; you can redistribute it and/or modify  *
+*   it under the terms of the GNU General Public License as published by  *
+*   the Free Software Foundation; either version 2 of the License, or     *
+*   (at your option) any later version.                                   *
+*                                                                         *
 ***************************************************************************/
-/***************************************************************************                                                                                                                 
+/***************************************************************************
   This is used to retreive timesync information per CI.
 ***************************************************************************/
 
@@ -147,7 +147,7 @@ static void duckstatus(struct CI* myCI) {
     printf("none ");
   }
   printf("\n");
-  
+
   none = 1;
   printf("muxout\t");
   for( mask = 0x100 ; mask < 0x1000 ; mask <<=1 )
@@ -173,8 +173,8 @@ static void duckstatus(struct CI* myCI) {
     default:
       dagutil_panic("internal error at %s line %u\n", __FILE__, __LINE__);
     }
-  if(none){ 
-    printf("none "); 
+  if(none){
+    printf("none ");
   }
   printf("\n");
   */
@@ -193,7 +193,7 @@ static void duckstatus(struct CI* myCI) {
   }
   myCI->hosttime=duckinf.Stat_End;
 
-  /*  
+  /*
   printf("%sSynchronised ", duckinf.Health?"":"Not ");
   printf("Threshold %.0fns ", duckinf.Health_Thresh / (0x100000000ll/1000000000.0));
   printf("Phase correction %.0fns ", duckinf.Phase_Correction / (0x100000000ll/1000000000.0));
