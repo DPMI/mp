@@ -51,6 +51,8 @@ static void duckstatus(struct CI* myCI);
 
 static void ntpstatus(struct CI* myCI);
 
+
+#ifndef OLDDAG
 int timesync_init(struct CI* myCI) {
   logmsg(verbose, "TIMESYNC", "Init of %s .\n", myCI->iface);
 
@@ -95,6 +97,7 @@ int timesync_init(struct CI* myCI) {
 }
 
 int timesync_status(struct CI* myCI){
+  logmsg(stderr, "TIMESYNC", "stringlen = %d \n", strlen(myCI->iface));
   logmsg(verbose, "TIMESYNC", "Status  %s .\n", myCI->iface);
 
 #ifdef HAVE_DAG
@@ -253,3 +256,22 @@ void ntpstatus(struct CI* myCI){
   myCI->synchronized='U';
   return;
 }
+
+
+#else
+int timesync_init(struct CI* myCI) {
+  return(1);
+}
+
+
+void ntpstatus(struct CI* myCI){	    
+  return;
+}
+
+int timesync_status(struct CI* myCI){
+  logmsg(stderr,"TIMESYNC","DAG synchronization not supported.\n");
+  myCI->synchronized='U';
+  return(1);
+}
+
+#endif
