@@ -52,7 +52,7 @@ static void duckstatus(struct CI* myCI);
 static void ntpstatus(struct CI* myCI);
 
 int timesync_init(struct CI* myCI) {
-  logmsg(verbose, "TIMESYNC", "Init of %s .\n", myCI->iface);
+  logmsg(verbose, SYNC, "Init of %s .\n", myCI->iface);
 
 #ifdef HAVE_DAG
   dag_reg_t result[DAG_REG_MAX_ENTRIES];
@@ -85,6 +85,7 @@ int timesync_init(struct CI* myCI) {
 
   } else { /* Default to NTP if no DAG is found */
 #else /* HAVE_DAG */
+
 	  myCI->synchronized='U';
 #endif /* HAVE_DAG */
 #ifdef HAVE_DAG
@@ -95,7 +96,7 @@ int timesync_init(struct CI* myCI) {
 }
 
 int timesync_status(struct CI* myCI){
-  logmsg(verbose, "TIMESYNC", "Status  %s .\n", myCI->iface);
+  logmsg(verbose, SYNC, "Status  %s .\n", myCI->iface);
 
 #ifdef HAVE_DAG
   if(strncmp(myCI->iface,"dag",3)==0){
@@ -249,7 +250,7 @@ static void duckstatus(struct CI* myCI) {
 #endif /* HAVE_DAG */
 
 void ntpstatus(struct CI* myCI){
-  logmsg(stderr,"TIMESYNC","NTP synchronization not supported.\n");
+  logmsg(stderr,SYNC,"NTP synchronization not supported.\n");
   myCI->synchronized='U';
   return;
 }

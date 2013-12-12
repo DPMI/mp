@@ -89,11 +89,14 @@ int debug_flag = 0;
 int show_packets = 0;
 FILE* verbose = NULL;
 
-const char* MAIN = "main";
-const char* SENDER = "sender";
+// Limit 8 chars      "01234567"
+const char* SYNC    = "cisync";
+const char* MAIN    = "main";
+const char* SENDER  = "sender";
 const char* CAPTURE = "capture";
 const char* CONTROL = "control";
-const char* FILTER = "filter";
+const char* FILTER  = "filter";
+
 
 static sem_t semaphore;
 pthread_t controlPID;              // thread id for the control thread
