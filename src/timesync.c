@@ -98,12 +98,7 @@ int timesync_init(struct CI* myCI) {
 }
 
 int timesync_status(struct CI* myCI){
-<<<<<<< HEAD
   logmsg(verbose, SYNC, "Status  %s .\n", myCI->iface);
-=======
-  logmsg(stderr, "TIMESYNC", "stringlen = %d \n", strlen(myCI->iface));
-  logmsg(verbose, "TIMESYNC", "Status  %s .\n", myCI->iface);
->>>>>>> 94bfa4deb71109c610f0d3945f2a35909e9b18e2
 
 #ifdef HAVE_DAG
   if(strncmp(myCI->iface,"dag",3)==0){
