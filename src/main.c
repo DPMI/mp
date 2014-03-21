@@ -80,6 +80,7 @@ static void cleanup(int sig); // Runs when program terminates
 static pthread_t main_thread;
 static int local = 0;       /* run in local-mode, don't try to contact MArCd */
 int port = 0; /* used by control.c */
+char* marc_ip = NULL; /* used by control.c */
 static const char* destination = NULL;
 static int cur_snaplen = DEFAULT_SNAPLEN;
 
@@ -154,6 +155,10 @@ static void ma_nic(const char* arg) {
 	close(s);
 }
 
+
+
+
+
 void set_local_mampid(mampid_t mampid){
 	mampid_set(MPinfoI.id, mampid);
 }
@@ -185,7 +190,7 @@ enum Options {
 };
 
 static const char* shortopts =
-	"hvqd:Df:i:s:p:o:S:"
+	"hvqd:Df:i:s:M:p:o:S:"
 #ifdef HAVE_DRIVER_DAG
 	"wmc:"
 #endif
@@ -195,6 +200,7 @@ static struct option longopts[]= {
 	{"accuracy",     required_argument, NULL, 'd'},
 	{"interface",    required_argument, NULL, 'i'},
 	{"manic",        required_argument, NULL, 's'},
+	{"marc",         required_argument, NULL, 'M'},
 	{"id",           required_argument, NULL, OPTION_MAMPID},
 	{"comment",      required_argument, NULL, OPTION_COMMENT},
 	{"help",         no_argument,       NULL, 'h'},
@@ -227,6 +233,7 @@ static void show_usage(const char* program_name){
 	printf("  -h, --help                  help (this text)\n"
 	       "      --version               Display version and exit.\n"
 	       "  -s, --manic=INTERFACE       MA Interface.\n"
+	       "  -M, --marc=IP               MArC IP (overrides bootstrap). \n"
 	       "  -p, --port=PORT             Control interface listen port [default: 2000]\n"
 	       "  -i, --interface=INTERFACE   Capture Interface (REQUIRED)\n"
 	       "  -S, --snaplen=BYTES         Maximum packet capture size [default: " STR(DEFAULT_SNAPLEN) "]\n"
@@ -350,6 +357,10 @@ static int parse_argv(int argc, char** argv){
 		case 's':  // MA Network Interface name
 			ma_nic(optarg);
 			break;
+		case 'M': // MArC IP address
+		  marc_ip=strdup(optarg);
+		  fprintf(stdout, "The future MArC IP is %s.\n",optarg);
+		  break;
 
 		case 'p': // server port
 			port = atoi(optarg);
@@ -512,7 +523,7 @@ int main (int argc, char **argv){
 
 	free(MPinfoI.iface);
 	free(MPinfoI.comment);
-
+	free(marc_ip);
 	return 0;
 } // Main end
 

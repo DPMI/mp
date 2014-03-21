@@ -47,6 +47,7 @@ void update_local_mtu();
 
 static marc_context_t client = NULL;
 extern int port;
+extern char* marc_ip;
 
 static void mp_auth(struct MPauth* event){
 	if( strlen(event->MAMPid) > 0 ){
@@ -142,6 +143,7 @@ void* control(struct thread_data* td, void* prt){
 	/* setup libmarc */
 	struct marc_client_info info = {0,};
 	info.client_ip = NULL;
+	info.server_ip = marc_ip;
 	info.client_port = port;
 	info.max_filters = MAX_FILTERS;
 	info.noCI = noCI;
