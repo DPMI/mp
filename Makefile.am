@@ -39,6 +39,7 @@ mp_SOURCES += lib/sem_timedwait.c
 endif
 
 mp_smoke_SOURCES = src/mpsmoke.c
+mp_smoke_CFLAGS = ${libcap_utils_CFLAGS}
 mp_smoke_LDADD = ${libcap_utils_LIBS}
 
 if SETCAP
