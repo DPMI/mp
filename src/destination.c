@@ -10,6 +10,10 @@
 
 struct destination MAsd[MAX_FILTERS];
 
+static size_t max(size_t a, size_t b){
+	return (a>b) ? a : b;
+}
+
 static void setup_ethernet(struct ethhdr* ethhdr){
 	ethhdr->h_proto = htons(ETHERTYPE_MP);
 
@@ -38,7 +42,7 @@ void destination_init(struct destination* dst, int index){
 	dst->sendcount = 0;
 
 	/* setup packet buffer */
-	const size_t buffer_size = MPinfo->MTU + sizeof(struct ethhdr);
+	const size_t buffer_size = max(MPinfo->MTU, sizeof(struct sendhead)) + sizeof(struct ethhdr);
 	dst->buffer.memory = malloc(buffer_size);
 	dst->buffer.begin  = dst->buffer.memory + header_size;
 	dst->buffer.end    = dst->buffer.begin;
