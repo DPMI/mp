@@ -25,7 +25,7 @@ email                : patrik.arlos@bth.se
 #include "log.h"
 #include <string.h>
 
-#ifdef HAVE_DAG
+#ifdef HAVE_DRIVER_DAG
 #include <dagapi.h>
 #include <dag_platform.h>
 #include <dagutil.h>
@@ -47,9 +47,9 @@ static duckinf_t duckinf;
 static volatile uint8_t *iom;
 static unsigned duck_base;
 static void duckstatus(struct CI* myCI);
-#endif /* HAVE_DAG */
+#endif /* HAVE_DRIVER_DAG */
 
-#ifndef HAVE_DAG
+#ifndef HAVE_DRIVER_DAG
 static void ntpstatus(struct CI* myCI);
 #endif
 
@@ -58,15 +58,15 @@ static void ntpstatus(struct CI* myCI);
 int timesync_init(struct CI* myCI) {
   logmsg(verbose, SYNC, "Init of %s .\n", myCI->iface);
 
-#ifdef HAVE_DAG
+#ifdef HAVE_DRIVER_DAG
   dag_reg_t result[DAG_REG_MAX_ENTRIES];
   unsigned regn;
   dag_reg_t *regs;
   duckinf.Set_Duck_Field = 0;
   duckinf.Last_TSC = 0;
-#endif /* HAVE_DAG */
+#endif /* HAVE_DRIVER_DAG */
 
-#ifdef HAVE_DAG
+#ifdef HAVE_DRIVER_DAG
   if(strncmp(myCI->iface,"dag",3)==0){
     dagfd=myCI->sd;
     iom = dag_iom(dagfd);
@@ -88,13 +88,12 @@ int timesync_init(struct CI* myCI) {
     duckstatus(myCI);
 
   } else { /* Default to NTP if no DAG is found */
-#else /* HAVE_DAG */
-
+#else /* HAVE_DRIVER_DAG */
 	  myCI->synchronized='U';
-#endif /* HAVE_DAG */
-#ifdef HAVE_DAG
+#endif /* HAVE_DRIVER_DAG */
+#ifdef HAVE_DRIVER_DAG
   }
-#endif /* HAVE_DAG */
+#endif /* HAVE_DRIVER_DAG */
 
   return(1);
 }
@@ -102,7 +101,7 @@ int timesync_init(struct CI* myCI) {
 int timesync_status(struct CI* myCI){
   logmsg(verbose, SYNC, "Status  %s .\n", myCI->iface);
 
-#ifdef HAVE_DAG
+#ifdef HAVE_DRIVER_DAG
   if(strncmp(myCI->iface,"dag",3)==0){
     dagfd=myCI->sd;
     iom=dag_iom(dagfd);
@@ -113,17 +112,17 @@ int timesync_status(struct CI* myCI){
     }
     duckstatus(myCI);
   } else {
-#else /* HAVE_DAG */
+#else /* HAVE_DRIVER_DAG */
     ntpstatus(myCI);
-#endif /* HAVE_DAG */
-#ifdef HAVE_DAG
+#endif /* HAVE_DRIVER_DAG */
+#ifdef HAVE_DRIVER_DAG
   }
-#endif /* HAVE_DAG */
+#endif /* HAVE_DRIVER_DAG */
 
   return(1);
 }
 
-#ifdef HAVE_DAG
+#ifdef HAVE_DRIVER_DAG
 static void duckstatus(struct CI* myCI) {
   DUCK(Duck_Config);
 
@@ -143,15 +142,15 @@ static void duckstatus(struct CI* myCI) {
 
   return;
 }
-#endif /* HAVE_DAG */
+#endif /* HAVE_DRIVER_DAG */
 
-#ifndef HAVE_DAG
+#ifndef HAVE_DRIVER_DAG
 static void ntpstatus(struct CI* myCI){
   logmsg(stderr,"TIMESYNC","NTP synchronization not supported.\n");
   myCI->synchronized='U';
   return;
 }
-#endif /* HAVE_DAG */
+#endif /* HAVE_DRIVER_DAG */
 
 #else
 int timesync_init(struct CI* myCI) {
