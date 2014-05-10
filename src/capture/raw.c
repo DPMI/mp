@@ -149,7 +149,7 @@ int stats(struct raw_context* ctx){
 void* capture(void* ptr){
 	struct CI* CI = (struct CI*)ptr;
 	struct raw_context cap;
-	capture_init(&cap.base, CI->iface);
+	capture_init(CI, &cap.base);
 
 	/* initialize raw capture */
 	logmsg(verbose, CAPTURE, "CI[%d] initializing capture on %s using RAW_SOCKET (memory at %p).\n", CI->id, cap.base.iface, CI->buffer);

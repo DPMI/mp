@@ -323,7 +323,7 @@ static int dagcapture_destroy_wiretap(struct dag_context* cap){
 void* dag_capture(void* ptr){
 	struct CI* CI = (struct CI*)ptr;
 	struct dag_context cap;
-	capture_init(&cap.base, CI->iface);
+	capture_init(CI, &cap.base);
 
 	logmsg(verbose, CAPTURE, "CI[%d] initializing capture on %s using DAGv2 (memory at %p).\n", CI->id, cap.base.iface, CI->buffer);
 
@@ -408,7 +408,7 @@ static int dagcapture_destroy(struct dag_context* cap){
 void* dag_legacy_capture(void* ptr){
 	struct CI* CI = (struct CI*)ptr;
 	struct dag_context cap;
-	capture_init(&cap.base, CI->iface);
+	capture_init(CI, &cap.base);
 
 	logmsg(verbose, CAPTURE, "CI[%d] initializing capture on %s using DAGv1 (memory at %p).\n", CI->id, cap.base.iface, &datamem[CI->id]);
 

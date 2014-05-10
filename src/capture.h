@@ -119,9 +119,6 @@ struct CI {
   time_t starttime;  /* When did the initial sync occur */
   time_t citime;     /* What is the ci's current time */
   time_t hosttime;   /* What is the hosts current time */
-  
-
-
 };
 
 /**
@@ -186,6 +183,7 @@ typedef int (*stats_callback)(void* context);
 
 struct capture_context {
 	const char* iface;                    /* Name of the interface, copied reference */
+	struct CI* CI;                        /* back reference to CI */
 
 	/* callbacks */
 	init_callback init;
@@ -199,7 +197,7 @@ struct capture_context {
  *
  * @param iface Name of the interface to capture on. (Memory is only referenced)
  */
-int capture_init(struct capture_context* cap, const char* iface);
+int capture_init(struct CI* CI, struct capture_context* cap);
 int capture_loop(struct CI* CI, struct capture_context* cap);
 
 #endif /* MP_CAPTURE_H */

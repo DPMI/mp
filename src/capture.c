@@ -270,9 +270,10 @@ int capture_loop(struct CI* CI, struct capture_context* cap){
 	return 0;
 }
 
-int capture_init(struct capture_context* cap, const char* iface){
+int capture_init(struct CI* CI, struct capture_context* cap){
 	memset(cap, 0, sizeof(struct capture_context));
-	cap->iface = iface;
+	cap->CI = CI;
+	cap->iface = CI->iface;
 	return 0;
 }
 
