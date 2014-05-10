@@ -49,7 +49,9 @@ static unsigned duck_base;
 static void duckstatus(struct CI* myCI);
 #endif /* HAVE_DAG */
 
+#ifndef HAVE_DAG
 static void ntpstatus(struct CI* myCI);
+#endif
 
 
 #ifndef OLDDAG
@@ -123,75 +125,7 @@ int timesync_status(struct CI* myCI){
 
 #ifdef HAVE_DAG
 static void duckstatus(struct CI* myCI) {
-  unsigned val; //, mask, none;
-  //time_t last;
-  //  char *last_tick;
-
-  val = DUCK(Duck_Config);
-
-  /*
-    // DO not care about sync input..
-  none = 1;
-
-    printf("muxin\t");
-  for( mask = 1 ; mask < 0x10; mask <<= 1)
-    switch(val&mask) {
-    case 0x00:
-      continue;
-    case 0x01:
-      printf("rs422 ");
-      none = 0;
-      break;
-    case 0x02:
-      printf("host ");
-      none = 0;
-      break;
-    case 0x04:
-      printf("over ");
-      none = 0;
-      break;
-    case 0x08:
-      printf("aux ");
-      none = 0;
-      break;
-    default:
-      dagutil_panic("internal error at %s %u\n", __FILE__, __LINE__);
-    }
-  if(none) {
-    printf("none ");
-  }
-  printf("\n");
-
-  none = 1;
-  printf("muxout\t");
-  for( mask = 0x100 ; mask < 0x1000 ; mask <<=1 )
-    switch(val&mask) {
-    case 0x000:
-      continue;
-    case 0x100:
-      printf("rs422 ");
-      none = 0;
-      break;
-    case 0x200:
-      printf("loop ");
-      none = 0;
-      break;
-    case 0x400:
-      printf("host ");
-      none = 0;
-      break;
-    case 0x800:
-      printf("over ");
-      none = 0;
-      break;
-    default:
-      dagutil_panic("internal error at %s line %u\n", __FILE__, __LINE__);
-    }
-  if(none){
-    printf("none ");
-  }
-  printf("\n");
-  */
+  DUCK(Duck_Config);
 
   if(duckinf.Health){
     myCI->synchronized='Y';// duckinf.Health?"Y":"N ";
@@ -207,56 +141,17 @@ static void duckstatus(struct CI* myCI) {
   }
   myCI->hosttime=duckinf.Stat_End;
 
-  /*
-  printf("%sSynchronised ", duckinf.Health?"":"Not ");
-  printf("Threshold %.0fns ", duckinf.Health_Thresh / (0x100000000ll/1000000000.0));
-  printf("Phase correction %.0fns ", duckinf.Phase_Correction / (0x100000000ll/1000000000.0));
-  printf("Failures %d ", duckinf.Sickness);
-  printf("Resyncs %d\n", duckinf.Resyncs);
-
-  printf("error\t");
-  printf("Freq %.0fppb ", duckinf.Freq_Err / (0x100000000ll/1000000000.0));
-  printf("Phase %.0fns ", duckinf.Phase_Err / (0x100000000ll/1000000000.0));
-  printf("Worst Freq %.0fppb ", duckinf.Worst_Freq_Err / (0x100000000ll/1000000000.0));
-  printf("Worst Phase %.0fns\n", duckinf.Worst_Phase_Err / (0x100000000ll/1000000000.0));
-
-  printf("crystal\t");
-  printf("Actual %dHz ", duckinf.Crystal_Freq);
-  printf("Synthesized %dHz\n", duckinf.Synth_Freq);
-
-  printf("input\t");
-  printf("Total %d ", duckinf.Pulses);
-  printf("Bad %d ", duckinf.Resyncs);
-  printf("Singles Missed %d ", duckinf.Single_Pulses_Missing);
-  printf("Longest Sequence Missed %d\n", duckinf.Longest_Pulse_Missing);
-
-  last_tick = ctime(&duckinf.Stat_Start);
-  printf("start\t%s", last_tick);
-
-  last_tick = ctime(&duckinf.Stat_End);
-  printf("host\t%s", last_tick);
-
-  if(duckinf.Last_Ticks) {
-    last = (time_t)((duckinf.Last_Ticks >> 32) + (int)(((duckinf.Last_Ticks&0xffffffff) + (double)0x80000000)/0x100000000ll));
-    last_tick = ctime(&last);
-    printf("dag\t%s", last_tick);
-  } else {
-    printf("dag\tNo active input - Free running\n");
-  }
-  if (0 != duckinf.Last_TSC){
-    printf("TSC\t%"PRIu64"\n", duckinf.Last_TSC);
-  }
-  */
   return;
 }
 #endif /* HAVE_DAG */
 
-void ntpstatus(struct CI* myCI){
-  logmsg(stderr,SYNC,"NTP synchronization not supported.\n");
+#ifndef HAVE_DAG
+static void ntpstatus(struct CI* myCI){
+  logmsg(stderr,"TIMESYNC","NTP synchronization not supported.\n");
   myCI->synchronized='U';
   return;
 }
-
+#endif /* HAVE_DAG */
 
 #else
 int timesync_init(struct CI* myCI) {
@@ -264,7 +159,7 @@ int timesync_init(struct CI* myCI) {
 }
 
 
-void ntpstatus(struct CI* myCI){	    
+void ntpstatus(struct CI* myCI){
   return;
 }
 
