@@ -2,7 +2,7 @@ DPMI Measurement Point
 
 Install
 -------
-
+(autoreconf --install # if from git repo)
 ./configure [--with-dag=PREFIX] [--with-pcap] [--without-raw]
 make
 make install
