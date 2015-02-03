@@ -14,6 +14,16 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#if DAGDRIVER_MAJOR >3
+#include <dag_config_api.h>
+ dag_card_ref_t card_ref;
+ dag_component_t root_component; 
+ uint32_t count;
+
+#endif
+
+
+
 #define RX_STREAM 0
 #define TX_STREAM 1
 
@@ -30,6 +40,14 @@ struct dag_context {
 	uint8_t* bottom;
 #endif /* HAVE_DRIVER_DAG_LEGACY */
 };
+
+
+#if DAGDRIVER_MAJOR >3
+ dag_card_ref_t card_ref;
+ dag_component_t root_component; 
+ uint32_t count;
+#endif
+
 
 extern int dag_mode;
 extern const char* dag_config;
@@ -135,11 +153,27 @@ static int setup_device(struct CI* CI){
 		return 0;
 	}
 
+#if DAGDRIVER_MAJOR < 5 
 	if ( dag_configure(CI->sd, config) < 0 ) {
 		int e = errno;
 		logmsg(stderr, CAPTURE, "dag_configure() on interface %s returned %d: %s\n", dev, e, strerror(e));
 		return 0;
 	}
+#endif
+#if DAGDRIVER_MAJOR >4 
+	card_ref = NULL;
+	root_component = NULL;
+	card_ref = dag_config_init(dev);
+	root_component = dag_config_get_root_component(card_ref);
+	uint32_t count = dag_component_get_subcomponent_count_of_type(root_component,kComponentGpp);
+	logmsg(stderr,CAPTURE, "subcomponents -> %d \n", count);
+	dag_component_t port = NULL;
+	port = dag_component_get_subcomponent(root_component, kComponentGpp,0);
+	attr_uuid_t csnaplen = dag_component_get_config_attribute_uuid(port,kUint32AttributeSnaplength);
+	logmsg(stderr,CAPTURE, "dag_card snaplen = %d  bytes\n", (int)csnaplen);
+#endif 
+
+
 	if (!timesync_init(CI)){
 	  logmsg(stderr,CAPTURE, "problem with timesync_init .\n");
 	}
