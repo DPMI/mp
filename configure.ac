@@ -116,11 +116,26 @@ AS_IF([test -z "$PKT_BUFFER"],
 	[AC_DEFINE_UNQUOTED([PKT_BUFFER], $PKT_BUFFER, [Size of capture buffer])]
 )
 
-AC_ARG_VAR([DAGVER],[DAG driver version. @<:@default=3@:>@])
-AS_IF([test -z "$DAGVER"], 
-	[AC_DEFINE([DAGDRIVER_MAJOR], 3, [Default DAG driver])],
-	[AC_DEFINE_UNQUOTED([DAGDRIVER_MAJOR], $DAGVER, [Default DAG driver])]
-)
+dnl AC_MSG_CHECKING([for DAG driver])
+dnl if which daginf
+dnl then 
+dnl      AC_MSG_RESULT([Found daginfo])         
+dnl else
+dnl     AC_MSG_RESULT([no])
+dnl     AC_MSG_RESULT([your system has no dag driver])
+dnl fi
+
+
+AS_IF([test "x$ax_dag_want" = "xyes"], [
+  AC_MSG_CHECKING([for DAG version])
+  DAGVER=`daginf --version | sed -n 's/.*DAG \(@<:@0-9@:>@*\)\..*/\1/p'`
+  AC_MSG_RESULT([$DAGVER])
+  AS_IF([test "$DAGVER" -ge 5], [AC_SUBST(DAG_CONF_LIBS, [-ldagconf])])	
+  AC_DEFINE_UNQUOTED([DAGVER], $DAGVER, [DAG version])
+])
+
+
+
 
 AC_ARG_VAR([CI_NO], [Number of parallel captures supported at runtime. @<:@default=2@:>@])
 AS_IF([test -z "$CI_NO"],
