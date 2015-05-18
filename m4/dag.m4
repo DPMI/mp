@@ -35,10 +35,11 @@ AC_DEFUN([AX_DAG2], [
         AC_CHECK_LIB([dag], [dag_advance_stream],[true],[
           AC_MSG_ERROR([Could not find dag_advance_stream in -ldag (required for Endace DAG support, maybe try --with-dag-legacy)])
         ])
-        dnl find out if -ldagconf is needed
+        dnl find out if DAG config API is present and if -ldagconf is needed
         AC_SEARCH_LIBS([dag_config_init], [dag dagconf], [
           ax_dag_libs+=" $ac_res"
-        ])
+          AC_DEFINE([HAVE_DAG_CONFIG], 1, [Define to 1 if DAG Config API is present])
+        ], [])
       ], [
         dnl legacy driver requires a built source-tree
         AC_MSG_CHECKING([for dagapi.o])

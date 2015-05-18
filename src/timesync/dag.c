@@ -17,10 +17,6 @@ email                : patrik.arlos@bth.se
   This is used to retreive timesync information per CI.
 ***************************************************************************/
 
-
-#define DAGDRIVER_MAJOR 5
-
-
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif /* HAVE_CONFIG_H */
@@ -29,12 +25,11 @@ email                : patrik.arlos@bth.se
 #include "log.h"
 #include <string.h>
 
-#if DAGDRIVER_MAJOR >3
+#ifdef HAVE_DAG_CONFIG
 #include <dag_config_api.h>
 dag_card_ref_t card_ref;
 dag_component_t root_component;
 uint32_t count;
-
 #else
 #include <dagapi.h>
 #include <dag_platform.h>
@@ -56,29 +51,29 @@ static int dagfd;
 static duckinf_t duckinf;
 static volatile uint8_t *iom;
 static unsigned duck_base;
-#endif
+#endif /* HAVE_DAG_CONFIG */
 
 static void duckstatus(struct CI* myCI);
 
 int timesync_init(struct CI* myCI) {
 	logmsg(verbose, SYNC, "Init of %s .\n", myCI->iface);
 
-#if DAGDRIVER_MAJOR >3
+#ifdef HAVE_DAG_CONFIG
 	card_ref = NULL;
 	root_component = NULL;
-#else
+#else /* HAVE_DAG_CONFIG */
 	dag_reg_t result[DAG_REG_MAX_ENTRIES];
 	unsigned regn;
 	dag_reg_t *regs;
 	duckinf.Set_Duck_Field = 0;
 	duckinf.Last_TSC = 0;
-#endif /* DAGDRIVER_MAJOR 3 */
+#endif /* HAVE_DAG_CONFIG */
 
 	if(strncmp(myCI->iface,"dag",3)==0){
-#if DAGDRIVER_MAJOR > 3
+#ifdef HAVE_DAG_CONFIG
 		card_ref = dag_config_init(myCI->iface);
 		root_component = dag_config_get_root_component(card_ref);
-#else
+#else /* HAVE_DAG_CONFIG */
 		dagfd=myCI->sd;
 		iom = dag_iom(dagfd);
 		/*DUCK */
@@ -95,7 +90,7 @@ int timesync_init(struct CI* myCI) {
 		if((localerror = ioctl(dagfd, DAGIOCDUCK, &duckinf))){
 			dagutil_panic("DAGIOCDUCK failed with %d\n", localerror);
 		}
-#endif /* DAGDRIVER_MAJOR >3 */
+#endif /* HAVE_DAG_CONFIG */
 
 		duckstatus(myCI);
 
@@ -109,7 +104,7 @@ int timesync_status(struct CI* myCI){
 	logmsg(verbose, SYNC, "Status  %s .\n", myCI->iface);
 
 	if(strncmp(myCI->iface,"dag",3)==0){
-#if DAGDRIVER_MAJOR <= 3
+#ifndef HAVE_DAG_CONFIG
 		dagfd=myCI->sd;
 		iom=dag_iom(dagfd);
 		int localerror;
@@ -118,7 +113,7 @@ int timesync_status(struct CI* myCI){
 			dagutil_panic("DAGIOCDUCK failed with %d\n", localerror);
 			return(0);
 		}
-#endif
+#endif /* HAVE_DAG_CONFIG */
 
 		duckstatus(myCI);
 	} else {
@@ -130,7 +125,7 @@ int timesync_status(struct CI* myCI){
 }
 
 static void duckstatus(struct CI* myCI) {
-#if DAGDRIVER_MAJOR > 3
+#ifdef HAVE_DAG_CONFIG
 	dag_component_t port = NULL;
 	port = dag_component_get_subcomponent(root_component, kComponentDUCK,0);
 
@@ -144,7 +139,7 @@ static void duckstatus(struct CI* myCI) {
 	myCI->starttime=0;
 	myCI->citime= 0;
 	myCI->hosttime=0;
-#else
+#else /* HAVE_DAG_CONFIG */
 	DUCK(Duck_Config);
 
 	if(duckinf.Health){
@@ -160,5 +155,5 @@ static void duckstatus(struct CI* myCI) {
 		myCI->citime= 0;
 	}
 	myCI->hosttime=duckinf.Stat_End;
-#endif
+#endif /* HAVE_DAG_CONFIG */
 }
