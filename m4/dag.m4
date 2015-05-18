@@ -1,6 +1,7 @@
 AC_DEFUN([AX_DAG2], [
   saved_CPPFLAGS="$CPPFLAGS"
   saved_LDFLAGS="$LDFLAGS"
+  saved_LIBS="$LIBS"
 
   case $1 in
     yes | "")
@@ -34,6 +35,10 @@ AC_DEFUN([AX_DAG2], [
         AC_CHECK_LIB([dag], [dag_advance_stream],[true],[
           AC_MSG_ERROR([Could not find dag_advance_stream in -ldag (required for Endace DAG support, maybe try --with-dag-legacy)])
         ])
+        dnl find out if -ldagconf is needed
+        AC_SEARCH_LIBS([dag_config_init], [dag dagconf], [
+          ax_dag_libs+=" $ac_res"
+        ])
       ], [
         dnl legacy driver requires a built source-tree
         AC_MSG_CHECKING([for dagapi.o])
@@ -56,8 +61,14 @@ This is because nothing in dagapi.h is implemented in libdag.{s,so} library])
     ], [
       AC_MSG_ERROR([Make sure the Endace DAG drivers are installed.])
     ])
+
+    AC_MSG_CHECKING([for DAG version])
+    DAGVER=`daginf --version | sed -n 's/.*DAG \(@<:@0-9@:>@*\)\..*/\1/p'`
+    AC_MSG_RESULT([$DAGVER])
+    AC_DEFINE_UNQUOTED([DAGVER], $DAGVER, [DAG version])
   ]) dnl if ${ax_dag_want}
 
   CPPFLAGS="$saved_CPPFLAGS"
   LDFLAGS="$saved_LDFLAGS"
+  LIBS="$saved_LIBS"
 ])
