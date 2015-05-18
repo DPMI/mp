@@ -19,8 +19,6 @@ if HAVE_DAG
 libcapture_a_SOURCES += src/capture/dag.c
 endif
 
-
-
 mp_CFLAGS = -I ${top_srcdir}/src -Wall ${libcap_utils_CFLAGS} ${PTHREAD_CFLAGS} ${PCAP_CFLAGS} ${DAG_CFLAGS}
 mp_LDADD = libcapture.a -ldl ${libcap_utils_LIBS} ${PTHREAD_LIBS} ${PCAP_LIBS} ${DAG_LIBS} ${DAG_CONF_LIBS}
 mp_SOURCES = \
@@ -34,10 +32,16 @@ mp_SOURCES = \
 	src/main.c \
 	src/sender.c src/sender.h \
 	src/thread.c src/thread.h \
-	src/timesync.c src/timesync.h
+	src/timesync.h
 
 if BUILD_SEM_TIMEDWAIT
 mp_SOURCES += lib/sem_timedwait.c
+endif
+
+if HAVE_DAG
+mp_SOURCES += src/timesync/dag.c
+else
+mp_SOURCES += src/timesync/generic.c
 endif
 
 mp_smoke_SOURCES = src/mpsmoke.c
