@@ -27,7 +27,7 @@ email                : patrik.arlos@bth.se
 
 #ifdef HAVE_DAG_CONFIG
 #include <dag_config_api.h>
-static dag_component_t root_component;
+static dag_component_t root_component[CI_NIC] = {0,};
 #else
 #include <dagapi.h>
 #include <dag_platform.h>
@@ -56,9 +56,7 @@ static void duckstatus(struct CI* myCI);
 int timesync_init(struct CI* myCI) {
 	logmsg(verbose, SYNC, "Init of %s .\n", myCI->iface);
 
-#ifdef HAVE_DAG_CONFIG
-	root_component = NULL;
-#else /* HAVE_DAG_CONFIG */
+#ifndef HAVE_DAG_CONFIG
 	dag_reg_t result[DAG_REG_MAX_ENTRIES];
 	unsigned regn;
 	dag_reg_t *regs;
@@ -69,7 +67,7 @@ int timesync_init(struct CI* myCI) {
 	if(strncmp(myCI->iface,"dag",3)==0){
 #ifdef HAVE_DAG_CONFIG
 		dag_card_ref_t card_ref = dag_config_init(myCI->iface);
-		root_component = dag_config_get_root_component(card_ref);
+		root_component[myCI->id] = dag_config_get_root_component(card_ref);
 #else /* HAVE_DAG_CONFIG */
 		dagfd=myCI->sd;
 		iom = dag_iom(dagfd);
@@ -123,8 +121,7 @@ int timesync_status(struct CI* myCI){
 
 static void duckstatus(struct CI* myCI) {
 #ifdef HAVE_DAG_CONFIG
-	dag_component_t port = NULL;
-	port = dag_component_get_subcomponent(root_component, kComponentDUCK,0);
+	dag_component_t port = dag_component_get_subcomponent(root_component[myCI->id], kComponentDUCK,0);
 
 	if (dag_component_get_config_attribute_uuid(port,kBooleanAttributeDUCKSynchronized)){
 		myCI->synchronized='Y';
