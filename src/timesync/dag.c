@@ -27,9 +27,7 @@ email                : patrik.arlos@bth.se
 
 #ifdef HAVE_DAG_CONFIG
 #include <dag_config_api.h>
-dag_card_ref_t card_ref;
-dag_component_t root_component;
-uint32_t count;
+static dag_component_t root_component;
 #else
 #include <dagapi.h>
 #include <dag_platform.h>
@@ -59,7 +57,6 @@ int timesync_init(struct CI* myCI) {
 	logmsg(verbose, SYNC, "Init of %s .\n", myCI->iface);
 
 #ifdef HAVE_DAG_CONFIG
-	card_ref = NULL;
 	root_component = NULL;
 #else /* HAVE_DAG_CONFIG */
 	dag_reg_t result[DAG_REG_MAX_ENTRIES];
@@ -71,7 +68,7 @@ int timesync_init(struct CI* myCI) {
 
 	if(strncmp(myCI->iface,"dag",3)==0){
 #ifdef HAVE_DAG_CONFIG
-		card_ref = dag_config_init(myCI->iface);
+		dag_card_ref_t card_ref = dag_config_init(myCI->iface);
 		root_component = dag_config_get_root_component(card_ref);
 #else /* HAVE_DAG_CONFIG */
 		dagfd=myCI->sd;
