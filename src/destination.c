@@ -33,7 +33,7 @@ void destination_stop(struct destination* dst){
 	dst->state = STOP;
 }
 
-void destination_init(struct destination* dst, int index){
+void destination_init(struct destination* dst, int index, size_t requested_buffer_size){
 	static const size_t header_size = sizeof(struct ethhdr) + sizeof(struct sendhead);
 
 	dst->stream = NULL;
@@ -42,8 +42,8 @@ void destination_init(struct destination* dst, int index){
 	dst->sendcount = 0;
 
 	/* setup packet buffer */
-	const size_t buffer_size = max(MPinfo->MTU, sizeof(struct sendhead)) + sizeof(struct ethhdr);
-	dst->buffer.memory = malloc(buffer_size);
+	const size_t buffer_size = max(requested_buffer_size, sizeof(struct sendhead));
+	dst->buffer.memory = malloc(buffer_size + sizeof(struct ethhdr));
 	dst->buffer.begin  = dst->buffer.memory + header_size;
 	dst->buffer.end    = dst->buffer.begin;
 
@@ -59,9 +59,9 @@ void destination_free(struct destination* dst){
 	free(dst->buffer.memory);
 }
 
-void destination_init_all(){
+void destination_init_all(size_t requested_buffer_size){
 	for( int i = 0; i < MAX_FILTERS; i++) {
-		destination_init(&MAsd[i], i);
+		destination_init(&MAsd[i], i, requested_buffer_size);
 	}
 }
 

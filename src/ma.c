@@ -3,6 +3,7 @@
 #endif
 
 #include "capture.h"
+#include "destination.h"
 #include "sender.h"
 #include "log.h"
 #include <caputils/filter.h>
@@ -29,6 +30,10 @@ int ma_mode(sigset_t* sigmask, sem_t* semaphore){
 		logmsg(stderr, MAIN, "See --help for usage.\n");
 		return EINVAL;
 	}
+
+	/* setup destination buffers */
+	const size_t buffer_size = MPinfo->MTU;
+	destination_init_all(buffer_size);
 
 	/* initialize sender */
 	if ( (ret=thread_create_sync(&senderPID, NULL, sender_caputils, &sender, "sender", NULL, SENDER_BARRIER_TIMEOUT)) != 0 ){

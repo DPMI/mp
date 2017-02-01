@@ -202,7 +202,7 @@ void* sender_capfile(struct thread_data* td, void* ptr){
 	logmsg(stderr, SENDER, "Initializing (local mode).\n");
 
 	struct destination dst;
-	destination_init(&dst, 0);
+	destination_init(&dst, 0, BUFSIZ);
 	dst.want_ethhead = 0;
 	dst.want_sendhead = 0;
 

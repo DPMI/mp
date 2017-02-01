@@ -357,6 +357,7 @@ static int parse_argv(int argc, char** argv){
 		case 's':  // MA Network Interface name
 			ma_nic(optarg);
 			break;
+
 		case 'M': // MArC IP address
 		  marc_ip=strdup(optarg);
 		  fprintf(stdout, "The future MArC IP is %s.\n",optarg);
@@ -478,12 +479,7 @@ int main (int argc, char **argv){
 		verbose = fopen("/dev/null", "w");
 	}
 
-	if ( local ){
-		MPinfoI.MTU = BUFSIZ; /* sender/consumer requires MTU to be set */
-	}
-
 	show_configuration();
-	destination_init_all();
 
 	int ret;
 	if ( !local ){

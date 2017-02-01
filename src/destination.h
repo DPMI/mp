@@ -50,9 +50,9 @@ struct destination {
 };
 
 void destination_stop(struct destination* dst);
-void destination_init(struct destination* dst, int index);
+void destination_init(struct destination* dst, int index, size_t requested_buffer_size);
 void destination_free(struct destination* dst);
-void destination_init_all();
+void destination_init_all(size_t requested_buffer_size);
 void destination_free_all();
 
 extern struct destination MAsd[MAX_FILTERS];
