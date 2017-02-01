@@ -3,6 +3,7 @@
 #endif
 
 #include "capture.h"
+#include "destination.h"
 #include "filter.h"
 #include "sender.h"
 #include "log.h"
@@ -29,6 +30,18 @@ int local_mode(sigset_t* sigmask, sem_t* semaphore, struct filter* filter, const
 		return EINVAL;
 	}
 
+	/* add output address to local filter */
+	int flags = flush_flag ? STREAM_ADDR_FLUSH : 0;
+	stream_addr_aton(&filter->dest, destination, STREAM_ADDR_GUESS, flags);
+	if ( stream_addr_type(&filter->dest) != STREAM_ADDR_CAPFILE && MPinfo->iface == NULL ){
+		logmsg(stderr, MAIN, "stream requires MA interface to be set (-s IFACE or see --help)\n");
+		return EINVAL;
+	}
+
+	/* setup destination buffers */
+	const size_t buffer_size = stream_addr_type(&filter->dest) == STREAM_ADDR_CAPFILE ? BUFSIZ : MPinfo->MTU;
+	destination_init_all(buffer_size);
+
 	/* initialize capture */
 	if ( (ret=setup_capture(semaphore)) != 0 ){
 		logmsg(stderr, MAIN, "setup_capture() returned %d: %s\n", ret, strerror(ret));
@@ -41,14 +54,7 @@ int local_mode(sigset_t* sigmask, sem_t* semaphore, struct filter* filter, const
 		return ret;
 	}
 
-	/* setup destination */
-	int flags = flush_flag ? STREAM_ADDR_FLUSH : 0;
-	stream_addr_aton(&filter->dest, destination, STREAM_ADDR_GUESS, flags);
-	if ( stream_addr_type(&filter->dest) != STREAM_ADDR_CAPFILE && MPinfo->iface == NULL ){
-		logmsg(stderr, MAIN, "stream requires MA interface to be set (-s IFACE or see --help)\n");
-		return EINVAL;
-	}
-	filter_print(filter, verbose, 0);
+	/* add filter to chain */
 	mprules_add(filter);
 
 	pthread_sigmask(SIG_SETMASK, sigmask, NULL);
