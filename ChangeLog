@@ -1,6 +1,8 @@
 mp-0.7.11
 --------
 
+	* fix: MTU is no longer overwritten in local mode when using
+	       ethernet output.
 	* fix: properly fills frames up to MTU.
 	* change: sender and consumer buffer allocated on head.
 	* change: Use pcap by default unless disabled at buildtime.
