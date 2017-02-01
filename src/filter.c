@@ -120,10 +120,13 @@ static void truncate_caplen(struct filter* filter, int want_ethhdr, int want_sen
 	const size_t header_size =
 		sizeof(struct sendhead) * want_sendhead +
 		sizeof(struct cap_header);
+	const size_t max_caplen = MPinfo->MTU - header_size;
 
-	if ( filter->caplen + header_size > MPinfo->MTU ){
-		const size_t max_caplen = MPinfo->MTU - header_size;
-		logmsg(stderr, FILTER, "caplen (%d) to large for this MP, truncating to %zd\n", filter->caplen, max_caplen);
+	if ( (signed int)filter->caplen == -1 ){
+		logmsg(stderr, FILTER, "caplen unset, defaulting to %zd\n", max_caplen);
+		filter->caplen = max_caplen;
+	} else if ( filter->caplen + header_size > MPinfo->MTU ){
+		logmsg(stderr, FILTER, "caplen (%d) too large for this MP, truncating to %zd\n", filter->caplen, max_caplen);
 		filter->caplen = max_caplen;
 	}
 }
