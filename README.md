@@ -1,6 +1,8 @@
 DPMI Measurement Point
 ======================
 
+[![Build Status](https://travis-ci.org/DPMI/mp.svg?branch=master)](https://travis-ci.org/DPMI/mp)
+
 Install
 -------
 
