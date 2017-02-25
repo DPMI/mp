@@ -1,0 +1,32 @@
+language: c++
+compiler:
+  - clang
+  - gcc
+
+addons:
+  apt:
+    packages:
+      - libpcap-dev
+      - libssl-dev
+      - libcppunit-dev
+
+env:
+  global:
+    - PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:/tmp/dpmi/lib/pkgconfig
+    - LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/tmp/dpmi/lib
+    - PATH=$PATH:/tmp/dpmi/bin
+
+install:
+  - mkdir -p /tmp/dpmi
+  - git clone https://github.com/DPMI/libcap_utils
+  - cd libcap_utils
+  - autoreconf -si
+  - ./configure --prefix=/tmp/dpmi --without-raw --with-pcap
+  - make
+  - make install
+  - cd ..
+  
+script:
+  - autoreconf -si
+  - ./configure
+  - make
