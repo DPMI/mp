@@ -63,7 +63,7 @@ This is because nothing in dagapi.h is implemented in libdag.{s,so} library])
       AC_MSG_ERROR([Make sure the Endace DAG drivers are installed.])
     ])
 
-    AC_PATH_PROG([DAGINF], [daginf], [], [${ax_dag_path}/bin])
+    AC_PATH_PROG([DAGINF], [daginf], [], ["${ax_dag_path}/bin:$PATH"])
     AS_IF([test -n "$DAGINF"], [
       AC_MSG_CHECKING([for DAG version])
       DAGVER=`$DAGINF --version | sed -n 's/.*DAG \(@<:@0-9@:>@*\)\..*/\1/p'`
