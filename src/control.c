@@ -440,6 +440,7 @@ static void distress(int sig){
 		logmsg(stderr, CONTROL, "Got fatal signal (%d), sending distress signal to MArCd before dying.\n", sig);
 	} else {
 		logmsg(stderr, CONTROL, "Assertion fired, sending distress signal to MArCd before dying.\n");
+		logmsg(stderr, CONTROL, "Got %d .\n", sig);
 	}
 
 	extern char commandline[];

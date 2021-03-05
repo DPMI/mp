@@ -10,6 +10,7 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <linux/sockios.h>## needed to build on Linux Kernel 5.3 
 #include <sys/ioctl.h>
 #include <arpa/inet.h>
 #include <net/if.h>
