@@ -5,6 +5,8 @@
     copyright            : (C) 2002 by Anders Ekberg
                            (C) 2002-2005 Patrik Arlos
                            (C) 2011 David Sveningsson
+                           (C) 2021 Patrik Arlos
+
     email                : anders.ekberg@bth.se
                            patrik.arlos@bth.se
                            david.sveningsson@bth.se
@@ -309,6 +311,8 @@ static void show_configuration(){
 		logmsg(verbose, MAIN, "  MA Interface\n");
 		logmsg(verbose, MAIN, "    MAnic: %s   MTU: %zd   hwaddr: %s\n", MPinfo->iface, MPinfo->MTU, hexdump_address(&MPinfo->hwaddr));
 		logmsg(verbose, MAIN, "\n");
+	} else {
+	  logmsg(verbose, MAIN, " --LOCAL MODE-- MTU = %d iface = %p \n", MPinfo->MTU, MPinfo->iface);
 	}
 }
 
@@ -443,6 +447,12 @@ int main (int argc, char **argv){
 	memset(&MPstatsI, 0, sizeof(struct MPstats));
 	MPinfoI.comment = strdup("MP " VERSION);
 	gethostname(MPinfoI.hostname, HOST_NAME_MAX);
+
+
+	logmsg(stderr, MAIN, "Defaults to local interface and MTU, will be replaced with real vaules if defined.\n");
+	MPinfoI.MTU=100000;
+	MPinfoI.iface=strdup("LOCAL");
+	
 	MPinfo = &MPinfoI;
 	MPstats = &MPstatsI;
 
