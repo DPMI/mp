@@ -171,6 +171,8 @@ int mprules_add(const struct filter* filter){
 		dst->state = BUSY;
 
 		/* Open libcap stream */
+		logmsg(stderr,FILTER, "steam_create(): type : %d  NIC = %s \n", stream_addr_type(&rule->filter.dest), MPinfo->iface);
+		
 		if ( (ret=stream_create(&dst->stream, &rule->filter.dest, MPinfo->iface, mampid_get(MPinfo->id), MPinfo->comment)) != 0 ){
 			logmsg(stderr, FILTER, "stream_create() returned 0x%08lx: %s\n", ret, caputils_error_string(ret));
 			exit(1);

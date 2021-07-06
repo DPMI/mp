@@ -451,7 +451,7 @@ int main (int argc, char **argv){
 
 	logmsg(stderr, MAIN, "Defaults to local interface and MTU, will be replaced with real vaules if defined.\n");
 	MPinfoI.MTU=100000;
-	MPinfoI.iface=strdup("LOCAL");
+	MPinfoI.iface=strdup("lo");
 	
 	MPinfo = &MPinfoI;
 	MPstats = &MPstatsI;
