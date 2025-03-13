@@ -312,7 +312,7 @@ static void show_configuration(){
 		logmsg(verbose, MAIN, "    MAnic: %s   MTU: %zd   hwaddr: %s\n", MPinfo->iface, MPinfo->MTU, hexdump_address(&MPinfo->hwaddr));
 		logmsg(verbose, MAIN, "\n");
 	} else {
-	  logmsg(verbose, MAIN, " --LOCAL MODE-- MTU = %d iface = %p \n", MPinfo->MTU, MPinfo->iface);
+	  logmsg(verbose, MAIN, " --LOCAL MODE-- MTU = %ld iface = %p \n", MPinfo->MTU, MPinfo->iface);
 	}
 }
 

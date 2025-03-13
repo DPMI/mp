@@ -22,6 +22,8 @@
 #include <errno.h>
 #include <assert.h>
 #include <unistd.h>
+#include <ctype.h>
+
 
 static const char* config_filename(int argc, char* argv[]){
 	for ( int i = 0; i < argc; i++ ){

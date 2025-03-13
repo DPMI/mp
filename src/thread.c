@@ -10,6 +10,8 @@
 #include <semaphore.h>
 #include <signal.h>
 
+struct thread_data* td; // Define td
+
 struct thread_data {
 	/* init */
 	sem_t flag;

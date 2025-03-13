@@ -3,7 +3,7 @@
 
 #include <pthread.h>
 
-struct thread_data* td;
+extern struct thread_data* td;
 typedef void* (*start_routine)(struct thread_data* td, void* arg);
 
 void thread_init_finished(struct thread_data* td, int status);
